@@ -1,17 +1,12 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : path.resolve(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error abriendo la base de datos', err.message);
-  } else {
-    console.log('Conectado a la base de datos SQLite.');
-    
-    // Crear tablas
-    db.serialize(() => {
-      // Usuarios / Empleados
-      db.run(`CREATE TABLE IF NOT EXISTS usuarios (
+let db;
+
+function initializeDatabase(db) {
+  // Crear tablas
+  db.serialize(() => {
+    // Usuarios / Empleados
+    db.run(`CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nombre TEXT NOT NULL,
         rol TEXT NOT NULL,
@@ -192,7 +187,74 @@ const db = new sqlite3.Database(dbPath, (err) => {
         }
       });
     });
-  }
-});
+  });
+}
+
+if (process.env.TURSO_DATABASE_URL) {
+  const { createClient } = require('@libsql/client');
+  const client = createClient({
+    url: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN
+  });
+  
+  console.log('Conectado a la base de datos Turso (libSQL).');
+  
+  db = {
+    serialize: function(cb) { if (cb) cb(); },
+    run: function(query, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      client.execute({ sql: query, args: params || [] }).then(res => {
+        if (callback) callback.call({ lastID: Number(res.lastInsertRowid) }, null);
+      }).catch(err => {
+        if (err.message && err.message.includes('duplicate column')) {
+          if (callback) callback.call({ lastID: 0 }, null);
+          return;
+        }
+        if (callback) callback(err);
+        else console.error('Turso run error:', err.message);
+      });
+    },
+    all: function(query, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      client.execute({ sql: query, args: params || [] }).then(res => {
+        if (callback) callback(null, res.rows);
+      }).catch(err => {
+        if (callback) callback(err);
+      });
+    },
+    get: function(query, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      client.execute({ sql: query, args: params || [] }).then(res => {
+        if (callback) callback(null, res.rows[0]);
+      }).catch(err => {
+        if (callback) callback(err);
+      });
+    }
+  };
+  
+  // Wait a tick to simulate async open if needed, or just initialize:
+  setTimeout(() => initializeDatabase(db), 0);
+  
+} else {
+  const sqlite3 = require('sqlite3').verbose();
+  const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : path.resolve(__dirname, 'database.sqlite');
+  db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('Error abriendo la base de datos', err.message);
+    } else {
+      console.log('Conectado a la base de datos SQLite local.');
+      initializeDatabase(db);
+    }
+  });
+}
 
 module.exports = db;

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Camera, FileText, CheckCircle2, Download, Trash2, Image as ImageIcon, Sparkles, Box } from 'lucide-react';
 import { jsPDF } from 'jspdf';
+import { API_URL } from '../config';
 
 interface ScannedDoc {
   id: string;
@@ -113,7 +114,7 @@ export default function Scanner() {
       // Convertir a jpeg para la API
       const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
 
-      const res = await fetch('http://localhost:3001/api/ai/vision', {
+      const res = await fetch(`${API_URL}/api/ai/vision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -242,7 +243,7 @@ export default function Scanner() {
                     onClick={async () => {
                       setIsProcessing(true);
                       try {
-                        const res = await fetch('http://localhost:3001/api/gastos', {
+                        const res = await fetch(`${API_URL}/api/gastos`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ 

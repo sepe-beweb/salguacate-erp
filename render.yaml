@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: salguacate-backend
+    env: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+        
+  - type: web
+    name: salguacate-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: "https://salguacate-backend.onrender.com"

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Play, Square, Coffee, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../config';
 
 export default function Clock() {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export default function Clock() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/fichar', {
+      const res = await fetch(`${API_URL}/api/fichar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario_id: user.id, tipo })

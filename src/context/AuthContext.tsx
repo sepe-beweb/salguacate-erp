@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { API_URL } from '../config';
 
 export type Role = 'owner' | 'manager' | 'employee';
 
@@ -24,7 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Real login against the database
   const login = async (userId: number, pin: string): Promise<boolean> => {
     try {
-      const res = await fetch('http://localhost:3001/api/login', {
+      const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario_id: userId, pin })

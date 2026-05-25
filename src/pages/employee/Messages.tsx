@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Mail, Send, Loader2, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../config';
 
 interface Mensaje {
   id: number;
@@ -30,7 +31,7 @@ export default function Messages() {
   const fetchMessages = () => {
     if (!user) return;
     setLoading(true);
-    fetch(`http://localhost:3001/api/mensajes?usuario_id=${user.id}`)
+    fetch(`${API_URL}/api/mensajes?usuario_id=${user.id}`)
       .then(res => res.json())
       .then(data => {
         setMessages(data);
@@ -46,7 +47,7 @@ export default function Messages() {
     fetchMessages();
 
     // Cargar destinatarios dinámicos
-    fetch('http://localhost:3001/api/usuarios/public')
+    fetch(`${API_URL}/api/usuarios/public`)
       .then(res => res.json())
       .then(data => {
         setPublicUsers(data);
@@ -66,7 +67,7 @@ export default function Messages() {
     
     setSending(true);
     try {
-      const res = await fetch('http://localhost:3001/api/mensajes', {
+      const res = await fetch(`${API_URL}/api/mensajes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { StickyNote, Plus, Trash2, Loader2, Mic, MicOff, Pin, PinOff, X, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config';
 
 interface Nota {
   id: number;
@@ -35,7 +36,7 @@ export default function Notes() {
 
   const fetchNotas = () => {
     setLoading(true);
-    fetch('http://localhost:3001/api/notas')
+    fetch(`${API_URL}/api/notas`)
       .then(res => res.json())
       .then(data => { setNotas(data); setLoading(false); })
       .catch(err => { console.error(err); setLoading(false); });
@@ -97,7 +98,7 @@ export default function Notes() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://localhost:3001/api/notas', {
+      const res = await fetch(`${API_URL}/api/notas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -121,7 +122,7 @@ export default function Notes() {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:3001/api/notas/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/notas/${id}`, { method: 'DELETE' });
       if (res.ok) fetchNotas();
     } catch (err) {
       console.error(err);
@@ -130,7 +131,7 @@ export default function Notes() {
 
   const handleTogglePin = async (nota: Nota) => {
     try {
-      await fetch(`http://localhost:3001/api/notas/${nota.id}`, {
+      await fetch(`${API_URL}/api/notas/${nota.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contenido: nota.contenido, color: nota.color, fijada: !nota.fijada })

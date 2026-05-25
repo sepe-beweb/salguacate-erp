@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Sparkles, Loader2, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config';
 
 interface Message {
   id: string;
@@ -51,7 +52,7 @@ export default function AIChatbot() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3001/api/ai/chat', {
+      const res = await fetch(`${API_URL}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage.text })

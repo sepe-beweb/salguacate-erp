@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FileBarChart, Download, Loader2, CalendarDays, TrendingUp, TrendingDown, Wallet, MapPin } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Cierre {
   id: number;
@@ -32,8 +33,8 @@ export default function Reports() {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:3001/api/cierres').then(r => r.json()),
-      fetch('http://localhost:3001/api/gastos').then(r => r.json()),
+      fetch(`${API_URL}/api/cierres`).then(r => r.json()),
+      fetch(`${API_URL}/api/gastos`).then(r => r.json()),
     ])
     .then(([c, g]) => { setCierres(c); setGastos(g); setLoading(false); })
     .catch(() => setLoading(false));

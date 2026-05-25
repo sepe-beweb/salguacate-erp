@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, CalendarClock, UserCheck, Loader2, X, Clock, MapPin, Plus, Pencil, Trash2, Phone, Sparkles } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Employee {
   id: number;
@@ -32,8 +33,8 @@ export default function HRManagement() {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      fetch('http://localhost:3001/api/usuarios').then(res => res.json()),
-      fetch('http://localhost:3001/api/turnos').then(res => res.json())
+      fetch(`${API_URL}/api/usuarios`).then(res => res.json()),
+      fetch(`${API_URL}/api/turnos`).then(res => res.json())
     ])
     .then(([empData, turnosData]) => {
       setEmployees(empData.map((emp: Employee) => ({...emp, status: 'out'})));
@@ -72,8 +73,8 @@ export default function HRManagement() {
     setIsEmpSubmitting(true);
     try {
       const url = editingEmpId
-        ? `http://localhost:3001/api/usuarios/${editingEmpId}`
-        : 'http://localhost:3001/api/usuarios';
+        ? `${API_URL}/api/usuarios/${editingEmpId}`
+        : `${API_URL}/api/usuarios`;
       const method = editingEmpId ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -96,7 +97,7 @@ export default function HRManagement() {
   const handleDeleteEmp = async (id: number, nombre: string) => {
     if (!confirm(`¿Seguro que quieres eliminar a ${nombre}? Se perderán sus turnos y fichajes asociados.`)) return;
     try {
-      const res = await fetch(`http://localhost:3001/api/usuarios/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/usuarios/${id}`, { method: 'DELETE' });
       if (res.ok) fetchData();
     } catch (err) {
       console.error(err);
@@ -109,7 +110,7 @@ export default function HRManagement() {
     if (!newShift.usuario_id || !newShift.fecha) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://localhost:3001/api/turnos', {
+      const res = await fetch(`${API_URL}/api/turnos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newShift)

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Filter, Loader2, X, AlertTriangle, Send, CheckCircle2, MapPin } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Item {
   id: number;
@@ -32,8 +33,8 @@ export default function Inventory() {
 
   const fetchInventory = () => {
     const url = filterLocal !== 'Todos'
-      ? `http://localhost:3001/api/inventario?local=${encodeURIComponent(filterLocal)}`
-      : 'http://localhost:3001/api/inventario';
+      ? `${API_URL}/api/inventario?local=${encodeURIComponent(filterLocal)}`
+      : `${API_URL}/api/inventario`;
     fetch(url)
       .then(res => res.json())
       .then(data => {
@@ -48,12 +49,12 @@ export default function Inventory() {
 
   useEffect(() => {
     fetchInventory();
-    fetch('http://localhost:3001/api/proveedores')
+    fetch(`${API_URL}/api/proveedores`)
       .then(res => res.json())
       .then(data => setProviders(data))
       .catch(err => console.error(err));
       
-    fetch('http://localhost:3001/api/inventario/alertas')
+    fetch(`${API_URL}/api/inventario/alertas`)
       .then(res => res.json())
       .then(data => setAlertas(data))
       .catch(err => console.error(err));
@@ -61,7 +62,7 @@ export default function Inventory() {
     // Escuchar si la IA realiza alguna acción (modificar_stock)
     const handleAiAction = () => {
       fetchInventory();
-      fetch('http://localhost:3001/api/inventario/alertas')
+      fetch(`${API_URL}/api/inventario/alertas`)
         .then(res => res.json())
         .then(data => setAlertas(data))
         .catch(err => console.error(err));
@@ -101,7 +102,7 @@ export default function Inventory() {
     }));
 
     try {
-      await fetch(`http://localhost:3001/api/inventario/${id}/stock`, {
+      await fetch(`${API_URL}/api/inventario/${id}/stock`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ increment })
@@ -118,7 +119,7 @@ export default function Inventory() {
     setIsSubmitting(true);
     
     try {
-      const res = await fetch('http://localhost:3001/api/inventario', {
+      const res = await fetch(`${API_URL}/api/inventario`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newItem)
@@ -360,7 +361,7 @@ export default function Inventory() {
               <div className="flex items-start justify-between">
                 <div className="flex-1 flex gap-3">
                   {item.imagen_url ? (
-                    <img src={`http://localhost:3001${item.imagen_url}`} alt={item.producto} className="w-12 h-12 object-cover rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    <img src={`${API_URL}${item.imagen_url}`} alt={item.producto} className="w-12 h-12 object-cover rounded-lg bg-slate-100 dark:bg-slate-800" />
                   ) : (
                     <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shrink-0">
                       <span className="text-slate-400 text-xs font-medium">No img</span>
@@ -447,7 +448,7 @@ export default function Inventory() {
                       <div className="flex items-center gap-3">
                         <div className="bg-slate-100 dark:bg-slate-800 h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {p.imagen_url ? (
-                            <img src={`http://localhost:3001${p.imagen_url}`} alt={p.producto} className="h-full w-full object-cover" />
+                            <img src={`${API_URL}${p.imagen_url}`} alt={p.producto} className="h-full w-full object-cover" />
                           ) : (
                             <span className="text-slate-400 font-bold text-lg">{p.producto.charAt(0)}</span>
                           )}

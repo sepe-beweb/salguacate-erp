@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Euro, CreditCard, Gift, AlertCircle, Save, TrendingUp, Loader2, MapPin } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Cierre {
   id: number;
@@ -30,7 +31,7 @@ export default function Sales() {
 
   const fetchCierres = () => {
     setLoading(true);
-    fetch('http://localhost:3001/api/cierres')
+    fetch(`${API_URL}/api/cierres`)
       .then(res => res.json())
       .then(data => {
         setCierres(data);
@@ -52,7 +53,7 @@ export default function Sales() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://localhost:3001/api/cierres', {
+      const res = await fetch(`${API_URL}/api/cierres`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newCierre)

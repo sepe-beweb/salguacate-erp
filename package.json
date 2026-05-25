@@ -9,7 +9,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:android": "npm run build && node -e \"fs.cpSync('dist', 'android/app/src/main/assets/www', {recursive:true, force:true})\""
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -2,6 +2,7 @@ import { TrendingUp, Users, FileText, Calendar as CalendarIcon, StickyNote, File
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config';
 
 interface KPIs {
   // Sales
@@ -43,13 +44,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:3001/api/cierres').then(r => r.json()).catch(() => []),
-      fetch('http://localhost:3001/api/gastos').then(r => r.json()).catch(() => []),
-      fetch('http://localhost:3001/api/tareas').then(r => r.json()).catch(() => []),
-      fetch('http://localhost:3001/api/eventos').then(r => r.json()).catch(() => []),
-      fetch('http://localhost:3001/api/productos').then(r => r.json()).catch(() => []),
-      fetch('http://localhost:3001/api/usuarios').then(r => r.json()).catch(() => []),
-      fetch('http://localhost:3001/api/fichajes/presencia').then(r => r.json()).catch(() => []),
+      fetch(`${API_URL}/api/cierres`).then(r => r.json()).catch(() => []),
+      fetch(`${API_URL}/api/gastos`).then(r => r.json()).catch(() => []),
+      fetch(`${API_URL}/api/tareas`).then(r => r.json()).catch(() => []),
+      fetch(`${API_URL}/api/eventos`).then(r => r.json()).catch(() => []),
+      fetch(`${API_URL}/api/productos`).then(r => r.json()).catch(() => []),
+      fetch(`${API_URL}/api/usuarios`).then(r => r.json()).catch(() => []),
+      fetch(`${API_URL}/api/fichajes/presencia`).then(r => r.json()).catch(() => []),
     ]).then(([cierres, gastos, tareas, eventos, productos, usuarios, presenciaData]) => {
       setPresencia(presenciaData || []);
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ClipboardCheck, Loader2, Send, Copy, CheckCircle2, Package, MapPin, ShoppingCart, History } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface StockItem {
   id: number;
@@ -50,8 +51,8 @@ export default function StockControl() {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      fetch(`http://localhost:3001/api/inventario?local=${selectedLocal}`).then(r => r.json()),
-      fetch('http://localhost:3001/api/pedidos').then(r => r.json()),
+      fetch(`${API_URL}/api/inventario?local=${selectedLocal}`).then(r => r.json()),
+      fetch(`${API_URL}/api/pedidos`).then(r => r.json()),
     ])
     .then(([inv, ped]) => { setItems(inv); setPedidos(ped); setLoading(false); })
     .catch(() => setLoading(false));
@@ -117,7 +118,7 @@ export default function StockControl() {
 
     // Save to history
     const provId = lines[0]?.proveedor_id;
-    fetch('http://localhost:3001/api/pedidos', {
+    fetch(`${API_URL}/api/pedidos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -137,7 +138,7 @@ export default function StockControl() {
   };
 
   const markReceived = async (id: number) => {
-    await fetch(`http://localhost:3001/api/pedidos/${id}/recibido`, { method: 'PATCH' });
+    await fetch(`${API_URL}/api/pedidos/${id}/recibido`, { method: 'PATCH' });
     fetchData();
   };
 

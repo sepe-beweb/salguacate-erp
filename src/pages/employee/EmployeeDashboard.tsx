@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, CalendarDays, Bell, CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../config';
 
 interface Tarea {
   id: number;
@@ -39,8 +40,8 @@ export default function EmployeeDashboard() {
     setLoading(true);
     
     Promise.all([
-      fetch('http://localhost:3001/api/tareas').then(r => r.json()),
-      fetch(`http://localhost:3001/api/turnos?usuario_id=${user.id}`).then(r => r.json())
+      fetch(`${API_URL}/api/tareas`).then(r => r.json()),
+      fetch(`${API_URL}/api/turnos?usuario_id=${user.id}`).then(r => r.json())
     ])
     .then(([tareasData, turnosData]) => {
       // Filtrar tareas de hoy, del local del empleado (o grupal/ambos) y asignadas a él (o grupales)
@@ -73,7 +74,7 @@ export default function EmployeeDashboard() {
     setTareas(prev => prev.map(t => t.id === id ? { ...t, completada: !t.completada } : t));
     
     try {
-      await fetch(`http://localhost:3001/api/tareas/${id}/toggle`, { method: 'PATCH' });
+      await fetch(`${API_URL}/api/tareas/${id}/toggle`, { method: 'PATCH' });
     } catch (err) {
       console.error("Error al marcar la tarea", err);
       fetchDashboardData(); // Revertir en caso de error

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Loader2, CalendarX2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../config';
 
 interface Turno {
   id: number;
@@ -18,7 +19,7 @@ export default function Calendar() {
 
   useEffect(() => {
     if (user) {
-      fetch(`http://localhost:3001/api/turnos?usuario_id=${user.id}`)
+      fetch(`${API_URL}/api/turnos?usuario_id=${user.id}`)
         .then(res => res.json())
         .then(data => {
           setShifts(data);

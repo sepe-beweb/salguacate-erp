@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ShieldCheck, Store, User as UserIcon, Lock, Loader2, AlertCircle, ChevronLeft } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface PublicUser {
   id: number;
@@ -18,7 +19,7 @@ export default function Login() {
   const [isLogging, setIsLogging] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/usuarios/public')
+    fetch(`${API_URL}/api/usuarios/public`)
       .then(res => res.json())
       .then(data => { setUsers(data); setLoading(false); })
       .catch(() => setLoading(false));

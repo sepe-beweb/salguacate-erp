@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, Plus, Trash2, Loader2, X, AlertCircle, Briefcase, Wrench, FileText, Headphones, Mic2, Sparkles, Download, Pencil } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Evento {
   id: number;
@@ -32,7 +33,7 @@ export default function ManagerCalendar() {
 
   const fetchEventos = () => {
     setLoading(true);
-    fetch('http://localhost:3001/api/eventos')
+    fetch(`${API_URL}/api/eventos`)
       .then(res => res.json())
       .then(data => {
         setEventos(data);
@@ -78,8 +79,8 @@ export default function ManagerCalendar() {
     setIsSubmitting(true);
     try {
       const url = editingId 
-        ? `http://localhost:3001/api/eventos/${editingId}`
-        : 'http://localhost:3001/api/eventos';
+        ? `${API_URL}/api/eventos/${editingId}`
+        : `${API_URL}/api/eventos`;
       const method = editingId ? 'PUT' : 'POST';
       
       const res = await fetch(url, {
@@ -103,7 +104,7 @@ export default function ManagerCalendar() {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Seguro que quieres borrar este evento?')) return;
     try {
-      const res = await fetch(`http://localhost:3001/api/eventos/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/eventos/${id}`, { method: 'DELETE' });
       if (res.ok) fetchEventos();
     } catch (err) {
       console.error(err);
@@ -118,7 +119,7 @@ export default function ManagerCalendar() {
     setPosterError(null);
 
     try {
-      const res = await fetch('http://localhost:3001/api/ai/poster', {
+      const res = await fetch(`${API_URL}/api/ai/poster`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

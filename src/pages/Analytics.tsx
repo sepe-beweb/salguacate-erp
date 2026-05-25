@@ -4,6 +4,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { BarChart3, TrendingUp, AlertCircle, Euro, MapPin } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Cierre {
   id: number;
@@ -32,8 +33,8 @@ export default function Analytics() {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:3001/api/cierres').then(res => res.json()),
-      fetch('http://localhost:3001/api/gastos').then(res => res.json())
+      fetch(`${API_URL}/api/cierres`).then(res => res.json()),
+      fetch(`${API_URL}/api/gastos`).then(res => res.json())
     ])
       .then(([resCierres, resGastos]) => {
         const sortedData = resCierres.sort((a: Cierre, b: Cierre) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Truck, Plus, Phone, Mail, Loader2, X } from 'lucide-react';
+import { API_URL } from '../config';
 
 interface Provider {
   id: number;
@@ -17,7 +18,7 @@ export default function Providers() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchProviders = () => {
-    fetch('http://localhost:3001/api/proveedores')
+    fetch(`${API_URL}/api/proveedores`)
       .then(res => res.json())
       .then(data => {
         setProviders(data);
@@ -39,7 +40,7 @@ export default function Providers() {
     setIsSubmitting(true);
     
     try {
-      const res = await fetch('http://localhost:3001/api/proveedores', {
+      const res = await fetch(`${API_URL}/api/proveedores`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProvider)
