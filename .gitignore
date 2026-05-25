@@ -1,0 +1,17 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno (NUNCA subir a Git)
+.env
+
+# Base de datos local
+server/database.sqlite
+
+# Uploads
+server/uploads/
+
+# Logs
+server/server.log
+
+# Build
+dist/
