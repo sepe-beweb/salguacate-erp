@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Manual del Usuario - Salguacate ERP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand-50: #f0fdf4;
+      --brand-100: #dcfce7;
+      --brand-500: #22c55e;
+      --brand-600: #16a34a;
+      --brand-700: #15803d;
+      --brand-900: #14532d;
+      
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--slate-50);
+      color: var(--slate-700);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 60px;
+      border-radius: 32px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+      border: 1px border var(--slate-200);
+    }
+    
+    h1, h2, h3, h4 {
+      font-family: 'Outfit', sans-serif;
+      color: var(--slate-900);
+      font-weight: 700;
+    }
+    
+    h1 {
+      font-size: 2.8rem;
+      text-align: center;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, var(--brand-600), var(--brand-900));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #64748b;
+      font-size: 1.1rem;
+      margin-bottom: 40px;
+      font-weight: 500;
+    }
+    
+    hr {
+      border: 0;
+      height: 1px;
+      background: var(--slate-200);
+      margin: 40px 0;
+    }
+    
+    h2 {
+      font-size: 1.8rem;
+      margin-top: 40px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid var(--slate-100);
+      padding-bottom: 8px;
+    }
+    
+    p {
+      margin-bottom: 16px;
+      color: #475569;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-right: 8px;
+    }
+    
+    .badge-owner { background: #fef3c7; color: #d97706; }
+    .badge-manager { background: #f3e8ff; color: #7c3aed; }
+    .badge-employee { background: #e0f2fe; color: #0284c7; }
+    
+    .mockup-container {
+      margin: 30px 0;
+      text-align: center;
+      background: var(--slate-100);
+      padding: 20px;
+      border-radius: 24px;
+      border: 1px solid var(--slate-200);
+    }
+    
+    .mockup-img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .mockup-caption {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-top: 12px;
+      font-style: italic;
+    }
+    
+    .step-list {
+      list-style: none;
+      margin: 20px 0;
+    }
+    
+    .step-item {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      align-items: flex-start;
+    }
+    
+    .step-number {
+      background: var(--brand-100);
+      color: var(--brand-700);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    
+    .alert-box {
+      background: var(--brand-50);
+      border-left: 4px solid var(--brand-500);
+      padding: 16px 20px;
+      border-radius: 0 16px 16px 0;
+      margin: 24px 0;
+    }
+    
+    .alert-box p {
+      margin-bottom: 0;
+      color: var(--brand-900);
+      font-weight: 500;
+    }
+    
+    .btn-print {
+      display: block;
+      width: fit-content;
+      margin: 30px auto 0;
+      background: var(--brand-600);
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2);
+      transition: all 0.2s;
+    }
+    
+    .btn-print:hover {
+      background: var(--brand-700);
+      transform: translateY(-1px);
+    }
+    
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        padding: 0;
+        border: none;
+      }
+      .btn-print {
+        display: none;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- HEADER -->
+    <h1>Salguacate ERP</h1>
+    <div class="subtitle">Guía de Uso Rápida y Configuración para Dummies</div>
+    
+    <p style="text-align: center; max-width: 600px; margin: 0 auto 30px; color: #64748b;">
+      Bienvenido al manual oficial de Salguacate ERP. Esta guía está diseñada paso a paso para ayudarte a entender y controlar todas las funciones de la aplicación de tu restaurante de manera sencilla, sin tecnicismos difíciles.
+    </p>
+    
+    <div class="alert-box">
+      <p>💡 <strong>¿Sabías qué?</strong> Salguacate ERP está diseñado especialmente para pantallas móviles y tablets en restauración, garantizando que puedas realizar todas tus tareas diarias directamente desde la palma de tu mano.</p>
+    </div>
+    
+    <hr>
+
+    <!-- SECCIÓN 1: ACCESO -->
+    <h2>1. Acceso Rápido y Seguridad</h2>
+    <p>Para simplificar el día a día en el bar sin comprometer la seguridad, Salguacate ERP utiliza un sistema de inicio de sesión táctil extremadamente intuitivo que no requiere escribir correos electrónicos ni contraseñas largas:</p>
+    
+    <ul class="step-list">
+      <li class="step-item">
+        <span class="step-number">1</span>
+        <div>
+          <strong>Selecciona tu Perfil:</strong> Al abrir la aplicación, verás el listado público con los nombres y fotos del equipo de trabajo. Pulsa sobre tu propio nombre en la lista.
+        </div>
+      </li>
+      <li class="step-item">
+        <span class="step-number">2</span>
+        <div>
+          <strong>Introduce tu PIN:</strong> Escribe tu clave PIN numérica de 4 dígitos usando el teclado táctil de la pantalla.
+        </div>
+      </li>
+      <li class="step-item">
+        <span class="step-number">3</span>
+        <div>
+          <strong>Entrar:</strong> Pulsa el botón verde <strong>"Acceder"</strong>. Si el PIN es correcto, entrarás a tu pantalla principal al instante.
+        </div>
+      </li>
+    </ul>
+
+    <div class="mockup-container">
+      <img src="./login_guide.png" alt="Pantalla de Acceso ERP" class="mockup-img">
+      <div class="mockup-caption">Figura 1: Pantalla táctil de acceso mediante perfiles y teclado PIN.</div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- SECCIÓN 2: DASHBOARD -->
+    <h2>2. Tu Panel de Control (Dashboard)</h2>
+    <p>La pantalla inicial se adapta automáticamente según tu tipo de cuenta para mostrarte únicamente lo que necesitas en cada momento:</p>
+    
+    <h3>👑 Perfil de Administración <span class="badge badge-owner">Owner</span> <span class="badge badge-manager">Manager</span></h3>
+    <p>Los propietarios y encargados acceden a una vista completa con gráficos interactivos y métricas financieras:</p>
+    <ul>
+      <li><strong>Ingresos y Gastos:</strong> Visualiza en tiempo real las ventas totales registradas en los cierres de caja del mes en curso y el beneficio neto.</li>
+      <li><strong>Presencia en Tiempo Real:</strong> Un widget dinámico exclusivo que te muestra instantáneamente qué empleados están trabajando hoy, quiénes están en descanso y quiénes fuera de turno.</li>
+      <li><strong>Alertas Críticas:</strong> Botones destacados que te avisan si hay stock bajo en el almacén o checklists diarias pendientes.</li>
+    </ul>
+
+    <div class="mockup-container">
+      <img src="./dashboard_guide.png" alt="Panel de Propietario" class="mockup-img">
+      <div class="mockup-caption">Figura 2: Dashboard ejecutivo con KPIs comerciales y presencia activa de personal.</div>
+    </div>
+
+    <h3>👤 Perfil de Personal <span class="badge badge-employee">Staff</span></h3>
+    <p>Los camareros y cocineros disponen de una pantalla simplificada centrada en su día a día:</p>
+    <ul>
+      <li><strong>Turno de Hoy:</strong> Te indica claramente a qué hora empieza y termina tu turno programado para hoy en el cuadrante, con qué local te corresponde trabajar y los compañeros que te acompañan. Si tienes el día libre, te saludará con un alegre <strong>"¡Hoy libras! 🎉"</strong>.</li>
+      <li><strong>Checklist de Tareas:</strong> Muestra el listado de tareas obligatorias del local asignadas para el día de hoy. Puedes marcarlas como completadas pulsando directamente en el círculo interactivo.</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <!-- SECCIÓN 3: FICHAJES -->
+    <h2>3. Registro Horario (Fichar)</h2>
+    <p>Salguacate ERP cumple de manera estricta y transparente con la normativa de registro de jornada laboral. Como empleado, puedes fichar la entrada, descansos y salida con extrema sencillez:</p>
+
+    <ul class="step-list">
+      <li class="step-item">
+        <span class="step-number">1</span>
+        <div>
+          <strong>Fichar Entrada:</strong> Al llegar a tu puesto de trabajo, ve a la sección <strong>"Fichar"</strong> o pulsa en <strong>"Control de Horario"</strong> desde el inicio. Pulsa el gran botón verde <strong>"Fichar Entrada"</strong>. El sistema guardará la hora exacta.
+        </div>
+      </li>
+      <li class="step-item">
+        <span class="step-number">2</span>
+        <div>
+          <strong>Pausas y Descansos:</strong> Si te corresponde tu descanso para comer o tomar un café, pulsa el botón amarillo <strong>"Descanso"</strong>. El sistema pausará tu jornada temporalmente. Al volver, pulsa <strong>"Volver"</strong> para reanudar.
+        </div>
+      </li>
+      <li class="step-item">
+        <span class="step-number">3</span>
+        <div>
+          <strong>Finalizar Turno:</strong> Al terminar tu jornada, pulsa el botón rojo <strong>"Finalizar"</strong>. Tu registro del día quedará cerrado y archivado en la base de datos para la contabilidad mensual.
+        </div>
+      </li>
+    </ul>
+
+    <hr>
+
+    <!-- SECCIÓN 4: REPOSICIONES Y STOCK -->
+    <h2>4. Control de Almacén y Pedidos por WhatsApp</h2>
+    <p>La gestión de inventario crítico está diseñada para evitar roturas de stock. La aplicación analiza los niveles del almacén de manera continua y simplifica el envío de pedidos a los proveedores:</p>
+    
+    <div class="alert-box">
+      <p>📈 <strong>Automatización:</strong> Cuando un producto del almacén desciende por debajo de su cantidad mínima requerida, el sistema activa automáticamente un botón de alerta de stock bajo.</p>
+    </div>
+
+    <ul class="step-list">
+      <li class="step-item">
+        <span class="step-number">1</span>
+        <div>
+          <strong>Generar Pedido:</strong> En la sección de reposición de stock, la aplicación agrupa de forma inteligente todos los artículos que están por debajo del mínimo, ordenados por su proveedor habitual.
+        </div>
+      </li>
+      <li class="step-item">
+        <span class="step-number">2</span>
+        <div>
+          <strong>Enviar Pedido Directo:</strong> El sistema extrae el número de teléfono móvil real de la ficha del proveedor. Al pulsar en <strong>"Enviar Pedido"</strong>, se abrirá instantáneamente un chat de WhatsApp Web con un mensaje pre-redactado de manera formal con el listado detallado de productos y cantidades a pedir. ¡Solo tienes que darle a enviar!
+        </div>
+      </li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <!-- SECCIÓN 5: INTELIGENCIA ARTIFICIAL -->
+    <h2>5. El Asistente Inteligente "Salguabot" 🤖</h2>
+    <p>Salguacate ERP incorpora una potente Inteligencia Artificial basada en los modelos avanzados de Google que te asiste en lenguaje natural:</p>
+
+    <ul>
+      <li><strong>El Chat Flotante:</strong> Verás una burbuja flotante con destellos en la esquina inferior derecha. Al pulsarla, se abrirá la ventana de conversación con <strong>Salguabot</strong>.</li>
+      <li><strong>¿Qué le puedes pedir en lenguaje natural?</strong> El asistente conoce el estado real de tu inventario y plantilla, y puede realizar acciones automáticas mediante herramientas internas. Puedes escribirle órdenes sencillas como:
+        <ul>
+          <li><i>"María ha llegado tarde, por favor fíchale la entrada en su perfil."</i></li>
+          <li><i>"Resta 3 botellas de refresco de cola del local Principal."</i></li>
+          <li><i>"Crea un concierto acústico en la agenda para el próximo sábado a las 21:00."</i></li>
+        </ul>
+      </li>
+      <li><strong>Autogeneración Inteligente de Cuadrantes (Turnos):</strong> En la pantalla de Recursos Humanos, verás el botón premium con destellos **"Autogenerar con IA"**. Al pulsarlo, Salguabot planificará de manera autónoma los turnos semanales de toda la plantilla basándose en los empleados activos, asegurando cubrir todos los locales y horarios de forma equitativa.</li>
+    </ul>
+
+    <hr>
+
+    <!-- SECCIÓN 6: CÓMO GUARDAR EN PDF -->
+    <h2>📄 Cómo Guardar o Imprimir esta Guía en PDF</h2>
+    <p>Para tener esta guía siempre a mano en formato PDF digital o para imprimirla en papel físico, sigue estas sencillas instrucciones:</p>
+    
+    <ul class="step-list">
+      <li class="step-item">
+        <span class="step-number">1</span>
+        <div>
+          Pulsa el botón verde de abajo **"Imprimir / Guardar en PDF"** o presiona la combinación de teclas **Ctrl + P** en tu teclado.
+        </div>
+      </li>
+      <li class="step-item">
+        <span class="step-number">2</span>
+        <div>
+          En el cuadro de diálogo que se abre, selecciona la opción **"Guardar como PDF"** (o *Save as PDF*) en el menú desplegable de "Destino".
+        </div>
+      </li>
+      <li class="step-item">
+        <span class="step-number">3</span>
+        <div>
+          Asegúrate de marcar la opción **"Gráficos de fondo"** (o *Background graphics*) para que los colores y capturas se muestren perfectamente. ¡Haz clic en Guardar!
+        </div>
+      </li>
+    </ul>
+
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Guardar en PDF</button>
+
+  </div>
+
+</body>
+</html>
