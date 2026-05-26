@@ -18,8 +18,8 @@ Configura estas variables en `salguacate-backend`:
 
 ```env
 NODE_ENV=production
-TURSO_DATABASE_URL=...
-TURSO_AUTH_TOKEN=...
+SQLITE_DATABASE_PATH=/opt/render/project/src/server/persistent/database.sqlite
+UPLOADS_DIR=/opt/render/project/src/server/persistent/uploads
 GEMINI_API_KEY=...
 JWT_SECRET=...
 ```
@@ -30,7 +30,13 @@ Genera `JWT_SECRET` con:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Usa Turso en producción. Si no configuras Turso, el backend cae a SQLite local y los datos pueden perderse en redeploys o reinicios.
+Para que SQLite conserve datos en Render, el backend necesita un disco persistente montado en:
+
+```text
+/opt/render/project/src/server/persistent
+```
+
+Render puede requerir un plan de pago para discos persistentes. Sin disco persistente, SQLite y los uploads funcionarán, pero los datos pueden perderse en redeploys o reinicios.
 
 ## 3. Variable Del Frontend
 
@@ -76,12 +82,15 @@ Ejemplo en PowerShell:
 
 ```powershell
 $env:RENDER_API_KEY="rnd_..."
-$env:RENDER_OWNER_ID="tea_..."
-$env:TURSO_DATABASE_URL="libsql://..."
-$env:TURSO_AUTH_TOKEN="..."
 $env:GEMINI_API_KEY="..."
 $env:JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 node scripts/render-create-services.cjs
+```
+
+Si tu API key tiene acceso a un solo owner/workspace, el script detecta `RENDER_OWNER_ID` automáticamente. Si tienes varios, te mostrará la lista y deberás definir:
+
+```powershell
+$env:RENDER_OWNER_ID="tea_..."
 ```
 
 Opcionales:
@@ -91,17 +100,17 @@ $env:RENDER_REPO_URL="https://github.com/sepe-beweb/salguacate-erp"
 $env:RENDER_BRANCH="main"
 $env:RENDER_BACKEND_NAME="salguacate-backend"
 $env:RENDER_FRONTEND_NAME="salguacate-frontend"
-$env:RENDER_BACKEND_PLAN="free"
+$env:RENDER_BACKEND_PLAN="starter"
 $env:RENDER_BACKEND_REGION="oregon"
 ```
 
-Si quieres disco persistente para `server/uploads`, usa:
+Por defecto el script crea disco persistente para SQLite y uploads. Para forzar un servicio sin disco:
 
 ```powershell
-$env:RENDER_ENABLE_DISK="true"
+$env:RENDER_ENABLE_DISK="false"
 ```
 
-Ten en cuenta que los discos persistentes pueden requerir un plan de pago en Render. Sin disco, los uploads locales son efímeros; la base de datos seguirá en Turso.
+Sin disco, SQLite será efímero en Render.
 
 Para revisar el payload sin crear servicios:
 

@@ -8,17 +8,17 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: TURSO_DATABASE_URL
-        sync: false
-      - key: TURSO_AUTH_TOKEN
-        sync: false
+      - key: SQLITE_DATABASE_PATH
+        value: /opt/render/project/src/server/persistent/database.sqlite
+      - key: UPLOADS_DIR
+        value: /opt/render/project/src/server/persistent/uploads
       - key: GEMINI_API_KEY
         sync: false
       - key: JWT_SECRET
         sync: false
     disk:
-      name: uploads
-      mountPath: /opt/render/project/src/server/uploads
+      name: data
+      mountPath: /opt/render/project/src/server/persistent
       sizeGB: 1
         
   - type: web

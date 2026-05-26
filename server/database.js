@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 
 let db;
@@ -293,12 +294,19 @@ if (process.env.NODE_ENV !== 'test' && process.env.TURSO_DATABASE_URL) {
   
 } else {
   const sqlite3 = require('sqlite3').verbose();
-  const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : path.resolve(__dirname, 'database.sqlite');
+  const dbPath = process.env.NODE_ENV === 'test'
+    ? ':memory:'
+    : path.resolve(process.env.SQLITE_DATABASE_PATH || path.join(__dirname, 'database.sqlite'));
+
+  if (dbPath !== ':memory:') {
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  }
+
   db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
       console.error('Error abriendo la base de datos', err.message);
     } else {
-      console.log('Conectado a la base de datos SQLite local.');
+      console.log(`Conectado a la base de datos SQLite local: ${dbPath}`);
       db.run("PRAGMA foreign_keys = ON", (err) => {
         if (err) console.error("Error al habilitar PRAGMA foreign_keys = ON:", err.message);
       });

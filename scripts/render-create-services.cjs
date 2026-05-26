@@ -15,14 +15,12 @@ const config = {
   branch: env.RENDER_BRANCH || 'main',
   backendName: env.RENDER_BACKEND_NAME || 'salguacate-backend',
   frontendName: env.RENDER_FRONTEND_NAME || 'salguacate-frontend',
-  backendPlan: env.RENDER_BACKEND_PLAN || 'free',
   backendRegion: env.RENDER_BACKEND_REGION || 'oregon',
-  enableDisk: env.RENDER_ENABLE_DISK === 'true',
-  tursoUrl: env.TURSO_DATABASE_URL,
-  tursoToken: env.TURSO_AUTH_TOKEN,
+  enableDisk: env.RENDER_ENABLE_DISK !== 'false',
   geminiKey: env.GEMINI_API_KEY,
   jwtSecret: env.JWT_SECRET || crypto.randomBytes(32).toString('hex'),
 };
+config.backendPlan = env.RENDER_BACKEND_PLAN || (config.enableDisk ? 'starter' : 'free');
 
 function requireEnv(name, value) {
   if (!value) {
@@ -74,6 +72,22 @@ async function findServiceByName(name) {
   return match ? match.service : null;
 }
 
+async function resolveOwnerId() {
+  if (config.ownerId) return config.ownerId;
+
+  const owners = await request('GET', '/owners?limit=20');
+  const ownerList = owners.map(item => item.owner).filter(Boolean);
+
+  if (ownerList.length === 1) {
+    const [owner] = ownerList;
+    console.log(`Using Render owner: ${owner.name} (${owner.id})`);
+    return owner.id;
+  }
+
+  const formatted = ownerList.map(owner => `- ${owner.name} (${owner.type}): ${owner.id}`).join('\n');
+  throw new Error(`Set RENDER_OWNER_ID. Available owners:\n${formatted || '(none found)'}`);
+}
+
 async function createService(payload) {
   if (DRY_RUN) {
     console.log(JSON.stringify(payload, null, 2));
@@ -92,10 +106,9 @@ async function createService(payload) {
 
 async function main() {
   requireEnv('RENDER_API_KEY', config.apiKey);
-  requireEnv('RENDER_OWNER_ID', config.ownerId);
-  requireEnv('TURSO_DATABASE_URL', config.tursoUrl);
-  requireEnv('TURSO_AUTH_TOKEN', config.tursoToken);
   requireEnv('GEMINI_API_KEY', config.geminiKey);
+
+  config.ownerId = await resolveOwnerId();
 
   const backendUrl = `https://${config.backendName}.onrender.com`;
 
@@ -111,10 +124,12 @@ async function main() {
 
   if (config.enableDisk) {
     backendDetails.disk = {
-      name: 'uploads',
-      mountPath: '/opt/render/project/src/server/uploads',
+      name: 'data',
+      mountPath: '/opt/render/project/src/server/persistent',
       sizeGB: 1,
     };
+  } else {
+    console.warn('WARNING: RENDER_ENABLE_DISK=false. SQLite data and uploads will be ephemeral on Render.');
   }
 
   const backend = await createService({
@@ -127,8 +142,8 @@ async function main() {
     autoDeploy: 'yes',
     envVars: [
       { key: 'NODE_ENV', value: 'production' },
-      { key: 'TURSO_DATABASE_URL', value: config.tursoUrl },
-      { key: 'TURSO_AUTH_TOKEN', value: config.tursoToken },
+      { key: 'SQLITE_DATABASE_PATH', value: '/opt/render/project/src/server/persistent/database.sqlite' },
+      { key: 'UPLOADS_DIR', value: '/opt/render/project/src/server/persistent/uploads' },
       { key: 'GEMINI_API_KEY', value: config.geminiKey },
       { key: 'JWT_SECRET', value: config.jwtSecret },
     ],

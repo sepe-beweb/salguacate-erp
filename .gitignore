@@ -3,6 +3,7 @@ node_modules/
 
 # Variables de entorno (NUNCA subir a Git)
 .env
+docs/keys.txt
 
 # Base de datos local
 server/database.sqlite
