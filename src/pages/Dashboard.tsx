@@ -48,7 +48,7 @@ export default function Dashboard() {
       fetch(`${API_URL}/api/gastos`).then(r => r.json()).catch(() => []),
       fetch(`${API_URL}/api/tareas`).then(r => r.json()).catch(() => []),
       fetch(`${API_URL}/api/eventos`).then(r => r.json()).catch(() => []),
-      fetch(`${API_URL}/api/productos`).then(r => r.json()).catch(() => []),
+      fetch(`${API_URL}/api/inventario`).then(r => r.json()).catch(() => []),
       fetch(`${API_URL}/api/usuarios`).then(r => r.json()).catch(() => []),
       fetch(`${API_URL}/api/fichajes/presencia`).then(r => r.json()).catch(() => []),
     ]).then(([cierres, gastos, tareas, eventos, productos, usuarios, presenciaData]) => {

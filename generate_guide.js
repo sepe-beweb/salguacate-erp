@@ -46,7 +46,7 @@ async function run() {
         await page.click('button:has-text("Acceder")');
 
         // Esperar al Dashboard
-        await page.waitForSelector('h1:has-text("Panel de Control")', { timeout: 10000 });
+        await page.waitForSelector('h2:has-text("Hola")', { timeout: 10000 });
         await wait(2000);
         console.log("Capturando Dashboard...");
         await page.screenshot({ path: path.join(screenshotsDir, 'dashboard.png') });

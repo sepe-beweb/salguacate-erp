@@ -187,7 +187,6 @@ function initializeDatabase(db) {
         }
       });
     });
-  });
 }
 
 if (process.env.TURSO_DATABASE_URL) {

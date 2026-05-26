@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Guia de Usuario Salguacate ERP</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #0f172a; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11.5px; line-height: 1.42; background: #fff; }
+    h1, h2, h3, h4 { margin: 0 0 8px; line-height: 1.18; color: #0f172a; }
+    h1 { font-size: 32px; letter-spacing: -0.04em; }
+    h2 { font-size: 21px; margin-top: 18px; padding-top: 7px; border-top: 2px solid #16a34a; break-after: avoid; }
+    h3 { font-size: 15px; margin-top: 12px; color: #166534; break-after: avoid; }
+    h4 { font-size: 13px; margin-top: 12px; color: #334155; text-transform: uppercase; letter-spacing: .06em; }
+    p { margin: 0 0 6px; }
+    ul, ol { margin: 5px 0 10px 17px; padding: 0; }
+    li { margin: 2px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0 12px; font-size: 10.5px; }
+    th, td { border: 1px solid #dbeafe; padding: 6px 7px; vertical-align: top; }
+    th { background: #f0fdf4; color: #14532d; text-align: left; }
+    code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 1px 4px; color: #0f172a; }
+    figure { margin: 7px 0 10px; break-inside: avoid; page-break-inside: avoid; border: 1px solid #dbeafe; border-radius: 14px; overflow: hidden; background: #f8fafc; box-shadow: 0 8px 20px rgba(15, 23, 42, .08); }
+    figure img { display: block; height: auto; object-fit: contain; }
+    figure.wide { width: fit-content; max-width: 100%; margin-left: auto; margin-right: auto; }
+    figure.wide img { width: auto; max-width: 100%; max-height: 92mm; background: #e2e8f0; margin: 0 auto; }
+    figure.phone { display: inline-block; width: 62mm; max-width: 45%; margin: 6px 7mm 10px 0; vertical-align: top; border-radius: 20px; border: 4px solid #0f172a; background: #0f172a; padding: 3px; }
+    figure.phone img { width: 100%; max-height: 132mm; border-radius: 13px 13px 6px 6px; background: #fff; }
+    figcaption { padding: 6px 8px; color: #475569; font-size: 9.5px; border-top: 1px solid #dbeafe; background: #f8fafc; }
+    figure.phone figcaption { border: 0; border-radius: 0 0 14px 14px; margin-top: 3px; }
+    .cover { min-height: 265mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; break-after: page; background: radial-gradient(circle at 85% 12%, rgba(187,247,208,.22), transparent 30%), linear-gradient(135deg, #052e16, #166534 45%, #0f172a); color: white; padding: 22mm; border-radius: 24px; overflow: hidden; position: relative; }
+    .cover h1, .cover h2, .cover p { color: white; border: 0; }
+    .cover h1 { font-size: 44px; max-width: 620px; }
+    .cover .badge { display: inline-block; width: fit-content; padding: 6px 10px; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; text-transform: uppercase; letter-spacing: .12em; font-size: 11px; margin-bottom: 18px; }
+    .cover .meta { margin-top: 28px; color: #bbf7d0; }
+    .toc { page-break-after: always; break-after: page; }
+    .callout { border-left: 4px solid #16a34a; background: #f0fdf4; padding: 8px 10px; border-radius: 8px; margin: 8px 0 12px; }
+    .warning { border-left-color: #f59e0b; background: #fffbeb; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .page-break { page-break-before: always; }
+    .small { color: #64748b; font-size: 10px; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="badge">Manual operativo completo</div>
+    <h1>Guia de Usuario de Salguacate ERP</h1>
+    <p>Administracion, plantilla, inventario, caja, IA, agenda, informes y flujos diarios con pantallazos reales de la aplicacion.</p>
+    <p class="meta">Generado el 26/5/2026, 1:45:58<br/>Capturas incluidas: 38</p>
+  </section>
+
+  <section class="toc">
+    <h2>Indice</h2>
+    <ol>
+      <li>Alcance, roles y conceptos basicos.</li>
+      <li>Acceso, navegacion, tema claro/oscuro y cierre de sesion.</li>
+      <li>Panel de administracion y operaciones.</li>
+      <li>Inventario, alertas, pedidos, proveedores y escaner.</li>
+      <li>Recursos humanos, turnos, tareas, mensajes, notas y agenda.</li>
+      <li>Ventas, analiticas e informes mensuales.</li>
+      <li>Flujo de empleado: inicio, turnos, fichaje, buzon y peticiones.</li>
+      <li>Funciones de inteligencia artificial y consideraciones operativas.</li>
+    </ol>
+    <div class="callout">
+      Esta guia esta orientada a usuarios finales y responsables de negocio. Explica que hace cada pantalla, cuando usarla, que datos se guardan y que limitaciones visibles conviene conocer.
+    </div>
+  </section>
+
+  <h2>1. Vision General</h2>
+  <p>Salguacate ERP centraliza la gestion diaria de un negocio de hosteleria con dos locales: <code>Principal</code> y <code>Segundo Local</code>. La aplicacion se divide en perfiles administrativos y perfiles de empleado para mantener separadas las tareas de gestion y las operaciones personales.</p>
+  <table>
+    <tr><th>Rol</th><th>Acceso principal</th><th>Uso esperado</th></tr>
+    <tr><td>Propietario</td><td>Todos los modulos administrativos</td><td>Supervision global, caja, inventario, RRHH, informes, IA y configuracion.</td></tr>
+    <tr><td>Encargado</td><td>Gestion diaria del local</td><td>Control de stock, turnos, cierres, tareas, mensajes, eventos y proveedores.</td></tr>
+    <tr><td>Empleado</td><td>Panel personal</td><td>Ver turnos, fichar, completar tareas, leer mensajes y enviar peticiones.</td></tr>
+  </table>
+
+  <h2>2. Acceso y Navegacion</h2>
+  <h3>Seleccion de perfil</h3>
+  <p>La pantalla inicial muestra los usuarios dados de alta. Cada tarjeta identifica nombre y rol. Se debe tocar el usuario correspondiente antes de introducir el PIN.</p>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/01-login-seleccion.png" alt="Pantallazo: seleccion de perfil de acceso" />
+        <figcaption>Pantallazo: seleccion de perfil de acceso</figcaption>
+      </figure>
+  <h3>PIN de acceso</h3>
+  <p>Tras elegir usuario, se introduce el PIN numerico. El PIN por defecto de los usuarios iniciales es <code>0000</code>. La sesion se mantiene en memoria: si se refresca la pagina, se vuelve al login por seguridad.</p>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/02-login-pin.png" alt="Pantallazo: formulario de PIN" />
+        <figcaption>Pantallazo: formulario de PIN</figcaption>
+      </figure>
+  <h3>Navegacion global</h3>
+  <p>En escritorio aparece una barra lateral con las secciones Operaciones, Gestion y Equipo, y Finanzas. En movil aparece una barra inferior simplificada. Los botones de tema permiten alternar entre modo claro y oscuro.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/03-admin-dashboard-desktop.png" alt="Pantallazo: panel administrativo con navegacion lateral" />
+        <figcaption>Pantallazo: panel administrativo con navegacion lateral</figcaption>
+      </figure>
+
+  <h2>3. Panel de Control Administrativo</h2>
+  <p>El panel resume la situacion del negocio: ingresos del mes, gastos, beneficio neto, numero de cierres, tareas pendientes, empleados, productos de inventario, stock bajo, proximo evento y presencia en tiempo real.</p>
+  <ul>
+    <li>Las alertas rapidas enlazan con tareas, inventario o agenda segun corresponda.</li>
+    <li>El bloque de modulos permite entrar rapidamente en cierres, RRHH, agenda, stock, pedidos, notas, informes, tareas y analiticas.</li>
+    <li>La presencia distingue estados <code>Trabajando</code>, <code>Descanso</code> y <code>Fuera</code>.</li>
+  </ul>
+
+  <h2>4. Inventario Critico</h2>
+  <p>El inventario permite consultar productos por local, categoria y busqueda textual. Cada tarjeta muestra producto, categoria, local, stock actual, minimo y botones rapidos para sumar o restar unidades.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/04-inventario-catalogo.png" alt="Pantallazo: catalogo de inventario con filtros y ajuste rapido" />
+        <figcaption>Pantallazo: catalogo de inventario con filtros y ajuste rapido</figcaption>
+      </figure>
+  <h3>Crear producto</h3>
+  <p>El modal de nuevo producto guarda nombre, stock actual, stock minimo, categoria, local, proveedor e imagen opcional. La imagen se sube como archivo y queda asociada al producto.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/06-inventario-nuevo-producto.png" alt="Pantallazo: alta de producto" />
+        <figcaption>Pantallazo: alta de producto</figcaption>
+      </figure>
+  <h3>Alertas de stock</h3>
+  <p>La pestana de alertas agrupa productos por proveedor cuando el stock esta por debajo del minimo. Desde ahi se genera un texto de pedido para WhatsApp o email.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/05-inventario-alertas.png" alt="Pantallazo: alertas de stock agrupadas por proveedor" />
+        <figcaption>Pantallazo: alertas de stock agrupadas por proveedor</figcaption>
+      </figure>
+
+  <h2>5. Pedidos de Reposicion</h2>
+  <p>Control de Stock esta pensado para preparar pedidos reales. Primero se elige el local, despues se seleccionan productos manualmente o se usa <code>Seleccionar stock bajo</code>. El pedido se agrupa por proveedor.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/07-control-stock-revision.png" alt="Pantallazo: revision de stock por local" />
+        <figcaption>Pantallazo: revision de stock por local</figcaption>
+      </figure>
+  <p>Antes de enviar, cada cantidad puede ajustarse con los botones <code>-</code> y <code>+</code>. El boton WhatsApp abre un mensaje listo para enviar y registra el pedido en el historial.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/08-control-stock-pedido.png" alt="Pantallazo: pedido agrupado para WhatsApp" />
+        <figcaption>Pantallazo: pedido agrupado para WhatsApp</figcaption>
+      </figure>
+  <p>El historial permite comprobar pedidos recientes y marcarlos como recibidos. Marcar recibido cambia el estado del pedido, pero no incrementa automaticamente el inventario.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/09-control-stock-historial.png" alt="Pantallazo: historial de pedidos" />
+        <figcaption>Pantallazo: historial de pedidos</figcaption>
+      </figure>
+
+  <h2>6. Proveedores</h2>
+  <p>El directorio de proveedores centraliza nombre, categoria, telefono y email. Los telefonos y correos se presentan como enlaces directos para llamar o escribir.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/10-proveedores-listado.png" alt="Pantallazo: listado de proveedores" />
+        <figcaption>Pantallazo: listado de proveedores</figcaption>
+      </figure>
+  <p>El alta de proveedor pide empresa, telefono, categoria y email opcional. Actualmente no hay edicion ni borrado visible desde esta pantalla.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/11-proveedores-nuevo.png" alt="Pantallazo: alta de proveedor" />
+        <figcaption>Pantallazo: alta de proveedor</figcaption>
+      </figure>
+
+  <h2>7. Escaner de Facturas y Stock Visual</h2>
+  <p>El escaner abre la camara o selector de imagen. Puede guardar una foto como PDF, analizar una factura con IA o estimar stock visual.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/12-escaner-inicio.png" alt="Pantallazo: entrada del escaner" />
+        <figcaption>Pantallazo: entrada del escaner</figcaption>
+      </figure>
+  <p>En modo Factura IA, Gemini extrae proveedor, total y resumen. El boton <code>Registrar Gasto Directamente</code> guarda el gasto en contabilidad.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/13-escaner-factura-ia.png" alt="Pantallazo: resultado de factura analizada por IA" />
+        <figcaption>Pantallazo: resultado de factura analizada por IA</figcaption>
+      </figure>
+
+  <h2>8. Recursos Humanos y Turnos</h2>
+  <p>RRHH muestra la plantilla, permite crear, editar y eliminar empleados, y lista la agenda de turnos. Cada empleado tiene rol, local, telefono y PIN.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/14-rrhh-plantilla-turnos.png" alt="Pantallazo: plantilla y agenda de turnos" />
+        <figcaption>Pantallazo: plantilla y agenda de turnos</figcaption>
+      </figure>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/15-rrhh-empleado-modal.png" alt="Pantallazo: crear o editar empleado" />
+        <figcaption>Pantallazo: crear o editar empleado</figcaption>
+      </figure>
+  <p>El modal de turno asigna empleado, fecha, hora de inicio, hora de fin y companeros. La opcion <code>Autogenerar con IA</code> abre Salguabot con una instruccion preparada.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/16-rrhh-turno-modal.png" alt="Pantallazo: asignar turno manual" />
+        <figcaption>Pantallazo: asignar turno manual</figcaption>
+      </figure>
+
+  <h2>9. Tareas y Checklists</h2>
+  <p>Las tareas organizan trabajo diario por prioridad, fecha, empleado y local. Se filtran por pendientes, hechas o todo. Tocar el check cambia el estado de completada.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/17-tareas-listado.png" alt="Pantallazo: listado de tareas" />
+        <figcaption>Pantallazo: listado de tareas</figcaption>
+      </figure>
+  <p>Al crear una tarea puede asignarse a un empleado o dejarse para todos. El local puede ser <code>Principal</code>, <code>Segundo Local</code> o <code>Ambos</code>.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/18-tareas-nueva.png" alt="Pantallazo: nueva tarea" />
+        <figcaption>Pantallazo: nueva tarea</figcaption>
+      </figure>
+
+  <h2>10. Agenda de Eventos</h2>
+  <p>La agenda registra eventos generales, mantenimiento, citas con proveedor, reuniones, pinchadas y conciertos. Los eventos pasados aparecen atenuados.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/19-agenda-eventos.png" alt="Pantallazo: agenda de eventos" />
+        <figcaption>Pantallazo: agenda de eventos</figcaption>
+      </figure>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/20-agenda-evento-modal.png" alt="Pantallazo: formulario de evento" />
+        <figcaption>Pantallazo: formulario de evento</figcaption>
+      </figure>
+  <p>En eventos musicales futuros aparece <code>Crear Cartel Promocional</code>. La imagen generada puede descargarse para redes sociales.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/21-agenda-cartel-ia.png" alt="Pantallazo: cartel generado por IA" />
+        <figcaption>Pantallazo: cartel generado por IA</figcaption>
+      </figure>
+
+  <h2>11. Mensajes Internos</h2>
+  <p>El buzon muestra mensajes recibidos ordenados por fecha. La composicion permite elegir destinatario, asunto y cuerpo del mensaje.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/22-mensajes-bandeja.png" alt="Pantallazo: buzon de mensajes" />
+        <figcaption>Pantallazo: buzon de mensajes</figcaption>
+      </figure>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/23-mensajes-componer.png" alt="Pantallazo: nuevo mensaje interno" />
+        <figcaption>Pantallazo: nuevo mensaje interno</figcaption>
+      </figure>
+
+  <h2>12. Muro de Notas</h2>
+  <p>Las notas permiten dejar avisos internos con color, autor y opcion de fijar arriba. El dictado por voz depende del navegador y funciona mejor en Chrome o Edge.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/24-notas-muro.png" alt="Pantallazo: muro de notas" />
+        <figcaption>Pantallazo: muro de notas</figcaption>
+      </figure>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/25-notas-nueva.png" alt="Pantallazo: nueva nota" />
+        <figcaption>Pantallazo: nueva nota</figcaption>
+      </figure>
+
+  <h2>13. Ventas y Cierres de Caja</h2>
+  <p>El cierre registra fecha, local, efectivo, tarjeta, invitaciones y descuadre. El total se calcula como efectivo mas tarjeta.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/26-ventas-nuevo-cierre.png" alt="Pantallazo: nuevo cierre de caja" />
+        <figcaption>Pantallazo: nuevo cierre de caja</figcaption>
+      </figure>
+  <p>El historial permite filtrar por local y revisar importes anteriores. Los descuadres distintos de cero se resaltan.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/27-ventas-historial.png" alt="Pantallazo: historial de cierres" />
+        <figcaption>Pantallazo: historial de cierres</figcaption>
+      </figure>
+
+  <h2>14. Analiticas Financieras</h2>
+  <p>Analiticas combina cierres y gastos para mostrar ingresos brutos, gastos detectados, beneficio neto, descuadre total, evolucion temporal, metodos de pago y descuadres.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/28-analiticas-financieras.png" alt="Pantallazo: analiticas financieras" />
+        <figcaption>Pantallazo: analiticas financieras</figcaption>
+      </figure>
+
+  <h2>15. Informes Mensuales</h2>
+  <p>Informes permite seleccionar mes, ano y local. El boton de exportacion abre un informe imprimible que puede guardarse como PDF desde el dialogo del navegador.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/29-informes-mensuales.png" alt="Pantallazo: informes mensuales" />
+        <figcaption>Pantallazo: informes mensuales</figcaption>
+      </figure>
+
+  <h2>16. Ajustes</h2>
+  <p>Ajustes muestra el perfil activo y opciones de datos personales, notificaciones, privacidad y seguridad. Para propietarios tambien aparece Gestion de Locales. En la version actual estas filas son informativas y no ejecutan acciones.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/30-ajustes-perfil.png" alt="Pantallazo: ajustes de perfil administrativo" />
+        <figcaption>Pantallazo: ajustes de perfil administrativo</figcaption>
+      </figure>
+
+  <h2>17. Salguabot e Inteligencia Artificial</h2>
+  <p>Salguabot esta disponible para propietario y encargado. Puede responder sobre stock y plantilla y ejecutar acciones conectadas a base de datos, como crear eventos, modificar stock, borrar eventos o asignar turnos.</p>
+  
+      <figure class="wide">
+        <img src="assets/guide/screenshots/31-salguabot-chat.png" alt="Pantallazo: asistente IA contextual" />
+        <figcaption>Pantallazo: asistente IA contextual</figcaption>
+      </figure>
+  <div class="callout warning">
+    Las funciones de IA dependen de la clave de Gemini configurada en el backend. Si la clave, el modelo o la facturacion no estan disponibles, el modulo mostrara error de conexion o de generacion.
+  </div>
+
+  <h2 class="page-break">18. Flujo de Empleado</h2>
+  <p>El empleado accede a un panel simplificado con su turno del dia, checklist asignado, calendario, fichaje, buzon y peticiones.</p>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/32-empleado-dashboard.png" alt="Pantallazo: inicio de empleado" />
+        <figcaption>Pantallazo: inicio de empleado</figcaption>
+      </figure>
+  <h3>Turnos asignados</h3>
+  <p>El calendario lista los proximos turnos del usuario autenticado con horario, local y companeros.</p>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/33-empleado-calendario.png" alt="Pantallazo: calendario personal" />
+        <figcaption>Pantallazo: calendario personal</figcaption>
+      </figure>
+  <h3>Control horario</h3>
+  <p>El empleado ficha entrada y salida. Los botones de descanso y volver cambian el estado visual del turno en la pantalla.</p>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/34-empleado-fichaje-inicio.png" alt="Pantallazo: fichaje antes de entrada" />
+        <figcaption>Pantallazo: fichaje antes de entrada</figcaption>
+      </figure>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/35-empleado-fichaje-activo.png" alt="Pantallazo: fichaje con turno activo" />
+        <figcaption>Pantallazo: fichaje con turno activo</figcaption>
+      </figure>
+  <h3>Buzon, peticiones y ajustes</h3>
+  <p>El empleado puede leer mensajes internos, enviar comunicaciones y rellenar una peticion de vacaciones, cambio de turno, baja medica o asuntos propios. En la version actual, la pantalla de peticiones es visual y no persiste en backend.</p>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/36-empleado-buzon.png" alt="Pantallazo: buzon del empleado" />
+        <figcaption>Pantallazo: buzon del empleado</figcaption>
+      </figure>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/37-empleado-peticiones.png" alt="Pantallazo: nueva peticion de empleado" />
+        <figcaption>Pantallazo: nueva peticion de empleado</figcaption>
+      </figure>
+  
+      <figure class="phone">
+        <img src="assets/guide/screenshots/38-empleado-ajustes.png" alt="Pantallazo: ajustes del empleado" />
+        <figcaption>Pantallazo: ajustes del empleado</figcaption>
+      </figure>
+
+  <h2>19. Limitaciones Operativas Visibles</h2>
+  <ul>
+    <li>Las peticiones de empleado no se guardan todavia en servidor.</li>
+    <li>Los ajustes son informativos; no abren subpantallas funcionales.</li>
+    <li>Marcar un pedido como recibido no actualiza automaticamente el inventario.</li>
+    <li>El descanso del fichaje cambia el estado visual local, pero no persiste un registro separado en backend.</li>
+    <li>Los gastos creados por IA se registran con proveedor y total; la imputacion por local depende de la implementacion backend disponible.</li>
+  </ul>
+
+  <h2>20. Rutina Recomendada</h2>
+  <ol>
+    <li>Al abrir: revisar panel, presencia, tareas del dia y alertas de stock.</li>
+    <li>Durante el servicio: ajustar stock rapido, completar checklists y responder mensajes.</li>
+    <li>Antes de cerrar: registrar cierre de caja, escanear facturas y dejar notas importantes.</li>
+    <li>Semanalmente: revisar analiticas, emitir informe mensual si procede, preparar pedidos y actualizar cuadrantes.</li>
+  </ol>
+  <p class="small">Documento generado automaticamente con datos de demostracion interceptados en navegador. No modifica la base de datos real.</p>
+</body>
+</html>

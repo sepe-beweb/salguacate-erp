@@ -43,9 +43,17 @@ graph TD
 
 ### Backend (Servidor API)
 - **Entorno**: Node.js con el framework **Express**.
-- **Base de Datos**: SQLite3 nativo en archivo (`server/database.sqlite`), persistente y embebido.
+- **Base de Datos (Dual)**: 
+  - Producción/Cloud: Integración nativa con **Turso (libSQL)** distribuido en la nube, usando las variables de entorno `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`.
+  - Desarrollo/Local: Respaldo (fallback) automático a SQLite3 nativo en archivo (`server/database.sqlite`) si las credenciales de Turso no están presentes.
 - **SDK de IA**: `@google/genai` (SDK profesional y oficial de Google) que se comunica directamente con la API Key contenida en `server/.env`.
 - **Almacenamiento de archivos**: Sistema de archivos local (`server/uploads/`) para guardar imágenes de productos e imágenes analizadas por visión artificial.
+- **Despliegue en la Nube**: El backend está configurado para despliegue automatizado y gratuito en **Render** mediante el archivo declarativo `render.yaml`.
+
+### Aplicación Nativa Móvil (Android)
+- El ERP cuenta con un envoltorio nativo (wrapper) en el directorio `/android`.
+- La aplicación de Android carga el frontend React (SPA) optimizado a través de un componente `WebView` programado en `MainActivity.kt` con aceleración por hardware y pantalla completa inmersiva.
+- **Compilación de assets**: El script `npm run build:android` automatiza el empaquetado y transferencia del código del frontend web a los assets locales de la aplicación nativa.
 
 ---
 
@@ -366,7 +374,7 @@ Para conservar la excelente cohesión visual y el comportamiento del ERP, se deb
    npm install
    npm start
    ```
-   *Nota: Si es la primera vez que se ejecuta, el script database.js creará la base de datos database.sqlite e insertará automáticamente los datos de prueba (4 usuarios iniciales, turnos y mensajes).*
+   *Nota: Si es la primera vez que se ejecuta y no se ha configurado Turso, el script database.js creará la base de datos local database.sqlite e insertará automáticamente los datos de prueba (4 usuarios iniciales, turnos y mensajes).*
 
 2. **Iniciar el Frontend (React + Vite)**:
    Abra una nueva pestaña de terminal en la raíz del proyecto y ejecute:
@@ -374,7 +382,14 @@ Para conservar la excelente cohesión visual y el comportamiento del ERP, se deb
    npm install
    npm run dev
    ```
-   La aplicación se servirá de forma local en: `http://localhost:5173`.
+   La aplicación web se servirá de forma local en: `http://localhost:5173`.
+
+3. **Compilar y Generar Aplicación Nativa (Android)**:
+   Si desea desplegar la aplicación móvil en TPVs o Tablets del restaurante:
+   ```powershell
+   npm run build:android
+   ```
+   Esto compilará el código de React en modo de producción y lo copiará de forma automática a la carpeta `android/app/src/main/assets/www/`. Una vez copiado, abra la carpeta `android` utilizando Android Studio y genere el paquete compilado (APK) mediante *Build > Build APK(s)*.
 
 ### Usuarios y PINs Iniciales de Prueba
 Para pruebas rápidas de los flujos del ERP, se pueden utilizar las siguientes credenciales en la pantalla táctil de login:
