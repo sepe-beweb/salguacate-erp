@@ -20,7 +20,7 @@ interface PublicUser {
 }
 
 export default function Messages() {
-  const { user } = useAuth();
+  const { user, fetchWithAuth } = useAuth();
   const [messages, setMessages] = useState<Mensaje[]>([]);
   const [publicUsers, setPublicUsers] = useState<PublicUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,10 +31,10 @@ export default function Messages() {
   const fetchMessages = () => {
     if (!user) return;
     setLoading(true);
-    fetch(`${API_URL}/api/mensajes?usuario_id=${user.id}`)
+    fetchWithAuth(`${API_URL}/api/mensajes`)
       .then(res => res.json())
       .then(data => {
-        setMessages(data);
+        setMessages(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(err => {
@@ -67,11 +67,10 @@ export default function Messages() {
     
     setSending(true);
     try {
-      const res = await fetch(`${API_URL}/api/mensajes`, {
+      const res = await fetchWithAuth(`${API_URL}/api/mensajes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          remitente_id: user.id,
           destinatario_id: newMsg.destinatario_id,
           asunto: newMsg.asunto,
           cuerpo: newMsg.cuerpo

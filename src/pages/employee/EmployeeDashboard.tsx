@@ -26,7 +26,7 @@ interface Turno {
 }
 
 export default function EmployeeDashboard() {
-  const { user } = useAuth();
+  const { user, fetchWithAuth } = useAuth();
   const navigate = useNavigate();
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [turnoHoy, setTurnoHoy] = useState<Turno | null>(null);
@@ -40,12 +40,14 @@ export default function EmployeeDashboard() {
     setLoading(true);
     
     Promise.all([
-      fetch(`${API_URL}/api/tareas`).then(r => r.json()),
-      fetch(`${API_URL}/api/turnos?usuario_id=${user.id}`).then(r => r.json())
+      fetchWithAuth(`${API_URL}/api/tareas`).then(r => r.json()),
+      fetchWithAuth(`${API_URL}/api/turnos?usuario_id=${user.id}`).then(r => r.json())
     ])
     .then(([tareasData, turnosData]) => {
+      const tareasList = Array.isArray(tareasData) ? tareasData : [];
+      const turnosList = Array.isArray(turnosData) ? turnosData : [];
       // Filtrar tareas de hoy, del local del empleado (o grupal/ambos) y asignadas a él (o grupales)
-      const filtradas = tareasData.filter((t: Tarea) => {
+      const filtradas = tareasList.filter((t: Tarea) => {
         const matchesDate = t.fecha === today;
         const matchesEmployee = t.asignado_a === null || String(t.asignado_a) === String(user.id);
         const matchesLocal = !t.local || t.local === '' || t.local === 'Ambos' || t.local === user.location;
@@ -54,7 +56,7 @@ export default function EmployeeDashboard() {
       setTareas(filtradas);
 
       // Buscar turno programado para hoy
-      const turnoDeHoy = turnosData.find((t: Turno) => t.fecha === today);
+      const turnoDeHoy = turnosList.find((t: Turno) => t.fecha === today);
       setTurnoHoy(turnoDeHoy || null);
 
       setLoading(false);
@@ -69,12 +71,18 @@ export default function EmployeeDashboard() {
     fetchDashboardData();
   }, [user]);
 
-  const handleToggleTarea = async (id: number) => {
+  const handleToggleTarea = async (tarea: Tarea) => {
+    const nextCompleted = !tarea.completada;
     // Actualización optimista de UI
-    setTareas(prev => prev.map(t => t.id === id ? { ...t, completada: !t.completada } : t));
+    setTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, completada: nextCompleted } : t));
     
     try {
-      await fetch(`${API_URL}/api/tareas/${id}/toggle`, { method: 'PATCH' });
+      const res = await fetchWithAuth(`${API_URL}/api/tareas/${tarea.id}/completada`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completada: nextCompleted })
+      });
+      if (!res.ok) throw new Error('No se pudo actualizar la tarea');
     } catch (err) {
       console.error("Error al marcar la tarea", err);
       fetchDashboardData(); // Revertir en caso de error
@@ -156,7 +164,7 @@ export default function EmployeeDashboard() {
         ) : tareas.length === 0 ? (
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 text-center text-slate-500">
             <CheckCircle2 className="text-emerald-500 mx-auto mb-2" size={32} />
-            <p className="font-medium text-slate-850 dark:text-slate-300">¡Todo limpio por hoy!</p>
+            <p className="font-medium text-slate-800 dark:text-slate-300">¡Todo limpio por hoy!</p>
             <p className="text-xs mt-0.5">No tienes tareas asignadas pendientes en {user?.location}.</p>
           </div>
         ) : (
@@ -164,7 +172,7 @@ export default function EmployeeDashboard() {
             {tareas.map(tarea => (
               <button
                 key={tarea.id}
-                onClick={() => handleToggleTarea(tarea.id)}
+                onClick={() => handleToggleTarea(tarea)}
                 className={`w-full bg-white dark:bg-slate-900 p-4 rounded-xl border transition-all flex items-start gap-3 text-left shadow-sm ${
                   tarea.completada 
                     ? 'border-emerald-200 dark:border-emerald-900/30 opacity-60' 

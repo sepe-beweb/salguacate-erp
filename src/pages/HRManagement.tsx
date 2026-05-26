@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserCheck, Loader2, X, Plus, Pencil, Trash2 } from 'lucide-react';
+import { UserCheck, Loader2, X, Plus, Pencil, Trash2, CalendarClock, Phone, MapPin, Lock, Check } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,6 +11,12 @@ interface Employee {
   telefono?: string;
   has_pin?: number;
   status?: string;
+}
+
+interface Turno {
+  id: number;
+  fecha: string;
+  empleado_nombre?: string;
 }
 
 interface Peticion {
@@ -30,7 +36,7 @@ interface Peticion {
 const EMPTY_EMP = { nombre: '', rol: 'employee', local: 'Principal', telefono: '', pin: '' };
 
 export default function HRManagement() {
-  const { fetchWithAuth } = useAuth();
+  const { fetchWithAuth, user } = useAuth();
   const [activeSection, setActiveSection] = useState<'employees' | 'requests'>('employees');
   
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -170,13 +176,17 @@ export default function HRManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newShift)
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setShowShiftModal(false);
         setNewShift({ usuario_id: '', fecha: '', hora_inicio: '18:00', hora_fin: '02:00', local: 'Principal', compañeros: '' });
         fetchData();
+      } else {
+        setCrudError(data.error || 'Error al asignar el turno');
       }
     } catch (err) {
       console.error(err);
+      setCrudError('Error de conexión al asignar el turno');
     } finally {
       setIsSubmitting(false);
     }
@@ -218,6 +228,8 @@ export default function HRManagement() {
       default: return { label: 'Asuntos Propios 💼', style: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' };
     }
   };
+
+  const canEditEmployee = (emp: Employee) => user?.role === 'owner' || emp.rol === 'employee';
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -305,20 +317,24 @@ export default function HRManagement() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => openEditEmp(emp)}
-                        className="p-2 text-slate-500 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                        title="Editar empleado"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleEmpDelete(emp.id)}
-                        className="p-2 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                        title="Eliminar empleado"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canEditEmployee(emp) && (
+                        <button
+                          onClick={() => openEditEmp(emp)}
+                          className="p-2 text-slate-500 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                          title="Editar empleado"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
+                      {user?.role === 'owner' && (
+                        <button
+                          onClick={() => handleEmpDelete(emp.id)}
+                          className="p-2 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                          title="Eliminar empleado"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -371,7 +387,7 @@ export default function HRManagement() {
                           </button>
                           <button
                             onClick={() => handleRequestStatus(p.id, 'aprobado')}
-                            className="flex items-center gap-1 bg-brand-650 hover:bg-brand-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                            className="flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
                           >
                             <Check size={14} /> Aprobar
                           </button>
@@ -430,8 +446,8 @@ export default function HRManagement() {
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   >
                     <option value="employee">Empleado</option>
-                    <option value="manager">Encargado</option>
-                    <option value="owner">Propietario</option>
+                    {user?.role === 'owner' && <option value="manager">Encargado</option>}
+                    {user?.role === 'owner' && <option value="owner">Propietario</option>}
                   </select>
                 </div>
                 <div>

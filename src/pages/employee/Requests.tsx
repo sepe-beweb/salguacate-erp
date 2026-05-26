@@ -112,7 +112,7 @@ export default function Requests() {
       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Nueva Petición</h2>
       
       {successMsg && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-xl text-emerald-700 dark:text-emerald-450 text-sm">
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-xl text-emerald-700 dark:text-emerald-400 text-sm">
           {successMsg}
         </div>
       )}
@@ -200,7 +200,7 @@ export default function Requests() {
             <Loader2 className="animate-spin" size={24} />
           </div>
         ) : peticiones.length === 0 ? (
-          <p className="text-xs text-slate-450 dark:text-slate-500 text-center py-2">No has realizado ninguna petición anterior.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">No has realizado ninguna petición anterior.</p>
         ) : (
           <div className="space-y-2">
             {peticiones.map(p => (

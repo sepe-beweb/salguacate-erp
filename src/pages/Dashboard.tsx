@@ -202,7 +202,7 @@ export default function Dashboard() {
         <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Presencia en Tiempo Real</h3>
         <div className="space-y-2">
           {presencia.length === 0 ? (
-            <p className="text-xs text-slate-450 dark:text-slate-500 text-center py-2">No hay información de turnos disponible.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">No hay información de turnos disponible.</p>
           ) : (
             presencia.map((emp: any) => {
               const dateOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
@@ -227,7 +227,7 @@ export default function Dashboard() {
               }
 
               return (
-                <div key={emp.usuario_id} className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-850/50 rounded-lg border border-slate-100 dark:border-slate-800/40">
+                <div key={emp.usuario_id} className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800/40">
                   <div className="flex items-center gap-2">
                     <span className={`w-2.5 h-2.5 rounded-full ${indicatorColor}`}></span>
                     <div>

@@ -82,7 +82,7 @@ export default function Clock() {
       </div>
 
       {errorMsg && (
-        <div className="w-full max-w-sm bg-red-50 dark:bg-red-950/30 border border-red-205 dark:border-red-900/40 p-4 rounded-xl text-red-700 dark:text-red-400 text-xs text-center">
+        <div className="w-full max-w-sm bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 p-4 rounded-xl text-red-700 dark:text-red-400 text-xs text-center">
           {errorMsg}
         </div>
       )}

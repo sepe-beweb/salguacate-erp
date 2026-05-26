@@ -96,6 +96,8 @@ const requireRole = (allowedRoles) => {
   };
 };
 
+const canManageStaff = (user) => ['owner', 'manager'].includes(user?.rol);
+
 // --- RUTAS DE USUARIOS ---
 
 // Listado de usuarios (Hides PIN completely, returns is_active or has_pin)
@@ -139,11 +141,18 @@ app.get('/api/usuarios/public', (req, res) => {
 
 app.post('/api/usuarios', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { nombre, rol, local, telefono, pin } = req.body;
+  const targetRole = rol || 'employee';
+  if (!['owner', 'manager', 'employee'].includes(targetRole)) {
+    return res.status(400).json({ error: 'Rol inválido' });
+  }
+  if (req.user.rol !== 'owner' && targetRole !== 'employee') {
+    return res.status(403).json({ error: 'Solo propietarios pueden crear roles administrativos' });
+  }
   const pinToSave = pin || '0000';
   const hashedPin = crypto.createHash('sha256').update(pinToSave).digest('hex');
   
   db.run(`INSERT INTO usuarios (nombre, rol, local, telefono, pin) VALUES (?, ?, ?, ?, ?)`,
-    [nombre, rol || 'employee', local || 'Principal', telefono || null, hashedPin],
+    [nombre, targetRole, local || 'Principal', telefono || null, hashedPin],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, mensaje: 'Empleado creado' });
@@ -154,25 +163,40 @@ app.post('/api/usuarios', requireAuth, requireRole(['owner', 'manager']), (req, 
 app.put('/api/usuarios/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { id } = req.params;
   const { nombre, rol, local, telefono, pin } = req.body;
-  
-  if (pin && pin.trim() !== '') {
-    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
-    db.run(`UPDATE usuarios SET nombre = ?, rol = ?, local = ?, telefono = ?, pin = ? WHERE id = ?`,
-      [nombre, rol, local, telefono, hashedPin, id],
-      function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id, mensaje: 'Empleado actualizado con nuevo PIN' });
-      }
-    );
-  } else {
-    db.run(`UPDATE usuarios SET nombre = ?, rol = ?, local = ?, telefono = ? WHERE id = ?`,
-      [nombre, rol, local, telefono, id],
-      function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id, mensaje: 'Empleado actualizado' });
-      }
-    );
+  const targetRole = rol || 'employee';
+  if (!['owner', 'manager', 'employee'].includes(targetRole)) {
+    return res.status(400).json({ error: 'Rol inválido' });
   }
+  if (req.user.rol !== 'owner' && targetRole !== 'employee') {
+    return res.status(403).json({ error: 'Solo propietarios pueden asignar roles administrativos' });
+  }
+
+  db.get('SELECT rol FROM usuarios WHERE id = ?', [id], (err, targetUser) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!targetUser) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (req.user.rol !== 'owner' && targetUser.rol !== 'employee') {
+      return res.status(403).json({ error: 'Solo propietarios pueden editar usuarios administrativos' });
+    }
+
+    if (pin && pin.trim() !== '') {
+      const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+      db.run(`UPDATE usuarios SET nombre = ?, rol = ?, local = ?, telefono = ?, pin = ? WHERE id = ?`,
+        [nombre, targetRole, local, telefono, hashedPin, id],
+        function(err) {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ id, mensaje: 'Empleado actualizado con nuevo PIN' });
+        }
+      );
+    } else {
+      db.run(`UPDATE usuarios SET nombre = ?, rol = ?, local = ?, telefono = ? WHERE id = ?`,
+        [nombre, targetRole, local, telefono, id],
+        function(err) {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ id, mensaje: 'Empleado actualizado' });
+        }
+      );
+    }
+  });
 });
 
 app.delete('/api/usuarios/:id', requireAuth, requireRole(['owner']), (req, res) => {
@@ -206,7 +230,10 @@ app.delete('/api/usuarios/:id', requireAuth, requireRole(['owner']), (req, res) 
 
 // Obtener fichaje activo del usuario
 app.get('/api/fichajes/activo', requireAuth, (req, res) => {
-  const usuario_id = req.query.usuario_id || req.user.id;
+  const usuario_id = req.query.usuario_id ? String(req.query.usuario_id) : String(req.user.id);
+  if (usuario_id !== String(req.user.id) && !canManageStaff(req.user)) {
+    return res.status(403).json({ error: 'No puedes consultar fichajes de otro usuario' });
+  }
   db.get(`SELECT * FROM fichajes WHERE usuario_id = ? AND estado IN ('trabajando', 'descanso') LIMIT 1`,
     [usuario_id],
     (err, row) => {
@@ -219,7 +246,10 @@ app.get('/api/fichajes/activo', requireAuth, (req, res) => {
 // Registrar fichaje (entrada, salida, descanso, volver)
 app.post('/api/fichar', requireAuth, (req, res) => {
   const { usuario_id, tipo } = req.body; // tipo: 'entrada', 'salida', 'descanso', 'volver'
-  const target_uid = usuario_id || req.user.id;
+  const target_uid = usuario_id ? String(usuario_id) : String(req.user.id);
+  if (target_uid !== String(req.user.id) && !canManageStaff(req.user)) {
+    return res.status(403).json({ error: 'No puedes registrar fichajes de otro usuario' });
+  }
   const fechaActual = new Date().toISOString();
 
   db.get(`SELECT * FROM fichajes WHERE usuario_id = ? AND estado IN ('trabajando', 'descanso') LIMIT 1`, 
@@ -319,7 +349,7 @@ app.get('/api/inventario', requireAuth, (req, res) => {
   });
 });
 
-app.put('/api/inventario/:id/stock', requireAuth, (req, res) => {
+app.put('/api/inventario/:id/stock', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { increment } = req.body;
   const { id } = req.params;
   
@@ -404,7 +434,10 @@ app.get('/api/turnos', requireAuth, (req, res) => {
   `;
   let params = [];
   
-  if (usuario_id) {
+  if (req.user.rol === 'employee') {
+    query += ' WHERE t.usuario_id = ?';
+    params.push(req.user.id);
+  } else if (usuario_id) {
     query += ' WHERE t.usuario_id = ?';
     params.push(usuario_id);
   }
@@ -431,7 +464,10 @@ app.post('/api/turnos', requireAuth, requireRole(['owner', 'manager']), (req, re
 
 app.get('/api/mensajes', requireAuth, (req, res) => {
   const { usuario_id } = req.query;
-  const target_id = usuario_id || req.user.id;
+  if (usuario_id && String(usuario_id) !== String(req.user.id)) {
+    return res.status(403).json({ error: 'No puedes consultar el buzón de otro usuario' });
+  }
+  const target_id = req.user.id;
   db.all('SELECT m.*, u.nombre as remitente_nombre FROM mensajes m JOIN usuarios u ON m.remitente_id = u.id WHERE m.destinatario_id = ? ORDER BY m.fecha DESC', [target_id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
@@ -440,7 +476,13 @@ app.get('/api/mensajes', requireAuth, (req, res) => {
 
 app.post('/api/mensajes', requireAuth, (req, res) => {
   const { remitente_id, destinatario_id, asunto, cuerpo } = req.body;
-  const from_id = remitente_id || req.user.id;
+  if (remitente_id && String(remitente_id) !== String(req.user.id)) {
+    return res.status(403).json({ error: 'No puedes enviar mensajes en nombre de otro usuario' });
+  }
+  if (!destinatario_id || !asunto || !cuerpo) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios del mensaje' });
+  }
+  const from_id = req.user.id;
   const fecha = new Date().toISOString();
   db.run(`INSERT INTO mensajes (remitente_id, destinatario_id, asunto, cuerpo, fecha) VALUES (?, ?, ?, ?, ?)`,
     [from_id, destinatario_id, asunto, cuerpo, fecha],
@@ -717,9 +759,18 @@ app.get('/api/tareas', requireAuth, (req, res) => {
   const { local } = req.query;
   let query = 'SELECT t.*, u.nombre as asignado_nombre FROM tareas t LEFT JOIN usuarios u ON t.asignado_a = u.id';
   const params = [];
-  if (local) {
-    query += ' WHERE t.local = ? OR t.local = "Ambos"';
+  const conditions = [];
+  if (req.user.rol === 'employee') {
+    conditions.push('(t.asignado_a IS NULL OR t.asignado_a = ?)');
+    params.push(req.user.id);
+    conditions.push('(t.local IS NULL OR t.local = "" OR t.local = "Ambos" OR t.local = ?)');
+    params.push(req.user.local || '');
+  } else if (local) {
+    conditions.push('(t.local = ? OR t.local = "Ambos")');
     params.push(local);
+  }
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
   }
   query += ' ORDER BY t.fecha DESC, t.completada ASC';
   db.all(query, params, (err, rows) => {
@@ -742,13 +793,32 @@ app.post('/api/tareas', requireAuth, requireRole(['owner', 'manager']), (req, re
 app.put('/api/tareas/:id/completada', requireAuth, (req, res) => {
   const { completada } = req.body;
   const { id } = req.params;
-  db.run(`UPDATE tareas SET completada = ? WHERE id = ?`,
-    [completada ? 1 : 0, id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ mensaje: 'Estado de tarea actualizado' });
+  const updateTask = () => {
+    db.run(`UPDATE tareas SET completada = ? WHERE id = ?`,
+      [completada ? 1 : 0, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ mensaje: 'Estado de tarea actualizado' });
+      }
+    );
+  };
+
+  if (canManageStaff(req.user)) {
+    return updateTask();
+  }
+
+  db.get('SELECT asignado_a, local FROM tareas WHERE id = ?', [id], (err, tarea) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!tarea) return res.status(404).json({ error: 'Tarea no encontrada' });
+
+    const assignedToOther = tarea.asignado_a !== null && String(tarea.asignado_a) !== String(req.user.id);
+    const localMismatch = tarea.local && tarea.local !== '' && tarea.local !== 'Ambos' && tarea.local !== req.user.local;
+    if (assignedToOther || localMismatch) {
+      return res.status(403).json({ error: 'No puedes modificar esta tarea' });
     }
-  );
+
+    updateTask();
+  });
 });
 
 app.delete('/api/tareas/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
@@ -834,7 +904,7 @@ const aiTools = [{
 
 // --- RUTAS DE INTELIGENCIA ARTIFICIAL (GEMINI) ---
 
-app.post('/api/ai/vision', requireAuth, async (req, res) => {
+app.post('/api/ai/vision', requireAuth, requireRole(['owner', 'manager']), async (req, res) => {
   const { imageBase64, mode } = req.body; // mode: 'invoice' o 'inventory'
   
   try {
@@ -921,7 +991,7 @@ app.post('/api/ai/vision', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/ai/chat', requireAuth, async (req, res) => {
+app.post('/api/ai/chat', requireAuth, requireRole(['owner', 'manager']), async (req, res) => {
   const { message } = req.body;
   logger('info', `Nueva petición de chat: "${message}"`);
   let actionExecuted = false;
@@ -1019,7 +1089,7 @@ app.post('/api/ai/chat', requireAuth, async (req, res) => {
 });
 
 // Generador de Carteles con IA (Imagen)
-app.post('/api/ai/poster', requireAuth, async (req, res) => {
+app.post('/api/ai/poster', requireAuth, requireRole(['owner', 'manager']), async (req, res) => {
   const { titulo, fecha, hora, tipo, descripcion } = req.body;
   logger('info', `Generando cartel para: "${titulo}"`);
 

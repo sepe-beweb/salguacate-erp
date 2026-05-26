@@ -13,16 +13,16 @@ interface Turno {
 }
 
 export default function Calendar() {
-  const { user } = useAuth();
+  const { user, fetchWithAuth } = useAuth();
   const [shifts, setShifts] = useState<Turno[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
-      fetch(`${API_URL}/api/turnos?usuario_id=${user.id}`)
+      fetchWithAuth(`${API_URL}/api/turnos?usuario_id=${user.id}`)
         .then(res => res.json())
         .then(data => {
-          setShifts(data);
+          setShifts(Array.isArray(data) ? data : []);
           setLoading(false);
         })
         .catch(err => {

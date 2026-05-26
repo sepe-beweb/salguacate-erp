@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
+import { createRequire } from 'module';
 
 // Configurar entorno de pruebas
 process.env.NODE_ENV = 'test';
+const require = createRequire(import.meta.url);
 
 // Mockear el SDK de Google GenAI para evitar llamadas reales
 vi.mock('@google/genai', () => {
@@ -23,19 +25,21 @@ vi.mock('@google/genai', () => {
   };
 });
 
-// Importar app y base de datos (se inicializará en memoria gracias al NODE_ENV = 'test')
-import app from '../index';
-import db from '../database';
+let app;
+let db;
 
 describe('Salguacate ERP - Batería de Tests de la API REST', () => {
   
   beforeAll(async () => {
+    // Cargar después de fijar NODE_ENV y usando require para compartir la misma instancia CJS.
+    app = require('../index');
+    db = require('../database');
     // Esperar a que las tablas de database.sqlite (:memory:) estén listas
     await new Promise(resolve => setTimeout(resolve, 500));
   });
 
   afterAll(() => {
-    db.close();
+    db?.close();
   });
 
   let authToken = '';

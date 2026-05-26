@@ -134,14 +134,15 @@ export default function Scanner() {
 
       const data = await res.json();
       if (data.success) {
-        setAiResult(data.result);
+        const result = data.result || data;
+        setAiResult(result);
         if (scanMode === 'ai_invoice') {
           setInvoiceForm({
             fecha: new Date().toISOString().split('T')[0],
             local: 'Principal',
-            proveedor_nombre: data.result.proveedor || '',
-            total: data.result.total || '',
-            concepto: 'Albarán procesado'
+            proveedor_nombre: result.proveedor || '',
+            total: result.total || '',
+            concepto: result.concepto || 'Albarán procesado'
           });
         }
       }

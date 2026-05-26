@@ -237,7 +237,7 @@ async function initializeDatabase(database) {
   }
 }
 
-if (process.env.TURSO_DATABASE_URL) {
+if (process.env.NODE_ENV !== 'test' && process.env.TURSO_DATABASE_URL) {
   const { createClient } = require('@libsql/client');
   const client = createClient({
     url: process.env.TURSO_DATABASE_URL,

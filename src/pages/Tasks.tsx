@@ -71,9 +71,14 @@ export default function Tasks() {
     finally { setIsSubmitting(false); }
   };
 
-  const handleToggle = async (id: number) => {
+  const handleToggle = async (tarea: Tarea) => {
     try {
-      await fetchWithAuth(`${API_URL}/api/tareas/${id}/toggle`, { method: 'PATCH' });
+      const res = await fetchWithAuth(`${API_URL}/api/tareas/${tarea.id}/completada`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completada: !tarea.completada })
+      });
+      if (!res.ok) throw new Error('No se pudo actualizar la tarea');
       fetchData();
     } catch (err) { console.error(err); }
   };
@@ -251,7 +256,7 @@ export default function Tasks() {
               >
                 {/* Checkbox */}
                 <button 
-                  onClick={() => handleToggle(tarea.id)}
+                  onClick={() => handleToggle(tarea)}
                   className={`mt-0.5 flex-shrink-0 transition-colors ${tarea.completada ? 'text-emerald-500' : 'text-slate-300 dark:text-slate-600 hover:text-brand-500'}`}
                 >
                   {tarea.completada ? <CheckCircle2 size={22} /> : <Circle size={22} />}

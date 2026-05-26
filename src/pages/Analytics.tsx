@@ -56,8 +56,9 @@ export default function Analytics() {
   }
 
   const filteredData = filterLocal === 'Todos' ? data : data.filter(c => c.local === filterLocal);
+  const filteredGastosForLocal = gastos.filter(g => filterLocal === 'Todos' || g.local === filterLocal);
 
-  if (filteredData.length === 0) {
+  if (filteredData.length === 0 && filteredGastosForLocal.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500">
         <BarChart3 size={48} className="mb-4 text-slate-300 dark:text-slate-700" />
@@ -67,22 +68,53 @@ export default function Analytics() {
     );
   }
 
-  // Preprocesar datos para gráficos
-  const chartData = filteredData.map(item => {
-    // Buscar gastos de este mismo día e imputados a este local
+  // Preprocesar datos por día para evitar duplicar gastos cuando se ven ambos locales.
+  const chartRows = new Map<string, { name: string; date: string; Ingresos: number; Efectivo: number; Tarjeta: number; Descuadre: number }>();
+  filteredData.forEach(item => {
     const dateStr = item.fecha.split('T')[0];
-    const gastosDia = gastos
-      .filter(g => g.fecha.startsWith(dateStr) && (filterLocal === 'Todos' || g.local === filterLocal))
+    const key = filterLocal === 'Todos' ? dateStr : `${dateStr}-${item.local}`;
+    const existing = chartRows.get(key) || {
+      name: new Date(item.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+      date: dateStr,
+      Ingresos: 0,
+      Efectivo: 0,
+      Tarjeta: 0,
+      Descuadre: 0
+    };
+    existing.Ingresos += item.total;
+    existing.Efectivo += item.efectivo;
+    existing.Tarjeta += item.tarjeta;
+    existing.Descuadre += item.descuadre;
+    chartRows.set(key, existing);
+  });
+  filteredGastosForLocal.forEach(gasto => {
+    const dateStr = gasto.fecha.split('T')[0];
+    const key = filterLocal === 'Todos' ? dateStr : `${dateStr}-${filterLocal}`;
+    if (!chartRows.has(key)) {
+      chartRows.set(key, {
+        name: new Date(gasto.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+        date: dateStr,
+        Ingresos: 0,
+        Efectivo: 0,
+        Tarjeta: 0,
+        Descuadre: 0
+      });
+    }
+  });
+
+  const chartData = Array.from(chartRows.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(row => {
+    const gastosDia = filteredGastosForLocal
+      .filter(g => g.fecha.startsWith(row.date))
       .reduce((sum, g) => sum + g.total, 0);
 
     return {
-      name: new Date(item.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
-      Ingresos: item.total,
+      name: row.name,
+      Ingresos: row.Ingresos,
       Gastos: gastosDia,
-      Beneficio: item.total - gastosDia,
-      Efectivo: item.efectivo,
-      Tarjeta: item.tarjeta,
-      Descuadre: item.descuadre
+      Beneficio: row.Ingresos - gastosDia,
+      Efectivo: row.Efectivo,
+      Tarjeta: row.Tarjeta,
+      Descuadre: row.Descuadre
     };
   });
 
@@ -97,9 +129,7 @@ export default function Analytics() {
 
   // Calcular métricas
   const totalIngresos = totalEfectivo + totalTarjeta;
-  const totalGastos = gastos
-    .filter(g => filterLocal === 'Todos' || g.local === filterLocal)
-    .reduce((acc, curr) => acc + curr.total, 0);
+  const totalGastos = filteredGastosForLocal.reduce((acc, curr) => acc + curr.total, 0);
   const beneficioNeto = totalIngresos - totalGastos;
   const totalDescuadre = filteredData.reduce((acc, curr) => acc + curr.descuadre, 0);
 
