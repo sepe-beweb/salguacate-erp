@@ -60,7 +60,56 @@ RENDER_FRONTEND_DEPLOY_HOOK_URL=...
 
 Después, cada push a `main` o ejecución manual de `Trigger Render Deploy` llamará a ambos hooks.
 
-## 5. Comprobaciones
+## 5. Automatización Local Con La API De Render
+
+Render no publica un CLI oficial en npm. El repo incluye un cliente mínimo en `scripts/render-create-services.cjs` que llama a la API oficial de Render para crear los dos servicios.
+
+Primero crea una API Key en Render:
+
+```text
+Account Settings -> API Keys -> Create API Key
+```
+
+También necesitas el `ownerId` del workspace, disponible en la configuración del workspace de Render.
+
+Ejemplo en PowerShell:
+
+```powershell
+$env:RENDER_API_KEY="rnd_..."
+$env:RENDER_OWNER_ID="tea_..."
+$env:TURSO_DATABASE_URL="libsql://..."
+$env:TURSO_AUTH_TOKEN="..."
+$env:GEMINI_API_KEY="..."
+$env:JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+node scripts/render-create-services.cjs
+```
+
+Opcionales:
+
+```powershell
+$env:RENDER_REPO_URL="https://github.com/sepe-beweb/salguacate-erp"
+$env:RENDER_BRANCH="main"
+$env:RENDER_BACKEND_NAME="salguacate-backend"
+$env:RENDER_FRONTEND_NAME="salguacate-frontend"
+$env:RENDER_BACKEND_PLAN="free"
+$env:RENDER_BACKEND_REGION="oregon"
+```
+
+Si quieres disco persistente para `server/uploads`, usa:
+
+```powershell
+$env:RENDER_ENABLE_DISK="true"
+```
+
+Ten en cuenta que los discos persistentes pueden requerir un plan de pago en Render. Sin disco, los uploads locales son efímeros; la base de datos seguirá en Turso.
+
+Para revisar el payload sin crear servicios:
+
+```powershell
+node scripts/render-create-services.cjs --dry-run
+```
+
+## 6. Comprobaciones
 
 Backend:
 
