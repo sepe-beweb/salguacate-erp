@@ -1,0 +1,28 @@
+name: Trigger Render Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger-render:
+    runs-on: ubuntu-latest
+    env:
+      RENDER_BACKEND_DEPLOY_HOOK_URL: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL }}
+      RENDER_FRONTEND_DEPLOY_HOOK_URL: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}
+    steps:
+      - name: Trigger backend deploy hook
+        if: ${{ env.RENDER_BACKEND_DEPLOY_HOOK_URL != '' }}
+        run: curl -fsS -X POST "$RENDER_BACKEND_DEPLOY_HOOK_URL"
+
+      - name: Trigger frontend deploy hook
+        if: ${{ env.RENDER_FRONTEND_DEPLOY_HOOK_URL != '' }}
+        run: curl -fsS -X POST "$RENDER_FRONTEND_DEPLOY_HOOK_URL"
+
+      - name: Explain missing deploy hooks
+        if: ${{ env.RENDER_BACKEND_DEPLOY_HOOK_URL == '' || env.RENDER_FRONTEND_DEPLOY_HOOK_URL == '' }}
+        run: |
+          echo "Render deploy hooks are optional."
+          echo "Add GitHub secrets RENDER_BACKEND_DEPLOY_HOOK_URL and RENDER_FRONTEND_DEPLOY_HOOK_URL to trigger deployments from this workflow."

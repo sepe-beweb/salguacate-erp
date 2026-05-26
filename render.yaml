@@ -3,14 +3,18 @@ services:
     name: salguacate-backend
     env: node
     rootDir: server
-    buildCommand: npm install
+    buildCommand: npm ci
     startCommand: npm start
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: TURSO_DATABASE_URL
         sync: false
       - key: TURSO_AUTH_TOKEN
         sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET
         sync: false
     disk:
       name: uploads
@@ -20,8 +24,12 @@ services:
   - type: web
     name: salguacate-frontend
     env: static
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_URL
         value: "https://salguacate-backend.onrender.com"
