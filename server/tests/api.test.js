@@ -38,6 +38,8 @@ describe('Salguacate ERP - Batería de Tests de la API REST', () => {
     db.close();
   });
 
+  let authToken = '';
+
   describe('👥 Endpoints de Usuarios y Autenticación', () => {
     
     it('GET /api/usuarios/public - Debería retornar la lista pública de usuarios sin revelar PINs', async () => {
@@ -55,22 +57,25 @@ describe('Salguacate ERP - Batería de Tests de la API REST', () => {
     });
 
     it('POST /api/login - Debería permitir login con PIN correcto', async () => {
-      // El usuario ID 3 es 'María García' (empleada) con PIN '0000' (default) en las semillas
+      // El usuario ID 1 es 'Admin' (owner) con PIN '0000' (default) en las semillas
       const res = await request(app)
         .post('/api/login')
-        .send({ usuario_id: 3, pin: '0000' })
+        .send({ usuario_id: 1, pin: '0000' })
         .expect('Content-Type', /json/)
         .expect(200);
 
       expect(res.body).toHaveProperty('success', true);
       expect(res.body).toHaveProperty('user');
-      expect(res.body.user.id).toBe(3);
+      expect(res.body.user.id).toBe(1);
+      if (res.body.token) {
+        authToken = res.body.token;
+      }
     });
 
     it('POST /api/login - Debería rechazar login con PIN incorrecto', async () => {
       const res = await request(app)
         .post('/api/login')
-        .send({ usuario_id: 3, pin: '9999' })
+        .send({ usuario_id: 1, pin: '9999' })
         .expect('Content-Type', /json/)
         .expect(401);
 
@@ -84,6 +89,7 @@ describe('Salguacate ERP - Batería de Tests de la API REST', () => {
     it('GET /api/fichajes/presencia - Debería retornar el estado de presencia de la plantilla', async () => {
       const res = await request(app)
         .get('/api/fichajes/presencia')
+        .set('Authorization', `Bearer ${authToken}`)
         .expect('Content-Type', /json/)
         .expect(200);
 
@@ -109,12 +115,13 @@ describe('Salguacate ERP - Batería de Tests de la API REST', () => {
 
       const res = await request(app)
         .post('/api/tareas')
+        .set('Authorization', `Bearer ${authToken}`)
         .send(nuevaTarea)
         .expect('Content-Type', /json/)
         .expect(200);
 
       expect(res.body).toHaveProperty('id');
-      expect(res.body).toHaveProperty('mensaje', 'Tarea creada');
+      expect(res.body).toHaveProperty('mensaje', 'Tarea añadida');
     });
 
   });

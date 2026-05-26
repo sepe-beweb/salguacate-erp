@@ -10,7 +10,7 @@ interface Message {
 }
 
 export default function AIChatbot() {
-  const { user } = useAuth();
+  const { user, fetchWithAuth } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', sender: 'ai', text: '¡Hola! Soy tu asistente de IA. He analizado la base de datos de Salguacate. ¿Qué necesitas saber hoy sobre tu plantilla o stock?' }
@@ -52,7 +52,7 @@ export default function AIChatbot() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/ai/chat`, {
+      const res = await fetchWithAuth(`${API_URL}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage.text })

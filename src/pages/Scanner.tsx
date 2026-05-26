@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { Camera, FileText, CheckCircle2, Download, Trash2, Image as ImageIcon, Sparkles, Box } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
 import { API_URL } from '../config';
 
@@ -11,11 +12,19 @@ interface ScannedDoc {
 }
 
 export default function Scanner() {
+  const { fetchWithAuth } = useAuth();
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [documents, setDocuments] = useState<ScannedDoc[]>([]);
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [scanMode, setScanMode] = useState<'pdf' | 'ai_invoice' | 'ai_inventory'>('pdf');
+  const [invoiceForm, setInvoiceForm] = useState({
+    fecha: new Date().toISOString().split('T')[0],
+    local: 'Principal',
+    proveedor_nombre: '',
+    total: '',
+    concepto: 'Albarán procesado'
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +123,7 @@ export default function Scanner() {
       // Convertir a jpeg para la API
       const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
 
-      const res = await fetch(`${API_URL}/api/ai/vision`, {
+      const res = await fetchWithAuth(`${API_URL}/api/ai/vision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -126,6 +135,15 @@ export default function Scanner() {
       const data = await res.json();
       if (data.success) {
         setAiResult(data.result);
+        if (scanMode === 'ai_invoice') {
+          setInvoiceForm({
+            fecha: new Date().toISOString().split('T')[0],
+            local: 'Principal',
+            proveedor_nombre: data.result.proveedor || '',
+            total: data.result.total || '',
+            concepto: 'Albarán procesado'
+          });
+        }
       }
     } catch (error) {
       console.error("Error con la IA", error);
@@ -227,34 +245,83 @@ export default function Scanner() {
               </h4>
               
               {scanMode === 'ai_invoice' && (
-                <div className="space-y-3">
+                <div className="space-y-3 mt-4">
                   <div className="grid grid-cols-2 gap-3 mb-1">
-                    <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-sm border border-brand-100 dark:border-brand-800">
-                      <p className="text-xs text-slate-500">Total Detectado</p>
-                      <p className="text-lg font-bold text-slate-900 dark:text-white">{aiResult.total}€</p>
+                    <div>
+                      <label className="text-xs text-slate-500">Total Detectado (€)</label>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={invoiceForm.total} 
+                        onChange={(e) => setInvoiceForm({...invoiceForm, total: e.target.value})}
+                        className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-bold text-lg" 
+                      />
                     </div>
-                    <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-sm border border-brand-100 dark:border-brand-800">
-                      <p className="text-xs text-slate-500">Proveedor</p>
-                      <p className="font-medium text-slate-900 dark:text-white truncate">{aiResult.proveedor}</p>
+                    <div>
+                      <label className="text-xs text-slate-500">Proveedor</label>
+                      <input 
+                        type="text" 
+                        value={invoiceForm.proveedor_nombre} 
+                        onChange={(e) => setInvoiceForm({...invoiceForm, proveedor_nombre: e.target.value})}
+                        className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-medium" 
+                      />
                     </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-1">
+                    <div>
+                      <label className="text-xs text-slate-500">Fecha</label>
+                      <input 
+                        type="date" 
+                        value={invoiceForm.fecha} 
+                        onChange={(e) => setInvoiceForm({...invoiceForm, fecha: e.target.value})}
+                        className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500">Local</label>
+                      <select 
+                        value={invoiceForm.local} 
+                        onChange={(e) => setInvoiceForm({...invoiceForm, local: e.target.value})}
+                        className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm" 
+                      >
+                        <option value="Principal">Principal</option>
+                        <option value="Segundo Local">Segundo Local</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="text-xs text-slate-500">Concepto</label>
+                    <input 
+                      type="text" 
+                      value={invoiceForm.concepto} 
+                      onChange={(e) => setInvoiceForm({...invoiceForm, concepto: e.target.value})}
+                      className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm" 
+                    />
                   </div>
                   
                   <button 
                     onClick={async () => {
                       setIsProcessing(true);
                       try {
-                        const res = await fetch(`${API_URL}/api/gastos`, {
+                        const res = await fetchWithAuth(`${API_URL}/api/gastos`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ 
-                            total: aiResult.total, 
-                            proveedor_nombre: aiResult.proveedor 
+                            total: invoiceForm.total, 
+                            proveedor_nombre: invoiceForm.proveedor_nombre,
+                            fecha: invoiceForm.fecha,
+                            local: invoiceForm.local,
+                            concepto: invoiceForm.concepto
                           })
                         });
                         if (res.ok) {
                           alert("Gasto registrado en contabilidad");
                           setImageSrc(null);
                           setAiResult(null);
+                        } else {
+                          alert("Error al registrar gasto");
                         }
                       } catch (e) {
                         console.error(e);

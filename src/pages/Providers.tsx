@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Truck, Plus, Phone, Mail, Loader2, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 interface Provider {
@@ -11,6 +12,7 @@ interface Provider {
 }
 
 export default function Providers() {
+  const { fetchWithAuth } = useAuth();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -18,7 +20,7 @@ export default function Providers() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchProviders = () => {
-    fetch(`${API_URL}/api/proveedores`)
+    fetchWithAuth(`${API_URL}/api/proveedores`)
       .then(res => res.json())
       .then(data => {
         setProviders(data);
@@ -40,7 +42,7 @@ export default function Providers() {
     setIsSubmitting(true);
     
     try {
-      const res = await fetch(`${API_URL}/api/proveedores`, {
+      const res = await fetchWithAuth(`${API_URL}/api/proveedores`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProvider)

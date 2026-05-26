@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { BarChart3, TrendingUp, AlertCircle, Euro, MapPin } from 'lucide-react';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 interface Cierre {
   id: number;
@@ -23,9 +24,11 @@ interface Gasto {
   proveedor_nombre: string;
   total: number;
   concepto: string;
+  local: string;
 }
 
 export default function Analytics() {
+  const { fetchWithAuth } = useAuth();
   const [data, setData] = useState<Cierre[]>([]);
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,13 +36,13 @@ export default function Analytics() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_URL}/api/cierres`).then(res => res.json()),
-      fetch(`${API_URL}/api/gastos`).then(res => res.json())
+      fetchWithAuth(`${API_URL}/api/cierres`).then(res => res.json()),
+      fetchWithAuth(`${API_URL}/api/gastos`).then(res => res.json())
     ])
       .then(([resCierres, resGastos]) => {
-        const sortedData = resCierres.sort((a: Cierre, b: Cierre) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+        const sortedData = (resCierres || []).sort((a: Cierre, b: Cierre) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
         setData(sortedData);
-        setGastos(resGastos);
+        setGastos(resGastos || []);
         setLoading(false);
       })
       .catch(err => {
@@ -66,10 +69,10 @@ export default function Analytics() {
 
   // Preprocesar datos para gráficos
   const chartData = filteredData.map(item => {
-    // Buscar gastos de este mismo día
+    // Buscar gastos de este mismo día e imputados a este local
     const dateStr = item.fecha.split('T')[0];
     const gastosDia = gastos
-      .filter(g => g.fecha.startsWith(dateStr))
+      .filter(g => g.fecha.startsWith(dateStr) && (filterLocal === 'Todos' || g.local === filterLocal))
       .reduce((sum, g) => sum + g.total, 0);
 
     return {
@@ -94,7 +97,9 @@ export default function Analytics() {
 
   // Calcular métricas
   const totalIngresos = totalEfectivo + totalTarjeta;
-  const totalGastos = gastos.reduce((acc, curr) => acc + curr.total, 0);
+  const totalGastos = gastos
+    .filter(g => filterLocal === 'Todos' || g.local === filterLocal)
+    .reduce((acc, curr) => acc + curr.total, 0);
   const beneficioNeto = totalIngresos - totalGastos;
   const totalDescuadre = filteredData.reduce((acc, curr) => acc + curr.descuadre, 0);
 

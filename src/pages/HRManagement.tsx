@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Users, CalendarClock, UserCheck, Loader2, X, Clock, MapPin, Plus, Pencil, Trash2, Phone, Sparkles } from 'lucide-react';
+import { UserCheck, Loader2, X, Plus, Pencil, Trash2 } from 'lucide-react';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 interface Employee {
   id: number;
@@ -8,15 +9,33 @@ interface Employee {
   rol: string;
   local: string;
   telefono?: string;
-  pin?: string;
+  has_pin?: number;
   status?: string;
 }
 
-const EMPTY_EMP = { nombre: '', rol: 'employee', local: 'Principal', telefono: '', pin: '0000' };
+interface Peticion {
+  id: number;
+  usuario_id: number;
+  tipo: string;
+  fecha_inicio: string;
+  fecha_fin?: string;
+  comentarios?: string;
+  estado: 'pendiente' | 'aprobado' | 'rechazado';
+  empleado_nombre: string;
+  empleado_rol: string;
+  empleado_local: string;
+  creado_en: string;
+}
+
+const EMPTY_EMP = { nombre: '', rol: 'employee', local: 'Principal', telefono: '', pin: '' };
 
 export default function HRManagement() {
+  const { fetchWithAuth } = useAuth();
+  const [activeSection, setActiveSection] = useState<'employees' | 'requests'>('employees');
+  
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [turnos, setTurnos] = useState<any[]>([]);
+  const [, setTurnos] = useState<Turno[]>([]);
+  const [peticiones, setPeticiones] = useState<Peticion[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Employee CRUD modal
@@ -24,6 +43,7 @@ export default function HRManagement() {
   const [editingEmpId, setEditingEmpId] = useState<number | null>(null);
   const [empForm, setEmpForm] = useState(EMPTY_EMP);
   const [isEmpSubmitting, setIsEmpSubmitting] = useState(false);
+  const [crudError, setCrudError] = useState('');
 
   // Shift modal
   const [showShiftModal, setShowShiftModal] = useState(false);
@@ -32,17 +52,24 @@ export default function HRManagement() {
 
   const fetchData = () => {
     setLoading(true);
+    setCrudError('');
     Promise.all([
-      fetch(`${API_URL}/api/usuarios`).then(res => res.json()),
-      fetch(`${API_URL}/api/turnos`).then(res => res.json())
+      fetchWithAuth(`${API_URL}/api/usuarios`).then(res => {
+        if (!res.ok) throw new Error('No autorizado para ver la plantilla');
+        return res.json();
+      }),
+      fetchWithAuth(`${API_URL}/api/turnos`).then(res => res.json()),
+      fetchWithAuth(`${API_URL}/api/peticiones`).then(res => res.json())
     ])
-    .then(([empData, turnosData]) => {
+    .then(([empData, turnosData, peticionesData]) => {
       setEmployees(empData.map((emp: Employee) => ({...emp, status: 'out'})));
       setTurnos(turnosData.sort((a: any, b: any) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()));
+      setPeticiones(peticionesData || []);
       setLoading(false);
     })
     .catch(err => {
       console.error("Error fetching data", err);
+      setCrudError(err.message || 'Error de red o conexión al servidor');
       setLoading(false);
     });
   };
@@ -57,13 +84,21 @@ export default function HRManagement() {
   // --- Employee CRUD ---
   const openNewEmp = () => {
     setEditingEmpId(null);
+    setCrudError('');
     setEmpForm(EMPTY_EMP);
     setShowEmpModal(true);
   };
 
   const openEditEmp = (emp: Employee) => {
     setEditingEmpId(emp.id);
-    setEmpForm({ nombre: emp.nombre, rol: emp.rol, local: emp.local || 'Principal', telefono: emp.telefono || '', pin: emp.pin || '0000' });
+    setCrudError('');
+    setEmpForm({ 
+      nombre: emp.nombre, 
+      rol: emp.rol, 
+      local: emp.local || 'Principal', 
+      telefono: emp.telefono || '', 
+      pin: '' // Dejar PIN vacío al iniciar edición (para no exponerlo)
+    });
     setShowEmpModal(true);
   };
 
@@ -71,36 +106,56 @@ export default function HRManagement() {
     e.preventDefault();
     if (!empForm.nombre) return;
     setIsEmpSubmitting(true);
+    setCrudError('');
     try {
       const url = editingEmpId
         ? `${API_URL}/api/usuarios/${editingEmpId}`
         : `${API_URL}/api/usuarios`;
       const method = editingEmpId ? 'PUT' : 'POST';
-      const res = await fetch(url, {
+      
+      const payload = { ...empForm };
+      // Al añadir empleado nuevo, si el PIN está vacío asignamos '0000'
+      if (!editingEmpId && !payload.pin) {
+        payload.pin = '0000';
+      }
+
+      const res = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(empForm)
+        body: JSON.stringify(payload)
       });
+      
+      const data = await res.json();
       if (res.ok) {
         setShowEmpModal(false);
         setEditingEmpId(null);
         setEmpForm(EMPTY_EMP);
         fetchData();
+      } else {
+        setCrudError(data.error || 'Error al guardar los datos');
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error submitting employee", err);
+      setCrudError('Error de conexión con la API');
     } finally {
       setIsEmpSubmitting(false);
     }
   };
 
-  const handleDeleteEmp = async (id: number, nombre: string) => {
-    if (!confirm(`¿Seguro que quieres eliminar a ${nombre}? Se perderán sus turnos y fichajes asociados.`)) return;
+  const handleEmpDelete = async (id: number) => {
+    if (!confirm('¿Estás seguro de eliminar este empleado? Esta acción borrará permanentemente sus turnos y fichajes.')) return;
+    setCrudError('');
     try {
-      const res = await fetch(`${API_URL}/api/usuarios/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchData();
+      const res = await fetchWithAuth(`${API_URL}/api/usuarios/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        fetchData();
+      } else {
+        alert(data.error || 'Error al eliminar el empleado');
+      }
     } catch (err) {
       console.error(err);
+      alert('Error de red al eliminar');
     }
   };
 
@@ -110,7 +165,7 @@ export default function HRManagement() {
     if (!newShift.usuario_id || !newShift.fecha) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/turnos`, {
+      const res = await fetchWithAuth(`${API_URL}/api/turnos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newShift)
@@ -127,11 +182,40 @@ export default function HRManagement() {
     }
   };
 
+  // --- [NUEVO P0] Aprobación/Rechazo de Peticiones ---
+  const handleRequestStatus = async (id: number, estado: 'aprobado' | 'rechazado') => {
+    try {
+      const res = await fetchWithAuth(`${API_URL}/api/peticiones/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado })
+      });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Error al actualizar el estado de la petición');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión');
+    }
+  };
+
   const getRolLabel = (rol: string) => {
     switch(rol) {
-      case 'owner': return { label: 'Propietario', style: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' };
+      case 'owner': return { label: 'Propietario', style: 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400' };
       case 'manager': return { label: 'Encargado', style: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' };
       default: return { label: 'Empleado', style: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' };
+    }
+  };
+
+  const getRequestTypeLabel = (type: string) => {
+    switch(type) {
+      case 'vacaciones': return { label: 'Vacaciones 🏖️', style: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' };
+      case 'cambio': return { label: 'Cambio de Turno 🔁', style: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400' };
+      case 'baja': return { label: 'Baja Médica 🤒', style: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400' };
+      default: return { label: 'Asuntos Propios 💼', style: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' };
     }
   };
 
@@ -165,137 +249,167 @@ export default function HRManagement() {
         </div>
       </div>
 
-      {/* Plantilla */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-          <Users size={20} className="text-slate-500" />
-          Plantilla
-        </h3>
-        
-        <div className="space-y-3">
-          {loading ? (
-            <div className="flex justify-center p-8 text-brand-500">
-              <Loader2 className="animate-spin" size={32} />
-            </div>
-          ) : employees.length === 0 ? (
-            <p className="text-slate-500 text-center py-4">No hay empleados. Pulsa "+ Empleado" para añadir.</p>
-          ) : (
-            employees.map(emp => {
-              const rolInfo = getRolLabel(emp.rol);
-              return (
-                <div key={emp.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors group">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center border border-brand-200 dark:border-brand-800">
-                      <span className="font-bold text-brand-600 dark:text-brand-400">{emp.nombre.charAt(0)}</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-900 dark:text-white">{emp.nombre}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${rolInfo.style}`}>{rolInfo.label}</span>
-                        {emp.local && <span className="text-xs text-slate-400">{emp.local}</span>}
+      {crudError && (
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-4 rounded-xl text-red-600 dark:text-red-400 text-sm">
+          {crudError}
+        </div>
+      )}
+
+      {/* --- Navegación de Pestañas --- */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800">
+        <button
+          onClick={() => setActiveSection('employees')}
+          className={`flex-1 pb-3 text-sm font-semibold transition-colors border-b-2 text-center ${activeSection === 'employees' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Plantilla ({employees.length})
+        </button>
+        <button
+          onClick={() => setActiveSection('requests')}
+          className={`flex-1 pb-3 text-sm font-semibold transition-colors border-b-2 text-center ${activeSection === 'requests' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Peticiones de Personal ({peticiones.filter(p => p.estado === 'pendiente').length} pendientes)
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center p-8 text-brand-500">
+          <Loader2 className="animate-spin" size={32} />
+        </div>
+      ) : activeSection === 'employees' ? (
+        /* --- PANELES DE PLANTILLA --- */
+        <div className="space-y-4">
+          <div className="space-y-3">
+            {employees.length === 0 ? (
+              <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-4">No se pudo cargar la plantilla.</p>
+            ) : (
+              employees.map(emp => {
+                const label = getRolLabel(emp.rol);
+                return (
+                  <div key={emp.id} className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-950 dark:text-white">{emp.nombre}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${label.style}`}>{label.label}</span>
                       </div>
-                      {emp.telefono && (
-                        <div className="flex items-center gap-1 mt-1 text-xs text-slate-400">
-                          <Phone size={10} /> {emp.telefono}
-                        </div>
+                      
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                        {emp.telefono && (
+                          <span className="flex items-center gap-1"><Phone size={12} /> {emp.telefono}</span>
+                        )}
+                        <span className="flex items-center gap-1"><MapPin size={12} /> {emp.local || 'Principal'}</span>
+                        <span className="flex items-center gap-0.5 text-slate-400">
+                          <Lock size={11} className={emp.has_pin ? "text-emerald-500" : "text-amber-500"} />
+                          {emp.has_pin ? 'PIN configurado' : 'PIN por defecto'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => openEditEmp(emp)}
+                        className="p-2 text-slate-500 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        title="Editar empleado"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleEmpDelete(emp.id)}
+                        className="p-2 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        title="Eliminar empleado"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      ) : (
+        /* --- [NUEVO P0] PANELES DE PETICIONES DE PERSONAL --- */
+        <div className="space-y-4">
+          {peticiones.length === 0 ? (
+            <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-8">No hay peticiones registradas de ningún empleado.</p>
+          ) : (
+            peticiones.map(p => {
+              const typeLabel = getRequestTypeLabel(p.tipo);
+              return (
+                <div key={p.id} className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3.5 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white text-base">{p.empleado_nombre}</h4>
+                      <p className="text-xs text-slate-400 mt-0.5">{getRolLabel(p.empleado_rol).label} · {p.empleado_local}</p>
+                    </div>
+                    
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${typeLabel.style}`}>
+                      {typeLabel.label}
+                    </span>
+                  </div>
+
+                  <div className="text-sm bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl space-y-1 text-slate-700 dark:text-slate-300">
+                    <p><strong className="text-xs text-slate-400">Fecha Inicio:</strong> {new Date(p.fecha_inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    {p.fecha_fin && (
+                      <p><strong className="text-xs text-slate-400">Fecha Fin:</strong> {new Date(p.fecha_fin).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    )}
+                    {p.comentarios && (
+                      <p className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/50 text-xs italic text-slate-500 dark:text-slate-400">"{p.comentarios}"</p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-[10px] text-slate-400">Solicitado el {new Date(p.creado_en).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                    
+                    <div className="flex items-center gap-2">
+                      {p.estado === 'pendiente' ? (
+                        <>
+                          <button
+                            onClick={() => handleRequestStatus(p.id, 'rechazado')}
+                            className="flex items-center gap-1 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 text-red-700 dark:text-red-400 text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors"
+                          >
+                            <X size={14} /> Rechazar
+                          </button>
+                          <button
+                            onClick={() => handleRequestStatus(p.id, 'aprobado')}
+                            className="flex items-center gap-1 bg-brand-650 hover:bg-brand-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
+                          >
+                            <Check size={14} /> Aprobar
+                          </button>
+                        </>
+                      ) : (
+                        <span className={`text-xs font-bold px-3 py-1.5 rounded-xl ${
+                          p.estado === 'aprobado' 
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/20' 
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                        }`}>
+                          {p.estado === 'aprobado' ? '✅ Aprobada' : '❌ Rechazada'}
+                        </span>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => openEditEmp(emp)} className="text-slate-400 hover:text-brand-500 transition-colors p-1.5" title="Editar">
-                      <Pencil size={15} />
-                    </button>
-                    <button onClick={() => handleDeleteEmp(emp.id, emp.nombre)} className="text-slate-400 hover:text-red-500 transition-colors p-1.5" title="Eliminar">
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
                 </div>
               );
             })
           )}
         </div>
-        
-        {/* Próximos Turnos */}
-        <div className="flex justify-between items-center mt-8 mb-3">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-            <CalendarClock size={20} className="text-brand-500" />
-            Agenda de Turnos
-          </h3>
-          <button
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('open_ai_chat', { 
-                detail: { message: "Por favor, planifica automáticamente los turnos de esta semana para la plantilla actual y asígnalos usando la función asignar_turno." } 
-              }));
-            }}
-            className="flex items-center gap-2 bg-gradient-to-r from-amber-200 to-yellow-400 dark:from-yellow-600/20 dark:to-amber-500/20 border border-yellow-300 dark:border-yellow-500/30 text-yellow-800 dark:text-yellow-400 px-3 py-1.5 rounded-full text-sm font-medium hover:scale-105 transition-transform shadow-sm"
-          >
-            <Sparkles size={16} className="text-yellow-600 dark:text-yellow-400 animate-pulse" />
-            Autogenerar con IA
-          </button>
-        </div>
+      )}
 
-        <div className="space-y-3">
-          {loading ? (
-            <div className="flex justify-center p-8 text-brand-500">
-              <Loader2 className="animate-spin" size={32} />
-            </div>
-          ) : turnos.length === 0 ? (
-            <p className="text-slate-500 text-center py-4">No hay turnos asignados próximamente.</p>
-          ) : (
-            turnos.map(turno => {
-              const turnoDate = new Date(turno.fecha);
-              const isToday = new Date().toDateString() === turnoDate.toDateString();
-              
-              return (
-                <div key={turno.id} className={`bg-white dark:bg-slate-900 p-4 rounded-xl border ${isToday ? 'border-brand-500 dark:border-brand-500/50 shadow-md shadow-brand-500/10' : 'border-slate-200 dark:border-slate-800 shadow-sm'} transition-colors`}>
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isToday ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
-                        {turno.empleado_nombre ? turno.empleado_nombre.charAt(0) : '?'}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900 dark:text-white">{turno.empleado_nombre}</p>
-                        <p className="text-xs text-slate-500">{isToday ? 'HOY' : turnoDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded text-sm font-medium text-slate-700 dark:text-slate-300">
-                      <Clock size={14} className="text-brand-500" />
-                      {turno.hora_inicio} - {turno.hora_fin}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3 flex gap-4 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-3">
-                    <div className="flex items-center gap-1">
-                      <MapPin size={14} />
-                      {turno.local}
-                    </div>
-                    {turno.compañeros && (
-                      <div className="flex items-center gap-1">
-                        <Users size={14} />
-                        Con: {turno.compañeros}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Modal: Crear/Editar Empleado */}
+      {/* --- CRUD MODAL --- */}
       {showEmpModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                {editingEmpId ? 'Editar Empleado' : 'Nuevo Empleado'}
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {editingEmpId ? "Editar Empleado" : "Añadir Empleado"}
               </h3>
-              <button onClick={() => { setShowEmpModal(false); setEditingEmpId(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <button 
+                onClick={() => setShowEmpModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleEmpSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre Completo</label>
@@ -303,12 +417,12 @@ export default function HRManagement() {
                   type="text" required
                   value={empForm.nombre}
                   onChange={e => setEmpForm({...empForm, nombre: e.target.value})}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
-                  placeholder="Ej. Ana García López"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
+                  placeholder="Ej. Juan Pérez"
                 />
               </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rol</label>
                   <select 
                     value={empForm.rol}
@@ -320,7 +434,7 @@ export default function HRManagement() {
                     <option value="owner">Propietario</option>
                   </select>
                 </div>
-                <div className="flex-1">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Local</label>
                   <select 
                     value={empForm.local}
@@ -329,11 +443,12 @@ export default function HRManagement() {
                   >
                     <option value="Principal">Principal</option>
                     <option value="Segundo Local">Segundo Local</option>
+                    <option value="Todos">Todos</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
                 <input 
                   type="tel"
                   value={empForm.telefono}
@@ -351,7 +466,7 @@ export default function HRManagement() {
                   value={empForm.pin}
                   onChange={e => setEmpForm({...empForm, pin: e.target.value.replace(/\D/g, '')})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white font-mono tracking-widest text-center"
-                  placeholder="0000"
+                  placeholder={editingEmpId ? "Dejar vacío para mantener PIN actual" : "0000"}
                 />
                 <p className="text-xs text-slate-400 mt-1">Mínimo 4 dígitos. Se usa para entrar a la app.</p>
               </div>
@@ -366,17 +481,20 @@ export default function HRManagement() {
         </div>
       )}
 
-      {/* Modal: Asignar Turno */}
+      {/* --- SHIFT MODAL --- */}
       {showShiftModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Asignar Turno</h3>
-              <button onClick={() => setShowShiftModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Asignar Turno</h3>
+              <button 
+                onClick={() => setShowShiftModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleAssignShift} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Empleado</label>
@@ -386,23 +504,34 @@ export default function HRManagement() {
                   onChange={e => setNewShift({...newShift, usuario_id: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                 >
-                  <option value="">Selecciona empleado</option>
-                  {employees.filter(e => e.rol === 'employee').map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.nombre}</option>
-                  ))}
+                  <option value="">Selecciona empleado...</option>
+                  {employees.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha</label>
-                <input 
-                  type="date" required
-                  value={newShift.fecha}
-                  onChange={e => setNewShift({...newShift, fecha: e.target.value})}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha</label>
+                  <input 
+                    type="date" required
+                    value={newShift.fecha}
+                    onChange={e => setNewShift({...newShift, fecha: e.target.value})}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-950 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Local</label>
+                  <select 
+                    value={newShift.local}
+                    onChange={e => setNewShift({...newShift, local: e.target.value})}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
+                  >
+                    <option value="Principal">Principal</option>
+                    <option value="Segundo Local">Segundo Local</option>
+                  </select>
+                </div>
               </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Hora Inicio</label>
                   <input 
                     type="time" required
@@ -411,7 +540,7 @@ export default function HRManagement() {
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   />
                 </div>
-                <div className="flex-1">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Hora Fin</label>
                   <input 
                     type="time" required
@@ -422,13 +551,13 @@ export default function HRManagement() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Compañeros (opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Compañeros (Opcional)</label>
                 <input 
-                  type="text" 
+                  type="text"
                   value={newShift.compañeros}
                   onChange={e => setNewShift({...newShift, compañeros: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
-                  placeholder="Ej. Juan Pérez"
+                  placeholder="Ej. María García, Pedro"
                 />
               </div>
               <button 

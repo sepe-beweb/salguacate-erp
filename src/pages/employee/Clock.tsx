@@ -4,34 +4,67 @@ import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
 
 export default function Clock() {
-  const { user } = useAuth();
+  const { user, fetchWithAuth } = useAuth();
   const [time, setTime] = useState(new Date());
   const [status, setStatus] = useState<'out' | 'working' | 'break'>('out');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const handleFichaje = async (tipo: 'entrada' | 'salida') => {
+  // Cargar estado inicial del fichaje activo desde el servidor
+  useEffect(() => {
+    if (!user) return;
+    setErrorMsg('');
+    setLoading(true);
+    fetchWithAuth(`${API_URL}/api/fichajes/activo`)
+      .then(async res => {
+        if (!res.ok) throw new Error('Error al cargar estado del fichaje');
+        const data = await res.json();
+        if (data) {
+          if (data.estado === 'descanso') {
+            setStatus('break');
+          } else {
+            setStatus('working');
+          }
+        } else {
+          setStatus('out');
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setErrorMsg('No se pudo verificar el estado de tu turno actual en el servidor.');
+        setLoading(false);
+      });
+  }, [user]);
+
+  const handleFichaje = async (tipo: 'entrada' | 'salida' | 'descanso' | 'volver') => {
     if (!user) return;
     setLoading(true);
+    setErrorMsg('');
     try {
-      const res = await fetch(`${API_URL}/api/fichar`, {
+      const res = await fetchWithAuth(`${API_URL}/api/fichar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario_id: user.id, tipo })
       });
       
+      const data = await res.json();
+      
       if (res.ok) {
-        if (tipo === 'entrada') setStatus('working');
+        if (tipo === 'entrada' || tipo === 'volver') setStatus('working');
+        if (tipo === 'descanso') setStatus('break');
         if (tipo === 'salida') setStatus('out');
       } else {
-        console.error("Error en servidor");
+        setErrorMsg(data.error || 'Error al procesar el marcaje.');
       }
     } catch (error) {
       console.error("Error de conexión al fichar", error);
+      setErrorMsg('Error de red. No se pudo conectar con el servidor.');
     } finally {
       setLoading(false);
     }
@@ -48,20 +81,30 @@ export default function Clock() {
         </h2>
       </div>
 
+      {errorMsg && (
+        <div className="w-full max-w-sm bg-red-50 dark:bg-red-950/30 border border-red-205 dark:border-red-900/40 p-4 rounded-xl text-red-700 dark:text-red-400 text-xs text-center">
+          {errorMsg}
+        </div>
+      )}
+
       <div className="w-full max-w-sm space-y-4">
-        {status === 'out' ? (
+        {loading ? (
+          <div className="flex justify-center p-8 text-brand-500">
+            <Loader2 className="animate-spin" size={36} />
+          </div>
+        ) : status === 'out' ? (
           <button 
             onClick={() => handleFichaje('entrada')}
             disabled={loading}
             className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-6 rounded-3xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-brand-500/30 transition-all active:scale-95 disabled:opacity-70"
           >
-            {loading ? <Loader2 size={32} className="animate-spin" /> : <Play size={32} />}
-            <span className="text-xl">{loading ? 'Conectando...' : 'Fichar Entrada'}</span>
+            <Play size={32} />
+            <span className="text-xl">Fichar Entrada</span>
           </button>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-in zoom-in-95 duration-200">
             <div className="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-2xl p-4 text-center">
-              <span className="inline-block w-3 h-3 bg-brand-500 rounded-full animate-pulse mr-2"></span>
+              <span className={`inline-block w-3 h-3 rounded-full mr-2 ${status === 'working' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
               <span className="text-brand-700 dark:text-brand-400 font-medium">
                 {status === 'working' ? 'Turno Activo' : 'En Descanso'}
               </span>
@@ -69,8 +112,9 @@ export default function Clock() {
 
             <div className="grid grid-cols-2 gap-4">
               <button 
-                onClick={() => setStatus(status === 'working' ? 'break' : 'working')}
-                className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 font-semibold py-4 rounded-2xl flex flex-col items-center gap-2 transition-colors"
+                onClick={() => handleFichaje(status === 'working' ? 'descanso' : 'volver')}
+                disabled={loading}
+                className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 font-semibold py-4 rounded-2xl flex flex-col items-center gap-2 transition-colors disabled:opacity-50"
               >
                 <Coffee size={24} />
                 {status === 'working' ? 'Descanso' : 'Volver'}
@@ -81,7 +125,7 @@ export default function Clock() {
                 disabled={loading}
                 className="bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 font-semibold py-4 rounded-2xl flex flex-col items-center gap-2 transition-colors disabled:opacity-50"
               >
-                {loading ? <Loader2 size={24} className="animate-spin" /> : <Square size={24} />}
+                <Square size={24} />
                 Finalizar
               </button>
             </div>

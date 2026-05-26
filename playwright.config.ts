@@ -25,7 +25,7 @@ export default defineConfig({
       timeout: 120000,
     },
     {
-      command: 'node server/index.js',
+      command: 'npx cross-env NODE_ENV=test START_SERVER=true node server/index.js',
       url: 'http://localhost:3001/api/usuarios/public',
       reuseExistingServer: !process.env.CI,
       timeout: 120000,

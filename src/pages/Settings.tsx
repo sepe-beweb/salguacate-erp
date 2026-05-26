@@ -20,27 +20,27 @@ export default function Settings() {
         </div>
         
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          <div className="p-4 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+          <div className="p-4 flex items-center gap-3 transition-colors opacity-70">
             <User size={20} className="text-slate-400" />
             <div className="flex-1">
               <p className="font-medium text-slate-900 dark:text-white">Datos Personales</p>
             </div>
           </div>
-          <div className="p-4 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+          <div className="p-4 flex items-center gap-3 transition-colors opacity-70">
             <BellRing size={20} className="text-slate-400" />
             <div className="flex-1">
               <p className="font-medium text-slate-900 dark:text-white">Notificaciones</p>
             </div>
           </div>
           {user?.role === 'owner' && (
-            <div className="p-4 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+            <div className="p-4 flex items-center gap-3 transition-colors opacity-70">
               <Store size={20} className="text-slate-400" />
               <div className="flex-1">
                 <p className="font-medium text-slate-900 dark:text-white">Gestión de Locales</p>
               </div>
             </div>
           )}
-          <div className="p-4 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors">
+          <div className="p-4 flex items-center gap-3 transition-colors opacity-70">
             <Lock size={20} className="text-slate-400" />
             <div className="flex-1">
               <p className="font-medium text-slate-900 dark:text-white">Privacidad y Seguridad</p>

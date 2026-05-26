@@ -12,6 +12,10 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/server/uploads
+      sizeGB: 1
         
   - type: web
     name: salguacate-frontend

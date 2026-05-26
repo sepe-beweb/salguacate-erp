@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Euro, CreditCard, Gift, AlertCircle, Save, TrendingUp, Loader2, MapPin } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 interface Cierre {
@@ -14,14 +15,20 @@ interface Cierre {
 }
 
 export default function Sales() {
+  const { fetchWithAuth } = useAuth();
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
   const [cierres, setCierres] = useState<Cierre[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterLocal, setFilterLocal] = useState('Todos');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  const getLocalDateString = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   const [newCierre, setNewCierre] = useState({
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: getLocalDateString(),
     local: 'Principal',
     efectivo: '',
     tarjeta: '',
@@ -31,7 +38,7 @@ export default function Sales() {
 
   const fetchCierres = () => {
     setLoading(true);
-    fetch(`${API_URL}/api/cierres`)
+    fetchWithAuth(`${API_URL}/api/cierres`)
       .then(res => res.json())
       .then(data => {
         setCierres(data);
@@ -53,14 +60,14 @@ export default function Sales() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/cierres`, {
+      const res = await fetchWithAuth(`${API_URL}/api/cierres`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newCierre)
       });
       if (res.ok) {
         setNewCierre({
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: getLocalDateString(),
           local: 'Principal',
           efectivo: '',
           tarjeta: '',
@@ -69,6 +76,9 @@ export default function Sales() {
         });
         alert('Cierre registrado correctamente');
         setActiveTab('history');
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Error al registrar el cierre');
       }
     } catch (err) {
       console.error(err);
@@ -141,6 +151,7 @@ export default function Sales() {
                   <input 
                     type="number" 
                     step="0.01" 
+                    min="0"
                     required
                     value={newCierre.efectivo}
                     onChange={e => setNewCierre({...newCierre, efectivo: e.target.value})}
@@ -159,6 +170,7 @@ export default function Sales() {
                   <input 
                     type="number" 
                     step="0.01" 
+                    min="0"
                     required
                     value={newCierre.tarjeta}
                     onChange={e => setNewCierre({...newCierre, tarjeta: e.target.value})}
@@ -178,6 +190,7 @@ export default function Sales() {
                 <input 
                   type="number" 
                   step="0.01" 
+                  min="0"
                   value={newCierre.invitaciones}
                   onChange={e => setNewCierre({...newCierre, invitaciones: e.target.value})}
                   placeholder="0.00" 

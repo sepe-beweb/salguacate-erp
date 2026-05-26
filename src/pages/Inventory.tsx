@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Filter, Loader2, X, AlertTriangle, Send, CheckCircle2, MapPin } from 'lucide-react';
+import { Search, Plus, Loader2, X, AlertTriangle, Send, CheckCircle2, MapPin } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 interface Item {
@@ -19,6 +20,7 @@ interface Provider {
 }
 
 export default function Inventory() {
+  const { fetchWithAuth } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -35,7 +37,7 @@ export default function Inventory() {
     const url = filterLocal !== 'Todos'
       ? `${API_URL}/api/inventario?local=${encodeURIComponent(filterLocal)}`
       : `${API_URL}/api/inventario`;
-    fetch(url)
+    fetchWithAuth(url)
       .then(res => res.json())
       .then(data => {
         setItems(data);
@@ -47,25 +49,30 @@ export default function Inventory() {
       });
   };
 
+  const fetchAlerts = () => {
+    const urlAlertas = filterLocal !== 'Todos'
+      ? `${API_URL}/api/inventario/alertas?local=${encodeURIComponent(filterLocal)}`
+      : `${API_URL}/api/inventario/alertas`;
+
+    fetchWithAuth(urlAlertas)
+      .then(res => res.json())
+      .then(data => setAlertas(data))
+      .catch(err => console.error(err));
+  };
+
   useEffect(() => {
     fetchInventory();
-    fetch(`${API_URL}/api/proveedores`)
+    fetchWithAuth(`${API_URL}/api/proveedores`)
       .then(res => res.json())
       .then(data => setProviders(data))
       .catch(err => console.error(err));
       
-    fetch(`${API_URL}/api/inventario/alertas`)
-      .then(res => res.json())
-      .then(data => setAlertas(data))
-      .catch(err => console.error(err));
+    fetchAlerts();
 
     // Escuchar si la IA realiza alguna acción (modificar_stock)
     const handleAiAction = () => {
       fetchInventory();
-      fetch(`${API_URL}/api/inventario/alertas`)
-        .then(res => res.json())
-        .then(data => setAlertas(data))
-        .catch(err => console.error(err));
+      fetchAlerts();
     };
     window.addEventListener('ai_action_executed', handleAiAction);
     
@@ -102,11 +109,14 @@ export default function Inventory() {
     }));
 
     try {
-      await fetch(`${API_URL}/api/inventario/${id}/stock`, {
+      const res = await fetchWithAuth(`${API_URL}/api/inventario/${id}/stock`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ increment })
       });
+      if (res.ok) {
+        fetchAlerts();
+      }
     } catch (err) {
       console.error("Error actualizando stock", err);
       fetchInventory(); // Revert on error
@@ -119,7 +129,7 @@ export default function Inventory() {
     setIsSubmitting(true);
     
     try {
-      const res = await fetch(`${API_URL}/api/inventario`, {
+      const res = await fetchWithAuth(`${API_URL}/api/inventario`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newItem)
@@ -128,6 +138,7 @@ export default function Inventory() {
         setShowAddModal(false);
         setNewItem({ producto: '', stock_actual: 0, stock_minimo: 5, categoria: 'Bebida', proveedor_id: '', imagen_base64: '', local: filterLocal !== 'Todos' ? filterLocal : 'Principal' });
         fetchInventory();
+        fetchAlerts();
       }
     } catch (err) {
       console.error(err);
@@ -345,9 +356,6 @@ export default function Inventory() {
               className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-200 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-brand-500 transition-colors shadow-sm"
             />
           </div>
-          <button className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 shadow-sm transition-colors">
-            <Filter size={20} />
-          </button>
         </div>
       </div>
 

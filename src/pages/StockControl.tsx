@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ClipboardCheck, Loader2, Send, Copy, CheckCircle2, Package, MapPin, ShoppingCart, History } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 interface StockItem {
@@ -38,6 +39,7 @@ interface Pedido {
 const LOCALES = ['Principal', 'Segundo Local'];
 
 export default function StockControl() {
+  const { fetchWithAuth } = useAuth();
   const [items, setItems] = useState<StockItem[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,8 +53,8 @@ export default function StockControl() {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      fetch(`${API_URL}/api/inventario?local=${selectedLocal}`).then(r => r.json()),
-      fetch(`${API_URL}/api/pedidos`).then(r => r.json()),
+      fetchWithAuth(`${API_URL}/api/inventario?local=${selectedLocal}`).then(r => r.json()),
+      fetchWithAuth(`${API_URL}/api/pedidos`).then(r => r.json()),
     ])
     .then(([inv, ped]) => { setItems(inv); setPedidos(ped); setLoading(false); })
     .catch(() => setLoading(false));
@@ -63,7 +65,11 @@ export default function StockControl() {
   const toggleItem = (id: number) => {
     setCheckedIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -108,6 +114,28 @@ export default function StockControl() {
     return header + body + '\n\n¡Gracias!';
   };
 
+  const registrarPedido = (provName: string, lines: OrderLine[]) => {
+    const provId = lines[0]?.proveedor_id;
+    fetchWithAuth(`${API_URL}/api/pedidos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fecha: new Date().toISOString().split('T')[0],
+        local: selectedLocal,
+        proveedor_id: provId,
+        proveedor_nombre: provName,
+        productos: lines.map(l => ({ 
+          producto_id: l.producto_id, 
+          nombre: l.nombre, 
+          cantidad: l.cantidad 
+        }))
+      })
+    }).then(() => {
+      fetchData();
+      alert(`Pedido de ${provName} registrado en historial.`);
+    });
+  };
+
   const sendWhatsApp = (provName: string, lines: OrderLine[], phone?: string | null) => {
     const text = generateWhatsAppText(provName, lines);
     const cleanPhone = phone?.replace(/\s+/g, '').replace(/^\+/, '') || '';
@@ -116,19 +144,11 @@ export default function StockControl() {
       : `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
 
-    // Save to history
-    const provId = lines[0]?.proveedor_id;
-    fetch(`${API_URL}/api/pedidos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fecha: new Date().toISOString().split('T')[0],
-        local: selectedLocal,
-        proveedor_id: provId,
-        proveedor_nombre: provName,
-        productos: lines.map(l => ({ nombre: l.nombre, cantidad: l.cantidad }))
-      })
-    }).then(() => fetchData());
+    setTimeout(() => {
+      if (window.confirm(`¿Has enviado correctamente el pedido a ${provName}?\n¿Deseas registrarlo en el historial de pedidos?`)) {
+        registrarPedido(provName, lines);
+      }
+    }, 1000);
   };
 
   const copyText = (provName: string, lines: OrderLine[]) => {
@@ -137,9 +157,33 @@ export default function StockControl() {
     setTimeout(() => setCopiedProv(null), 2000);
   };
 
-  const markReceived = async (id: number) => {
-    await fetch(`${API_URL}/api/pedidos/${id}/recibido`, { method: 'PATCH' });
-    fetchData();
+  const markReceived = async (p: Pedido) => {
+    if (window.confirm(`¿Marcar el pedido de ${p.proveedor_nombre} como recibido?`)) {
+      const sumToInventory = window.confirm(`¿Deseas sumar automáticamente las cantidades recibidas al stock de ${p.local}?\n\nNota: Solo se sumarán aquellos productos que sigan existiendo en el catálogo.`);
+      
+      await fetchWithAuth(`${API_URL}/api/pedidos/${p.id}/recibido`, { method: 'PATCH' });
+      
+      if (sumToInventory) {
+        let prods = [];
+        try { 
+          prods = JSON.parse(p.productos || '[]'); 
+        } catch(e) {
+          console.error("Error parseando", e);
+        }
+        for (const prod of prods) {
+          if (prod.producto_id) {
+            await fetchWithAuth(`${API_URL}/api/inventario/${prod.producto_id}/stock`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ increment: prod.cantidad })
+            }).catch(console.error);
+          }
+        }
+        alert("Cantidades sumadas al stock.");
+        window.dispatchEvent(new Event('ai_action_executed'));
+      }
+      fetchData();
+    }
   };
 
   const getStockColor = (item: StockItem) => {
@@ -176,7 +220,12 @@ export default function StockControl() {
           {pedidos.length === 0 ? (
             <p className="text-slate-400 text-center py-4 text-sm">Sin pedidos registrados.</p>
           ) : pedidos.slice(0, 10).map(p => {
-            const prods = JSON.parse(p.productos || '[]');
+            let prods = [];
+            try {
+              prods = JSON.parse(p.productos || '[]');
+            } catch (e) {
+              console.error("Error parseando productos de pedido", e);
+            }
             return (
               <div key={p.id} className={`bg-white dark:bg-slate-900 p-3 rounded-xl border shadow-sm ${p.estado === 'recibido' ? 'border-emerald-200 dark:border-emerald-800 opacity-60' : 'border-slate-200 dark:border-slate-800'}`}>
                 <div className="flex justify-between items-start">
@@ -185,8 +234,8 @@ export default function StockControl() {
                     <p className="text-xs text-slate-400">{p.local} · {new Date(p.fecha).toLocaleDateString('es-ES')}</p>
                   </div>
                   {p.estado === 'pendiente' ? (
-                    <button onClick={() => markReceived(p.id)} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full font-semibold hover:bg-emerald-200 transition-colors">
-                      ✓ Recibido
+                    <button onClick={() => markReceived(p)} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full font-semibold hover:bg-emerald-200 transition-colors">
+                      ✓ Recibir
                     </button>
                   ) : (
                     <span className="text-xs text-emerald-500 font-semibold">✓ Recibido</span>

@@ -4,6 +4,7 @@ const cors = require('cors');
 const db = require('./database');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const logFile = path.join(__dirname, 'server.log');
 
@@ -16,7 +17,6 @@ function logger(level, message, error = null) {
   }
   logLine += '\n';
   
-  // Imprimir en consola y guardar en archivo
   if (level === 'error') console.error(logLine);
   else console.log(logLine);
   
@@ -35,11 +35,72 @@ app.use('/uploads', express.static(uploadsDir));
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+const SECRET_KEY = process.env.JWT_SECRET || 'salguacate-erp-super-secret-key-2026';
 
-// Rutas de Usuarios
-app.get('/api/usuarios', (req, res) => {
-  db.all('SELECT id, nombre, rol, local, telefono, pin FROM usuarios', [], (err, rows) => {
+// --- SEGURIDAD: Funciones del Token HMAC-SHA256 ---
+function generateToken(user) {
+  const payload = {
+    id: user.id,
+    nombre: user.nombre,
+    rol: user.rol,
+    local: user.local,
+    exp: Date.now() + 24 * 60 * 60 * 1000 // 24 horas de validez
+  };
+  const payloadStr = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', SECRET_KEY).update(payloadStr).digest('base64url');
+  return `${payloadStr}.${signature}`;
+}
+
+function verifyToken(token) {
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [payloadStr, signature] = parts;
+  const expectedSig = crypto.createHmac('sha256', SECRET_KEY).update(payloadStr).digest('base64url');
+  if (signature !== expectedSig) return null;
+  
+  try {
+    const payload = JSON.parse(Buffer.from(payloadStr, 'base64url').toString('utf8'));
+    if (Date.now() > payload.exp) return null; // Expirado
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Middlewares de protección
+const requireAuth = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ error: 'Token no provisto' });
+  
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return res.status(401).json({ error: 'Formato de token inválido' });
+  }
+  
+  const user = verifyToken(parts[1]);
+  if (!user) return res.status(401).json({ error: 'Token inválido o expirado' });
+  
+  req.user = user;
+  next();
+};
+
+const requireRole = (allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+    if (!allowedRoles.includes(req.user.rol)) {
+      return res.status(403).json({ error: 'Acceso no autorizado para tu rol' });
+    }
+    next();
+  };
+};
+
+// --- RUTAS DE USUARIOS ---
+
+// Listado de usuarios (Hides PIN completely, returns is_active or has_pin)
+app.get('/api/usuarios', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  db.all('SELECT id, nombre, rol, local, telefono, CASE WHEN pin IS NOT NULL AND pin != "" THEN 1 ELSE 0 END AS has_pin FROM usuarios', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
@@ -48,14 +109,27 @@ app.get('/api/usuarios', (req, res) => {
 // Login con PIN
 app.post('/api/login', (req, res) => {
   const { usuario_id, pin } = req.body;
-  db.get('SELECT id, nombre, rol, local FROM usuarios WHERE id = ? AND pin = ?', [usuario_id, pin], (err, row) => {
+  const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+  
+  db.get('SELECT id, nombre, rol, local, pin FROM usuarios WHERE id = ?', [usuario_id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(401).json({ error: 'PIN incorrecto' });
-    res.json({ success: true, user: row });
+    if (!row) return res.status(401).json({ error: 'Usuario no encontrado' });
+    
+    if (row.pin !== pin && row.pin !== hashedPin) {
+      return res.status(401).json({ error: 'PIN incorrecto' });
+    }
+    
+    if (row.pin === pin) {
+       db.run('UPDATE usuarios SET pin = ? WHERE id = ?', [hashedPin, usuario_id]);
+    }
+    
+    const userForToken = { id: row.id, nombre: row.nombre, rol: row.rol, local: row.local };
+    const token = generateToken(userForToken);
+    res.json({ success: true, user: userForToken, token });
   });
 });
 
-// Listado público (para pantalla de login — solo nombre y rol, sin PIN)
+// Listado público (para login — sin PIN ni datos sensibles)
 app.get('/api/usuarios/public', (req, res) => {
   db.all('SELECT id, nombre, rol FROM usuarios', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -63,10 +137,13 @@ app.get('/api/usuarios/public', (req, res) => {
   });
 });
 
-app.post('/api/usuarios', (req, res) => {
+app.post('/api/usuarios', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { nombre, rol, local, telefono, pin } = req.body;
+  const pinToSave = pin || '0000';
+  const hashedPin = crypto.createHash('sha256').update(pinToSave).digest('hex');
+  
   db.run(`INSERT INTO usuarios (nombre, rol, local, telefono, pin) VALUES (?, ?, ?, ?, ?)`,
-    [nombre, rol || 'employee', local || 'Principal', telefono || null, pin || '0000'],
+    [nombre, rol || 'employee', local || 'Principal', telefono || null, hashedPin],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, mensaje: 'Empleado creado' });
@@ -74,50 +151,136 @@ app.post('/api/usuarios', (req, res) => {
   );
 });
 
-app.put('/api/usuarios/:id', (req, res) => {
+app.put('/api/usuarios/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { id } = req.params;
   const { nombre, rol, local, telefono, pin } = req.body;
-  db.run(`UPDATE usuarios SET nombre = ?, rol = ?, local = ?, telefono = ?, pin = ? WHERE id = ?`,
-    [nombre, rol, local, telefono, pin || '0000', id],
-    function(err) {
+  
+  if (pin && pin.trim() !== '') {
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    db.run(`UPDATE usuarios SET nombre = ?, rol = ?, local = ?, telefono = ?, pin = ? WHERE id = ?`,
+      [nombre, rol, local, telefono, hashedPin, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id, mensaje: 'Empleado actualizado con nuevo PIN' });
+      }
+    );
+  } else {
+    db.run(`UPDATE usuarios SET nombre = ?, rol = ?, local = ?, telefono = ? WHERE id = ?`,
+      [nombre, rol, local, telefono, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id, mensaje: 'Empleado actualizado' });
+      }
+    );
+  }
+});
+
+app.delete('/api/usuarios/:id', requireAuth, requireRole(['owner']), (req, res) => {
+  const { id } = req.params;
+  
+  db.get('SELECT rol FROM usuarios WHERE id = ?', [id], (err, userToDelete) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!userToDelete) return res.status(404).json({ error: 'Usuario no encontrado' });
+    
+    if (userToDelete.rol === 'owner') {
+      db.get('SELECT count(*) as count FROM usuarios WHERE rol = "owner"', [], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (row.count <= 1) {
+          return res.status(400).json({ error: 'No se puede eliminar al último propietario del sistema' });
+        }
+        db.run(`DELETE FROM usuarios WHERE id = ?`, [id], function(err) {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ id, mensaje: 'Empleado eliminado' });
+        });
+      });
+    } else {
+      db.run(`DELETE FROM usuarios WHERE id = ?`, [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id, mensaje: 'Empleado eliminado' });
+      });
+    }
+  });
+});
+
+// --- RUTAS DE FICHAJES (ROBUSTO) ---
+
+// Obtener fichaje activo del usuario
+app.get('/api/fichajes/activo', requireAuth, (req, res) => {
+  const usuario_id = req.query.usuario_id || req.user.id;
+  db.get(`SELECT * FROM fichajes WHERE usuario_id = ? AND estado IN ('trabajando', 'descanso') LIMIT 1`,
+    [usuario_id],
+    (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id, mensaje: 'Empleado actualizado' });
+      res.json(row || null);
     }
   );
 });
 
-app.delete('/api/usuarios/:id', (req, res) => {
-  const { id } = req.params;
-  db.run(`DELETE FROM usuarios WHERE id = ?`, [id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id, mensaje: 'Empleado eliminado' });
+// Registrar fichaje (entrada, salida, descanso, volver)
+app.post('/api/fichar', requireAuth, (req, res) => {
+  const { usuario_id, tipo } = req.body; // tipo: 'entrada', 'salida', 'descanso', 'volver'
+  const target_uid = usuario_id || req.user.id;
+  const fechaActual = new Date().toISOString();
+
+  db.get(`SELECT * FROM fichajes WHERE usuario_id = ? AND estado IN ('trabajando', 'descanso') LIMIT 1`, 
+    [target_uid], 
+    (err, activeShift) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      if (tipo === 'entrada') {
+        if (activeShift) {
+          return res.status(400).json({ error: 'Ya tienes un fichaje activo registrado' });
+        }
+        db.run(`INSERT INTO fichajes (usuario_id, entrada, estado) VALUES (?, ?, 'trabajando')`, 
+          [target_uid, fechaActual], 
+          function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID, mensaje: 'Fichaje de entrada registrado correctamente' });
+        });
+      } else if (tipo === 'salida') {
+        if (!activeShift) {
+          return res.status(400).json({ error: 'No tienes ningún fichaje activo abierto' });
+        }
+        db.run(`UPDATE fichajes SET salida = ?, estado = 'fuera' WHERE id = ?`, 
+          [fechaActual, activeShift.id], 
+          function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ mensaje: 'Fichaje de salida registrado correctamente' });
+        });
+      } else if (tipo === 'descanso') {
+        if (!activeShift) {
+          return res.status(400).json({ error: 'No hay turno activo para iniciar descanso' });
+        }
+        if (activeShift.estado === 'descanso') {
+          return res.status(400).json({ error: 'Ya te encuentras en descanso' });
+        }
+        db.run(`UPDATE fichajes SET estado = 'descanso' WHERE id = ?`, 
+          [activeShift.id], 
+          function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ mensaje: 'Descanso iniciado correctamente' });
+        });
+      } else if (tipo === 'volver') {
+        if (!activeShift) {
+          return res.status(400).json({ error: 'No hay turno activo para volver de descanso' });
+        }
+        if (activeShift.estado !== 'descanso') {
+          return res.status(400).json({ error: 'No te encuentras en descanso para reanudar' });
+        }
+        db.run(`UPDATE fichajes SET estado = 'trabajando' WHERE id = ?`, 
+          [activeShift.id], 
+          function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ mensaje: 'Turno reanudado correctamente' });
+        });
+      } else {
+        res.status(400).json({ error: 'Tipo de fichaje inválido' });
+      }
   });
 });
 
-// Rutas de Fichajes
-app.post('/api/fichar', (req, res) => {
-  const { usuario_id, tipo } = req.body; // tipo: 'entrada' o 'salida'
-  const fechaActual = new Date().toISOString();
-
-  if (tipo === 'entrada') {
-    db.run(`INSERT INTO fichajes (usuario_id, entrada, estado) VALUES (?, ?, 'trabajando')`, 
-      [usuario_id, fechaActual], 
-      function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, mensaje: 'Fichaje de entrada registrado' });
-    });
-  } else if (tipo === 'salida') {
-    db.run(`UPDATE fichajes SET salida = ?, estado = 'fuera' WHERE usuario_id = ? AND estado = 'trabajando'`, 
-      [fechaActual, usuario_id], 
-      function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ mensaje: 'Fichaje de salida registrado' });
-    });
-  }
-});
-
-// Control de presencia de empleados en tiempo real
-app.get('/api/fichajes/presencia', (req, res) => {
+// Control de presencia en tiempo real
+app.get('/api/fichajes/presencia', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const query = `
     SELECT 
       u.id as usuario_id, 
@@ -143,8 +306,9 @@ app.get('/api/fichajes/presencia', (req, res) => {
   });
 });
 
-// Rutas de Inventario
-app.get('/api/inventario', (req, res) => {
+// --- RUTAS DE INVENTARIO ---
+
+app.get('/api/inventario', requireAuth, (req, res) => {
   const { local } = req.query;
   let query = 'SELECT inventario.*, proveedores.nombre as proveedor_nombre, proveedores.telefono as proveedor_telefono FROM inventario LEFT JOIN proveedores ON inventario.proveedor_id = proveedores.id';
   const params = [];
@@ -155,7 +319,7 @@ app.get('/api/inventario', (req, res) => {
   });
 });
 
-app.put('/api/inventario/:id/stock', (req, res) => {
+app.put('/api/inventario/:id/stock', requireAuth, (req, res) => {
   const { increment } = req.body;
   const { id } = req.params;
   
@@ -167,7 +331,7 @@ app.put('/api/inventario/:id/stock', (req, res) => {
   });
 });
 
-app.post('/api/inventario', (req, res) => {
+app.post('/api/inventario', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { producto, stock_actual, stock_minimo, local, categoria, proveedor_id, imagen_base64 } = req.body;
   
   let imagen_url = null;
@@ -178,13 +342,13 @@ app.post('/api/inventario', (req, res) => {
       const filePath = path.join(uploadsDir, fileName);
       fs.writeFileSync(filePath, base64Data, 'base64');
       imagen_url = `/uploads/${fileName}`;
-    } catch (err) {
-      console.error("Error guardando la imagen:", err);
+    } catch (e) {
+      logger('error', 'Error al guardar la foto del inventario', e);
     }
   }
 
-  db.run(`INSERT INTO inventario (producto, stock_actual, stock_minimo, local, categoria, proveedor_id, imagen_url) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [producto, stock_actual || 0, stock_minimo || 5, local || 'Principal', categoria || 'Bebida', proveedor_id || null, imagen_url],
+  db.run(`INSERT INTO inventario (producto, stock_actual, stock_minimo, local, categoria, imagen_url, proveedor_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [producto, parseInt(stock_actual || 0), parseInt(stock_minimo || 5), local || 'Principal', categoria || 'Bebida', imagen_url, proveedor_id || null],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, mensaje: 'Producto añadido al inventario' });
@@ -192,14 +356,14 @@ app.post('/api/inventario', (req, res) => {
   );
 });
 
-// Alertas de Stock (Pedidos Automáticos)
-app.get('/api/inventario/alertas', (req, res) => {
+// Alertas de Stock (<= Criterio unificado)
+app.get('/api/inventario/alertas', requireAuth, (req, res) => {
   const { local } = req.query;
   let query = `
     SELECT i.*, p.nombre as proveedor_nombre, p.telefono as proveedor_telefono 
     FROM inventario i
     LEFT JOIN proveedores p ON i.proveedor_id = p.id
-    WHERE i.stock_actual < i.stock_minimo
+    WHERE i.stock_actual <= i.stock_minimo
   `;
   const params = [];
   if (local) { query += ' AND i.local = ?'; params.push(local); }
@@ -209,15 +373,16 @@ app.get('/api/inventario/alertas', (req, res) => {
   });
 });
 
-// Rutas de Proveedores
-app.get('/api/proveedores', (req, res) => {
+// --- RUTAS DE PROVEEDORES ---
+
+app.get('/api/proveedores', requireAuth, (req, res) => {
   db.all('SELECT * FROM proveedores', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.post('/api/proveedores', (req, res) => {
+app.post('/api/proveedores', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { nombre, telefono, email, categoria } = req.body;
   db.run(`INSERT INTO proveedores (nombre, telefono, email, categoria) VALUES (?, ?, ?, ?)`,
     [nombre, telefono || '', email || '', categoria || 'General'],
@@ -228,8 +393,9 @@ app.post('/api/proveedores', (req, res) => {
   );
 });
 
-// Rutas de Turnos (Calendario)
-app.get('/api/turnos', (req, res) => {
+// --- RUTAS DE TURNOS ---
+
+app.get('/api/turnos', requireAuth, (req, res) => {
   const { usuario_id } = req.query;
   let query = `
     SELECT t.*, u.nombre as empleado_nombre, u.rol as empleado_rol 
@@ -249,7 +415,7 @@ app.get('/api/turnos', (req, res) => {
   });
 });
 
-app.post('/api/turnos', (req, res) => {
+app.post('/api/turnos', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { usuario_id, fecha, hora_inicio, hora_fin, local, compañeros } = req.body;
   
   db.run(`INSERT INTO turnos (usuario_id, fecha, hora_inicio, hora_fin, local, compañeros) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -261,20 +427,23 @@ app.post('/api/turnos', (req, res) => {
   );
 });
 
-// Rutas de Mensajes (Correos)
-app.get('/api/mensajes', (req, res) => {
+// --- RUTAS DE MENSAJES ---
+
+app.get('/api/mensajes', requireAuth, (req, res) => {
   const { usuario_id } = req.query;
-  db.all('SELECT m.*, u.nombre as remitente_nombre FROM mensajes m JOIN usuarios u ON m.remitente_id = u.id WHERE m.destinatario_id = ? ORDER BY m.fecha DESC', [usuario_id], (err, rows) => {
+  const target_id = usuario_id || req.user.id;
+  db.all('SELECT m.*, u.nombre as remitente_nombre FROM mensajes m JOIN usuarios u ON m.remitente_id = u.id WHERE m.destinatario_id = ? ORDER BY m.fecha DESC', [target_id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.post('/api/mensajes', (req, res) => {
+app.post('/api/mensajes', requireAuth, (req, res) => {
   const { remitente_id, destinatario_id, asunto, cuerpo } = req.body;
+  const from_id = remitente_id || req.user.id;
   const fecha = new Date().toISOString();
   db.run(`INSERT INTO mensajes (remitente_id, destinatario_id, asunto, cuerpo, fecha) VALUES (?, ?, ?, ?, ?)`,
-    [remitente_id, destinatario_id, asunto, cuerpo, fecha],
+    [from_id, destinatario_id, asunto, cuerpo, fecha],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, mensaje: 'Mensaje enviado' });
@@ -282,40 +451,88 @@ app.post('/api/mensajes', (req, res) => {
   );
 });
 
-// Rutas de Cierres de Caja (Ventas)
-app.get('/api/cierres', (req, res) => {
+// --- RUTAS DE CIERRES (ROBUSTO Y CON VALIDACIÓN) ---
+
+app.get('/api/cierres', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   db.all('SELECT * FROM cierres ORDER BY fecha DESC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.post('/api/cierres', (req, res) => {
+app.post('/api/cierres', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { fecha, local, efectivo, tarjeta, invitaciones, descuadre } = req.body;
-  const total = parseFloat(efectivo || 0) + parseFloat(tarjeta || 0);
   
-  db.run(`INSERT INTO cierres (fecha, local, efectivo, tarjeta, invitaciones, descuadre, total) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [fecha, local, parseFloat(efectivo || 0), parseFloat(tarjeta || 0), parseFloat(invitaciones || 0), parseFloat(descuadre || 0), total],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, mensaje: 'Cierre registrado correctamente' });
+  const valEfectivo = parseFloat(efectivo || 0);
+  const valTarjeta = parseFloat(tarjeta || 0);
+  const valInvitaciones = parseFloat(invitaciones || 0);
+  const valDescuadre = parseFloat(descuadre || 0);
+  
+  if (isNaN(valEfectivo) || valEfectivo < 0) return res.status(400).json({ error: 'El efectivo no puede ser negativo o inválido' });
+  if (isNaN(valTarjeta) || valTarjeta < 0) return res.status(400).json({ error: 'La tarjeta no puede ser negativa o inválida' });
+  if (isNaN(valInvitaciones) || valInvitaciones < 0) return res.status(400).json({ error: 'Las invitaciones no pueden ser negativas o inválidas' });
+  if (isNaN(valDescuadre)) return res.status(400).json({ error: 'El descuadre es inválido' });
+  
+  if (!local || !['Principal', 'Segundo Local'].includes(local)) {
+    return res.status(400).json({ error: 'Local inválido o no provisto' });
+  }
+  if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return res.status(400).json({ error: 'Fecha inválida. Debe ser YYYY-MM-DD' });
+  }
+
+  // Prevenir duplicado de cierre por fecha y local
+  db.get('SELECT id FROM cierres WHERE fecha = ? AND local = ?', [fecha, local], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (row) {
+      return res.status(409).json({ error: `Ya existe un cierre registrado para el local ${local} en la fecha ${fecha}` });
     }
-  );
+    
+    const total = valEfectivo + valTarjeta;
+    
+    db.run(`INSERT INTO cierres (fecha, local, efectivo, tarjeta, invitaciones, descuadre, total) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [fecha, local, valEfectivo, valTarjeta, valInvitaciones, valDescuadre, total],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id: this.lastID, mensaje: 'Cierre registrado correctamente' });
+      }
+    );
+  });
 });
 
-// Rutas de Gastos (Albaranes / AI)
-app.get('/api/gastos', (req, res) => {
-  db.all('SELECT * FROM gastos ORDER BY fecha DESC', [], (err, rows) => {
+// --- RUTAS DE GASTOS (CON FILTRADO LOCAL) ---
+
+app.get('/api/gastos', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  const { local } = req.query;
+  let query = 'SELECT * FROM gastos';
+  const params = [];
+  if (local) {
+    query += ' WHERE local = ?';
+    params.push(local);
+  }
+  query += ' ORDER BY fecha DESC';
+  
+  db.all(query, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.post('/api/gastos', (req, res) => {
-  const { fecha, proveedor_nombre, total, concepto } = req.body;
+app.post('/api/gastos', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  const { fecha, proveedor_nombre, total, concepto, local } = req.body;
   
-  db.run(`INSERT INTO gastos (fecha, proveedor_nombre, total, concepto) VALUES (?, ?, ?, ?)`,
-    [fecha || new Date().toISOString().split('T')[0], proveedor_nombre || 'Desconocido', parseFloat(total || 0), concepto || 'Albarán procesado por IA'],
+  const targetLocal = local || 'Principal';
+  if (!['Principal', 'Segundo Local'].includes(targetLocal)) {
+    return res.status(400).json({ error: 'Local inválido' });
+  }
+  
+  db.run(`INSERT INTO gastos (fecha, proveedor_nombre, total, concepto, local) VALUES (?, ?, ?, ?, ?)`,
+    [
+      fecha || new Date().toISOString().split('T')[0], 
+      proveedor_nombre || 'Desconocido', 
+      parseFloat(total || 0), 
+      concepto || 'Albarán procesado',
+      targetLocal
+    ],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, mensaje: 'Gasto registrado correctamente' });
@@ -323,92 +540,122 @@ app.post('/api/gastos', (req, res) => {
   );
 });
 
-// Rutas de Inteligencia Artificial (Gemini)
-app.post('/api/ai/vision', async (req, res) => {
-  const { imageBase64, mode } = req.body; // mode: 'invoice' o 'inventory'
+// --- [NUEVO P0] RUTAS DE PETICIONES DE EMPLEADO ---
+
+app.get('/api/peticiones', requireAuth, (req, res) => {
+  let query = `
+    SELECT p.*, u.nombre as empleado_nombre, u.rol as empleado_rol, u.local as empleado_local
+    FROM peticiones p
+    JOIN usuarios u ON p.usuario_id = u.id
+  `;
+  const params = [];
   
-  try {
-    const { GoogleGenAI } = require('@google/genai');
-    // Usando la clave proporcionada por el usuario
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    
-    // Instrucciones dependiendo del modo
-    let promptText = '';
-    if (mode === 'invoice') {
-      promptText = `Analiza esta imagen que es una factura o ticket de un local de hostelería. 
-      Devuelve ÚNICAMENTE un objeto JSON válido con las siguientes claves:
-      - "total": el importe total numérico de la factura (solo el número).
-      - "proveedor": el nombre de la empresa proveedora o restaurante.
-      - "rawText": un breve resumen de lo que has encontrado (max 2 lineas).
-      Si no puedes encontrar algo, pon null.`;
-    } else {
-      promptText = `Analiza esta imagen de una estantería o almacén de bebidas.
-      Devuelve ÚNICAMENTE un objeto JSON válido con las siguientes claves:
-      - "botellasEstimadas": número entero con la cantidad de botellas que ves.
-      - "confianza": porcentaje (ej. "80%") de tu seguridad en el conteo.
-      - "rawText": un resumen de los tipos de bebida que ves (max 2 lineas).
-      Si no ves botellas, devuelve 0.`;
-    }
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        { text: promptText },
-        { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }
-      ]
-    });
-
-    // Limpiar la respuesta para asegurar que es JSON (quitar bloques de código markdown)
-    let jsonText = response.text;
-    if (jsonText.startsWith('\`\`\`json')) {
-      jsonText = jsonText.replace(/\`\`\`json\n?/, '').replace(/\`\`\`$/, '');
-    }
-    
-    const parsedData = JSON.parse(jsonText);
-
-    res.json({ 
-      success: true, 
-      result: parsedData
-    });
-    
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error procesando la imagen con IA', details: error.message });
+  // Si es un empleado, solo ve sus propias peticiones
+  if (req.user.rol === 'employee') {
+    query += ' WHERE p.usuario_id = ?';
+    params.push(req.user.id);
   }
+  
+  query += ' ORDER BY p.creado_en DESC';
+  
+  db.all(query, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
 });
 
-// Agenda de Eventos (Manager)
-app.get('/api/eventos', (req, res) => {
+app.post('/api/peticiones', requireAuth, (req, res) => {
+  const { tipo, fecha_inicio, fecha_fin, comentarios } = req.body;
+  
+  if (!tipo || !fecha_inicio) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios (tipo, fecha_inicio)' });
+  }
+  
+  db.run(`INSERT INTO peticiones (usuario_id, tipo, fecha_inicio, fecha_fin, comentarios, estado) VALUES (?, ?, ?, ?, ?, 'pendiente')`,
+    [req.user.id, tipo, fecha_inicio, fecha_fin || null, comentarios || null],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, mensaje: 'Petición enviada correctamente' });
+    }
+  );
+});
+
+app.patch('/api/peticiones/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  const { id } = req.params;
+  const { estado } = req.body; // 'aprobado' o 'rechazado'
+  
+  if (!['aprobado', 'rechazado'].includes(estado)) {
+    return res.status(400).json({ error: 'Estado de petición inválido' });
+  }
+  
+  db.run(`UPDATE peticiones SET estado = ? WHERE id = ?`, [estado, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id, mensaje: `Petición marcada como ${estado}` });
+  });
+});
+
+// --- RUTAS DE PEDIDOS ---
+
+app.get('/api/pedidos', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  db.all('SELECT * FROM pedidos ORDER BY fecha DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/pedidos', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  const { fecha, local, proveedor_id, proveedor_nombre, productos } = req.body;
+  
+  db.run(`INSERT INTO pedidos (fecha, local, proveedor_id, proveedor_nombre, productos, estado) VALUES (?, ?, ?, ?, ?, 'pendiente')`,
+    [fecha, local, proveedor_id, proveedor_nombre, JSON.stringify(productos)],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, mensaje: 'Pedido guardado' });
+    }
+  );
+});
+
+app.patch('/api/pedidos/:id/recibido', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  const { id } = req.params;
+  db.run(`UPDATE pedidos SET estado = 'recibido' WHERE id = ?`, [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id, mensaje: 'Pedido marcado como recibido' });
+  });
+});
+
+app.delete('/api/pedidos/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM pedidos WHERE id = ?`, [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id, mensaje: 'Pedido eliminado' });
+  });
+});
+
+// --- RUTAS DE AGENDA (EVENTOS) ---
+
+app.get('/api/eventos', requireAuth, (req, res) => {
   db.all('SELECT * FROM eventos ORDER BY fecha ASC, hora ASC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.post('/api/eventos', (req, res) => {
+app.post('/api/eventos', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { titulo, fecha, hora, descripcion, tipo } = req.body;
   db.run(`INSERT INTO eventos (titulo, fecha, hora, descripcion, tipo) VALUES (?, ?, ?, ?, ?)`,
-    [titulo, fecha, hora, descripcion, tipo || 'General'],
+    [titulo, fecha, hora, descripcion || '', tipo || 'General'],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, mensaje: 'Evento creado' });
+      res.json({ id: this.lastID, mensaje: 'Evento programado' });
     }
   );
 });
 
-app.delete('/api/eventos/:id', (req, res) => {
-  const { id } = req.params;
-  db.run(`DELETE FROM eventos WHERE id = ?`, [id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id, mensaje: 'Evento eliminado' });
-  });
-});
-
-app.put('/api/eventos/:id', (req, res) => {
+app.put('/api/eventos/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { id } = req.params;
   const { titulo, fecha, hora, descripcion, tipo } = req.body;
   db.run(`UPDATE eventos SET titulo = ?, fecha = ?, hora = ?, descripcion = ?, tipo = ? WHERE id = ?`,
-    [titulo, fecha, hora, descripcion, tipo, id],
+    [titulo, fecha, hora, descripcion || '', tipo || 'General', id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id, mensaje: 'Evento actualizado' });
@@ -416,26 +663,35 @@ app.put('/api/eventos/:id', (req, res) => {
   );
 });
 
-// Notas Rápidas
-app.get('/api/notas', (req, res) => {
-  db.all(`SELECT notas.*, usuarios.nombre as autor FROM notas LEFT JOIN usuarios ON notas.usuario_id = usuarios.id ORDER BY fijada DESC, creado_en DESC`, [], (err, rows) => {
+app.delete('/api/eventos/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM eventos WHERE id = ?`, [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id, mensaje: 'Evento eliminado' });
+  });
+});
+
+// --- RUTAS DE NOTAS ---
+
+app.get('/api/notas', requireAuth, (req, res) => {
+  db.all('SELECT * FROM notas ORDER BY fijada DESC, creado_en DESC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.post('/api/notas', (req, res) => {
-  const { contenido, color, usuario_id } = req.body;
-  db.run(`INSERT INTO notas (contenido, color, usuario_id) VALUES (?, ?, ?)`,
-    [contenido, color || 'yellow', usuario_id || null],
+app.post('/api/notas', requireAuth, (req, res) => {
+  const { contenido, color } = req.body;
+  db.run(`INSERT INTO notas (usuario_id, contenido, color, fijada) VALUES (?, ?, ?, 0)`,
+    [req.user.id, contenido, color || 'yellow'],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, mensaje: 'Nota creada' });
+      res.json({ id: this.lastID, mensaje: 'Nota guardada' });
     }
   );
 });
 
-app.put('/api/notas/:id', (req, res) => {
+app.put('/api/notas/:id', requireAuth, (req, res) => {
   const { id } = req.params;
   const { contenido, color, fijada } = req.body;
   db.run(`UPDATE notas SET contenido = ?, color = ?, fijada = ? WHERE id = ?`,
@@ -447,7 +703,7 @@ app.put('/api/notas/:id', (req, res) => {
   );
 });
 
-app.delete('/api/notas/:id', (req, res) => {
+app.delete('/api/notas/:id', requireAuth, (req, res) => {
   const { id } = req.params;
   db.run(`DELETE FROM notas WHERE id = ?`, [id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
@@ -455,47 +711,47 @@ app.delete('/api/notas/:id', (req, res) => {
   });
 });
 
-// Tareas (Checklist)
-app.get('/api/tareas', (req, res) => {
-  db.all(`SELECT tareas.*, usuarios.nombre as asignado_nombre FROM tareas LEFT JOIN usuarios ON tareas.asignado_a = usuarios.id ORDER BY tareas.completada ASC, CASE tareas.prioridad WHEN 'alta' THEN 0 WHEN 'normal' THEN 1 WHEN 'baja' THEN 2 END, tareas.fecha ASC`, [], (err, rows) => {
+// --- RUTAS DE TAREAS ---
+
+app.get('/api/tareas', requireAuth, (req, res) => {
+  const { local } = req.query;
+  let query = 'SELECT t.*, u.nombre as asignado_nombre FROM tareas t LEFT JOIN usuarios u ON t.asignado_a = u.id';
+  const params = [];
+  if (local) {
+    query += ' WHERE t.local = ? OR t.local = "Ambos"';
+    params.push(local);
+  }
+  query += ' ORDER BY t.fecha DESC, t.completada ASC';
+  db.all(query, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.post('/api/tareas', (req, res) => {
+app.post('/api/tareas', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { titulo, descripcion, asignado_a, fecha, prioridad, local } = req.body;
-  db.run(`INSERT INTO tareas (titulo, descripcion, asignado_a, fecha, prioridad, local) VALUES (?, ?, ?, ?, ?, ?)`,
-    [titulo, descripcion || null, asignado_a || null, fecha, prioridad || 'normal', local || null],
+  db.run(`INSERT INTO tareas (titulo, descripcion, asignado_a, fecha, prioridad, local, completada) VALUES (?, ?, ?, ?, ?, ?, 0)`,
+    [titulo, descripcion || '', asignado_a || null, fecha, prioridad || 'normal', local || 'Ambos'],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, mensaje: 'Tarea creada' });
+      res.json({ id: this.lastID, mensaje: 'Tarea añadida' });
     }
   );
 });
 
-app.put('/api/tareas/:id', (req, res) => {
+app.put('/api/tareas/:id/completada', requireAuth, (req, res) => {
+  const { completada } = req.body;
   const { id } = req.params;
-  const { titulo, descripcion, asignado_a, fecha, prioridad, completada } = req.body;
-  db.run(`UPDATE tareas SET titulo = ?, descripcion = ?, asignado_a = ?, fecha = ?, prioridad = ?, completada = ? WHERE id = ?`,
-    [titulo, descripcion, asignado_a, fecha, prioridad, completada ? 1 : 0, id],
+  db.run(`UPDATE tareas SET completada = ? WHERE id = ?`,
+    [completada ? 1 : 0, id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id, mensaje: 'Tarea actualizada' });
+      res.json({ mensaje: 'Estado de tarea actualizado' });
     }
   );
 });
 
-// Toggle completada (shortcut)
-app.patch('/api/tareas/:id/toggle', (req, res) => {
-  const { id } = req.params;
-  db.run(`UPDATE tareas SET completada = CASE WHEN completada = 1 THEN 0 ELSE 1 END WHERE id = ?`, [id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id, mensaje: 'Tarea actualizada' });
-  });
-});
-
-app.delete('/api/tareas/:id', (req, res) => {
+app.delete('/api/tareas/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
   const { id } = req.params;
   db.run(`DELETE FROM tareas WHERE id = ?`, [id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
@@ -503,46 +759,11 @@ app.delete('/api/tareas/:id', (req, res) => {
   });
 });
 
-// Pedidos a Proveedores
-app.get('/api/pedidos', (req, res) => {
-  db.all(`SELECT pedidos.*, proveedores.telefono as proveedor_telefono FROM pedidos LEFT JOIN proveedores ON pedidos.proveedor_id = proveedores.id ORDER BY pedidos.creado_en DESC`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
-
-app.post('/api/pedidos', (req, res) => {
-  const { fecha, local, proveedor_id, proveedor_nombre, productos } = req.body;
-  db.run(`INSERT INTO pedidos (fecha, local, proveedor_id, proveedor_nombre, productos) VALUES (?, ?, ?, ?, ?)`,
-    [fecha, local, proveedor_id || null, proveedor_nombre, JSON.stringify(productos)],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, mensaje: 'Pedido registrado' });
-    }
-  );
-});
-
-app.patch('/api/pedidos/:id/recibido', (req, res) => {
-  const { id } = req.params;
-  db.run(`UPDATE pedidos SET estado = 'recibido' WHERE id = ?`, [id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id, mensaje: 'Pedido marcado como recibido' });
-  });
-});
-
-app.delete('/api/pedidos/:id', (req, res) => {
-  const { id } = req.params;
-  db.run(`DELETE FROM pedidos WHERE id = ?`, [id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id, mensaje: 'Pedido eliminado' });
-  });
-});
-
 // Promisify SQLite helpers for async/await inside AI logic
 const dbRunAsync = (query, params) => new Promise((resolve, reject) => {
   db.run(query, params, function(err) {
     if (err) reject(err);
-    else resolve(this);
+    else resolve(this || { lastID: 0, changes: 0 });
   });
 });
 
@@ -565,7 +786,8 @@ const aiTools = [{
           titulo: { type: "STRING" },
           fecha: { type: "STRING", description: "Formato YYYY-MM-DD. Hoy es " + new Date().toISOString().split('T')[0] },
           hora: { type: "STRING", description: "Formato HH:MM" },
-          tipo: { type: "STRING", description: "Uno de: General, Mantenimiento, Proveedor, Reunion, Pinchada, Concierto" }
+          tipo: { type: "STRING", description: "Uno de: General, Mantenimiento, Proveedor, Reunion, Pinchada, Concierto" },
+          descripcion: { type: "STRING", description: "Detalles o notas adicionales sobre el evento." }
         },
         required: ["titulo", "fecha", "hora", "tipo"]
       }
@@ -581,7 +803,7 @@ const aiTools = [{
     },
     {
       name: "modificar_stock",
-      description: "Modifica el stock actual de un producto sumando o restando unidades.",
+      description: "Modifica el stock actual de un producto sumando o restando unidades de forma no negativa.",
       parameters: {
         type: "OBJECT",
         properties: {
@@ -593,14 +815,16 @@ const aiTools = [{
     },
     {
       name: "asignar_turno",
-      description: "Crea un nuevo turno para un empleado.",
+      description: "Crea un nuevo turno para un empleado en un local.",
       parameters: {
         type: "OBJECT",
         properties: {
           usuario_id: { type: "INTEGER", description: "ID del empleado" },
           fecha: { type: "STRING", description: "Formato YYYY-MM-DD" },
           hora_inicio: { type: "STRING", description: "HH:MM" },
-          hora_fin: { type: "STRING", description: "HH:MM" }
+          hora_fin: { type: "STRING", description: "HH:MM" },
+          local: { type: "STRING", description: "Principal o Segundo Local" },
+          compañeros: { type: "STRING", description: "Nombre de compañeros de turno" }
         },
         required: ["usuario_id", "fecha", "hora_inicio", "hora_fin"]
       }
@@ -608,29 +832,116 @@ const aiTools = [{
   ]
 }];
 
-// Chatbot Asistente con Function Calling
-app.post('/api/ai/chat', async (req, res) => {
+// --- RUTAS DE INTELIGENCIA ARTIFICIAL (GEMINI) ---
+
+app.post('/api/ai/vision', requireAuth, async (req, res) => {
+  const { imageBase64, mode } = req.body; // mode: 'invoice' o 'inventory'
+  
+  try {
+    const { GoogleGenAI } = require('@google/genai');
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    if (mode === 'invoice') {
+      const prompt = `Analiza este ticket o factura de compra para un negocio de hostelería.
+      Extrae los siguientes datos en un formato JSON plano y válido:
+      {
+        "proveedor": "Nombre del proveedor o emisor de la factura",
+        "total": "Importe total sumado (número)",
+        "concepto": "Breve resumen de lo comprado (máx. 10 palabras)"
+      }
+      Devuelve ÚNICAMENTE el JSON crudo, sin etiquetas markdown de bloque de código como \`\`\`json.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          prompt,
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: imageBase64.replace(/^data:image\/\w+;base64,/, "")
+            }
+          }
+        ]
+      });
+
+      let cleanText = response.text.trim();
+      cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '').trim();
+      const parsedData = JSON.parse(cleanText);
+
+      res.json({
+        success: true,
+        proveedor: parsedData.proveedor,
+        total: parsedData.total,
+        concepto: parsedData.concepto,
+        rawText: response.text
+      });
+
+    } else if (mode === 'inventory') {
+      const prompt = `Analiza esta foto de una estantería o almacén de bar/restaurante.
+      Estima el número de botellas físicas que puedes visualizar.
+      Retorna un objeto JSON plano:
+      {
+        "botellasEstimadas": "Número aproximado de botellas visibles (entero)",
+        "confianza": "Tu seguridad sobre el conteo del 0 al 100",
+        "comentario": "Breve nota de lo que visualizas"
+      }
+      Devuelve ÚNICAMENTE el JSON crudo.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          prompt,
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: imageBase64.replace(/^data:image\/\w+;base64,/, "")
+            }
+          }
+        ]
+      });
+
+      let cleanText = response.text.trim();
+      cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '').trim();
+      const parsedData = JSON.parse(cleanText);
+
+      res.json({
+        success: true,
+        botellasEstimadas: parsedData.botellasEstimadas,
+        confianza: parsedData.confianza,
+        rawText: parsedData.comentario
+      });
+
+    } else {
+      res.status(400).json({ error: 'Modo de visión inválido' });
+    }
+
+  } catch (error) {
+    logger('error', 'Error en visión AI', error);
+    res.status(500).json({ error: 'Error en visión por IA: ' + error.message });
+  }
+});
+
+app.post('/api/ai/chat', requireAuth, async (req, res) => {
   const { message } = req.body;
   logger('info', `Nueva petición de chat: "${message}"`);
-  let actionExecuted = false; // Flag to tell frontend to refresh
+  let actionExecuted = false;
   
   try {
     const { GoogleGenAI } = require('@google/genai');
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     // 1. Obtener contexto en tiempo real
-    const usuarios = await dbAllAsync('SELECT id, nombre, rol FROM usuarios', []);
-    const inventario = await dbAllAsync('SELECT id, producto, stock_actual FROM inventario', []);
+    const usuarios = await dbAllAsync('SELECT id, nombre, rol, local FROM usuarios', []);
+    const inventario = await dbAllAsync('SELECT id, producto, stock_actual, stock_minimo, local FROM inventario', []);
 
     // 2. Construir Historial/Prompt
     const systemInstruction = `Eres "Salguabot", asistente del restaurante "Salguacate". 
-HOY ES: ${new Date().toISOString().split('T')[0]}.
-Tienes herramientas (functions) para modificar la base de datos si el usuario te lo pide.
-Usa las herramientas SIEMPRE que el usuario te pida explícitamente añadir/borrar/asignar cosas.
-Plantilla: ${JSON.stringify(usuarios)}
-Inventario: ${JSON.stringify(inventario)}`;
+    HOY ES: ${new Date().toISOString().split('T')[0]}.
+    Tienes herramientas (functions) para modificar la base de datos si el usuario te lo pide.
+    IMPORTANTE: Antes de usar herramientas que modifiquen o borren datos (borrar_evento, modificar_stock, asignar_turno, crear_evento), DEBES pedir confirmación explícita al usuario en el chat. Solo ejecuta la herramienta una vez que el usuario te haya confirmado su intención.
+    Plantilla: ${JSON.stringify(usuarios)}
+    Inventario: ${JSON.stringify(inventario)}`;
 
-    // Primera llamada a Gemini
     const chatSession = ai.chats.create({
       model: 'gemini-2.5-flash',
       config: {
@@ -649,40 +960,50 @@ Inventario: ${JSON.stringify(inventario)}`;
       logger('info', `Gemini solicita ejecutar función: ${call.name} con args ${JSON.stringify(args)}`);
       
       let funcResult = {};
-      actionExecuted = true;
       
       try {
         if (call.name === 'crear_evento') {
-          await dbRunAsync(`INSERT INTO eventos (titulo, fecha, hora, tipo) VALUES (?, ?, ?, ?)`, 
-            [args.titulo, args.fecha, args.hora, args.tipo]);
-          funcResult = { status: "success", message: "Evento insertado en base de datos" };
+          await dbRunAsync(`INSERT INTO eventos (titulo, fecha, hora, tipo, descripcion) VALUES (?, ?, ?, ?, ?)`, 
+            [args.titulo, args.fecha, args.hora, args.tipo, args.descripcion || '']);
+          funcResult = { status: "success", message: "Evento insertado en base de datos correctamente." };
+          actionExecuted = true;
         } 
         else if (call.name === 'borrar_evento') {
-          await dbRunAsync(`DELETE FROM eventos WHERE id = ?`, [args.id]);
-          funcResult = { status: "success", message: "Evento eliminado" };
+          const check = await dbRunAsync(`DELETE FROM eventos WHERE id = ?`, [args.id]);
+          if (check.changes > 0) {
+            funcResult = { status: "success", message: `Evento con ID ${args.id} eliminado.` };
+            actionExecuted = true;
+          } else {
+            funcResult = { status: "error", message: `No se encontró ningún evento con el ID ${args.id}.` };
+          }
         }
         else if (call.name === 'modificar_stock') {
-          await dbRunAsync(`UPDATE inventario SET stock_actual = stock_actual + ? WHERE id = ?`, 
+          // UPDATE SET stock_actual = max(0, stock_actual + ?) para evitar stock negativo
+          await dbRunAsync(`UPDATE inventario SET stock_actual = max(0, stock_actual + ?) WHERE id = ?`, 
             [args.cantidad, args.producto_id]);
-          funcResult = { status: "success", message: `Stock actualizado` };
+          funcResult = { status: "success", message: `Stock del producto ${args.producto_id} actualizado.` };
+          actionExecuted = true;
         }
         else if (call.name === 'asignar_turno') {
-          await dbRunAsync(`INSERT INTO turnos (usuario_id, fecha, hora_inicio, hora_fin, local) VALUES (?, ?, ?, ?, 'Principal')`,
-            [args.usuario_id, args.fecha, args.hora_inicio, args.hora_fin]);
-          funcResult = { status: "success", message: "Turno asignado" };
+          await dbRunAsync(`INSERT INTO turnos (usuario_id, fecha, hora_inicio, hora_fin, local, compañeros) VALUES (?, ?, ?, ?, ?, ?)`,
+            [args.usuario_id, args.fecha, args.hora_inicio, args.hora_fin, args.local || 'Principal', args.compañeros || '']);
+          funcResult = { status: "success", message: `Turno programado correctamente.` };
+          actionExecuted = true;
         }
       } catch (dbErr) {
         funcResult = { status: "error", message: dbErr.message };
-        logger('error', 'Error ejecutando función de base de datos', dbErr);
+        logger('error', 'Error ejecutando función de base de datos desde Chatbot', dbErr);
       }
 
-      // 4. Devolver resultado a Gemini para que genere la respuesta final en lenguaje natural
-      response = await chatSession.sendMessage([{
-        functionResponse: {
-          name: call.name,
-          response: funcResult
-        }
-      }]);
+      // 4. Devolver resultado a Gemini con la firma correcta del SDK (sendMessage({ message: [...] }))
+      response = await chatSession.sendMessage({
+        message: [{
+          functionResponse: {
+            name: call.name,
+            response: funcResult
+          }
+        }]
+      });
     }
 
     res.json({ 
@@ -698,7 +1019,7 @@ Inventario: ${JSON.stringify(inventario)}`;
 });
 
 // Generador de Carteles con IA (Imagen)
-app.post('/api/ai/poster', async (req, res) => {
+app.post('/api/ai/poster', requireAuth, async (req, res) => {
   const { titulo, fecha, hora, tipo, descripcion } = req.body;
   logger('info', `Generando cartel para: "${titulo}"`);
 
@@ -710,15 +1031,15 @@ app.post('/api/ai/poster', async (req, res) => {
     const esMusical = tipo === 'Pinchada' || tipo === 'Concierto';
     
     const prompt = `Create a stunning, professional event poster for a bar/venue called "Salguacate". 
-Event: "${titulo}"
-Date: ${fechaFormateada}
-Time: ${hora}
-Type: ${esMusical ? (tipo === 'Pinchada' ? 'DJ Night / Electronic Music Set' : 'Live Music Concert') : tipo}
-${descripcion ? `Details: ${descripcion}` : ''}
+    Event: "${titulo}"
+    Date: ${fechaFormateada}
+    Time: ${hora}
+    Type: ${esMusical ? (tipo === 'Pinchada' ? 'DJ Night / Electronic Music Set' : 'Live Music Concert') : tipo}
+    ${descripcion ? `Details: ${descripcion}` : ''}
 
-Style: Modern, vibrant, bold typography, ${esMusical ? 'neon lights, dark background, musical atmosphere, vinyl records or turntables imagery' : 'clean professional design'}. 
-The poster must include the event name "${titulo}" prominently, the date "${fechaFormateada}" and time "${hora}", and the venue name "Salguacate" at the bottom.
-Make it eye-catching and suitable for social media sharing. Vertical portrait orientation.`;
+    Style: Modern, vibrant, bold typography, ${esMusical ? 'neon lights, dark background, musical atmosphere, vinyl records or turntables imagery' : 'clean professional design'}. 
+    The poster must include the event name "${titulo}" prominently, the date "${fechaFormateada}" and time "${hora}", and the venue name "Salguacate" at the bottom.
+    Make it eye-catching and suitable for social media sharing. Vertical portrait orientation.`;
 
     const response = await ai.models.generateImages({
       model: 'imagen-3.0-generate-002',
@@ -744,7 +1065,7 @@ Make it eye-catching and suitable for social media sharing. Vertical portrait or
   }
 });
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' || process.env.START_SERVER === 'true') {
   app.listen(PORT, () => {
     logger('info', `Servidor backend corriendo en http://localhost:${PORT}`);
   });

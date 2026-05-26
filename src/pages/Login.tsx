@@ -20,9 +20,15 @@ export default function Login() {
 
   useEffect(() => {
     fetch(`${API_URL}/api/usuarios/public`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
       .then(data => { setUsers(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setError('No se pudo establecer conexión con el servidor backend');
+        setLoading(false);
+      });
   }, []);
 
   const getRoleIcon = (rol: string) => {
@@ -54,9 +60,9 @@ export default function Login() {
     setIsLogging(true);
     setError('');
     
-    const success = await login(selectedUser.id, pin);
-    if (!success) {
-      setError('PIN incorrecto');
+    const res = await login(selectedUser.id, pin);
+    if (!res.success) {
+      setError(res.error || 'PIN incorrecto');
       setPin('');
     }
     setIsLogging(false);
@@ -90,9 +96,18 @@ export default function Login() {
                 <Loader2 className="animate-spin" size={32} />
               </div>
             ) : users.length === 0 ? (
-              <div className="text-center py-4 text-slate-500 text-sm">
-                <p>No hay usuarios en la base de datos.</p>
-                <p className="mt-1 text-xs">Reinicia el servidor para crear los usuarios iniciales.</p>
+              <div className="text-center py-4 text-slate-550 space-y-3">
+                <div className="flex items-center justify-center gap-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 px-3 py-3 rounded-lg border border-red-100 dark:border-red-900/30">
+                  <AlertCircle size={18} />
+                  <span>{error || 'Servidor no disponible'}</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Revisa que el backend esté encendido e intenta recargar la página.</p>
+                <button 
+                  onClick={() => { setLoading(true); setError(''); fetch(`${API_URL}/api/usuarios/public`).then(r => r.json()).then(d => { setUsers(d); setLoading(false); }).catch(() => { setError('Error de red al conectar al servidor'); setLoading(false); }); }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg transition-colors"
+                >
+                  Reintentar Conexión
+                </button>
               </div>
             ) : (
               users.map(u => (

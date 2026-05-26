@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ClipboardList, Plus, Trash2, Loader2, X, CheckCircle2, Circle, User, CalendarDays } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 interface Tarea {
@@ -22,6 +23,7 @@ interface Employee {
 const today = new Date().toISOString().split('T')[0];
 
 export default function Tasks() {
+  const { fetchWithAuth } = useAuth();
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,8 +35,8 @@ export default function Tasks() {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      fetch(`${API_URL}/api/tareas`).then(r => r.json()),
-      fetch(`${API_URL}/api/usuarios`).then(r => r.json()),
+      fetchWithAuth(`${API_URL}/api/tareas`).then(r => r.json()),
+      fetchWithAuth(`${API_URL}/api/usuarios`).then(r => r.json()),
     ])
     .then(([t, e]) => { setTareas(t); setEmployees(e); setLoading(false); })
     .catch(() => setLoading(false));
@@ -52,7 +54,7 @@ export default function Tasks() {
     if (!form.titulo) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/tareas`, {
+      const res = await fetchWithAuth(`${API_URL}/api/tareas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,14 +73,14 @@ export default function Tasks() {
 
   const handleToggle = async (id: number) => {
     try {
-      await fetch(`${API_URL}/api/tareas/${id}/toggle`, { method: 'PATCH' });
+      await fetchWithAuth(`${API_URL}/api/tareas/${id}/toggle`, { method: 'PATCH' });
       fetchData();
     } catch (err) { console.error(err); }
   };
 
   const handleDelete = async (id: number) => {
     try {
-      await fetch(`${API_URL}/api/tareas/${id}`, { method: 'DELETE' });
+      await fetchWithAuth(`${API_URL}/api/tareas/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (err) { console.error(err); }
   };

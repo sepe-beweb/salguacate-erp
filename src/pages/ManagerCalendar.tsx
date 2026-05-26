@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, Plus, Trash2, Loader2, X, AlertCircle, Briefcase, Wrench, FileText, Headphones, Mic2, Sparkles, Download, Pencil } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 interface Evento {
@@ -14,6 +15,7 @@ interface Evento {
 const EMPTY_EVENT = { titulo: '', fecha: '', hora: '10:00', descripcion: '', tipo: 'General' };
 
 export default function ManagerCalendar() {
+  const { fetchWithAuth } = useAuth();
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -33,7 +35,7 @@ export default function ManagerCalendar() {
 
   const fetchEventos = () => {
     setLoading(true);
-    fetch(`${API_URL}/api/eventos`)
+    fetchWithAuth(`${API_URL}/api/eventos`)
       .then(res => res.json())
       .then(data => {
         setEventos(data);
@@ -83,7 +85,7 @@ export default function ManagerCalendar() {
         : `${API_URL}/api/eventos`;
       const method = editingId ? 'PUT' : 'POST';
       
-      const res = await fetch(url, {
+      const res = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -104,7 +106,7 @@ export default function ManagerCalendar() {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Seguro que quieres borrar este evento?')) return;
     try {
-      const res = await fetch(`${API_URL}/api/eventos/${id}`, { method: 'DELETE' });
+      const res = await fetchWithAuth(`${API_URL}/api/eventos/${id}`, { method: 'DELETE' });
       if (res.ok) fetchEventos();
     } catch (err) {
       console.error(err);
@@ -119,7 +121,7 @@ export default function ManagerCalendar() {
     setPosterError(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/ai/poster`, {
+      const res = await fetchWithAuth(`${API_URL}/api/ai/poster`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

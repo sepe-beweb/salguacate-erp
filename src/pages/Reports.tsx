@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FileBarChart, Download, Loader2, CalendarDays, TrendingUp, TrendingDown, Wallet, MapPin } from 'lucide-react';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 interface Cierre {
   id: number;
@@ -19,11 +20,23 @@ interface Gasto {
   proveedor_nombre: string;
   total: number;
   concepto: string;
+  local: string;
 }
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+const escapeHTML = (str: string) => {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 export default function Reports() {
+  const { fetchWithAuth } = useAuth();
   const [cierres, setCierres] = useState<Cierre[]>([]);
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,17 +46,17 @@ export default function Reports() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_URL}/api/cierres`).then(r => r.json()),
-      fetch(`${API_URL}/api/gastos`).then(r => r.json()),
+      fetchWithAuth(`${API_URL}/api/cierres`).then(r => r.json()),
+      fetchWithAuth(`${API_URL}/api/gastos`).then(r => r.json()),
     ])
-    .then(([c, g]) => { setCierres(c); setGastos(g); setLoading(false); })
+    .then(([c, g]) => { setCierres(c || []); setGastos(g || []); setLoading(false); })
     .catch(() => setLoading(false));
   }, []);
 
   // Filter by selected month and local
   const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
   const filteredCierres = cierres.filter(c => c.fecha.startsWith(monthStr) && (selectedLocal === 'Todos' || c.local === selectedLocal));
-  const filteredGastos = gastos.filter(g => g.fecha.startsWith(monthStr));
+  const filteredGastos = gastos.filter(g => g.fecha.startsWith(monthStr) && (selectedLocal === 'Todos' || g.local === selectedLocal));
 
   // Aggregations
   const totalIngresos = filteredCierres.reduce((sum, c) => sum + c.total, 0);
@@ -61,7 +74,7 @@ export default function Reports() {
     const cierresRows = filteredCierres.map(c => `
       <tr>
         <td>${new Date(c.fecha).toLocaleDateString('es-ES')}</td>
-        <td>${c.local}</td>
+        <td>${escapeHTML(c.local)}</td>
         <td class="num">€${c.efectivo.toFixed(2)}</td>
         <td class="num">€${c.tarjeta.toFixed(2)}</td>
         <td class="num">€${c.invitaciones.toFixed(2)}</td>
@@ -73,8 +86,8 @@ export default function Reports() {
     const gastosRows = filteredGastos.map(g => `
       <tr>
         <td>${new Date(g.fecha).toLocaleDateString('es-ES')}</td>
-        <td>${g.proveedor_nombre}</td>
-        <td>${g.concepto || '-'}</td>
+        <td>${escapeHTML(g.proveedor_nombre)}</td>
+        <td>${escapeHTML(g.concepto || '-')}</td>
         <td class="num bold">€${g.total.toFixed(2)}</td>
       </tr>
     `).join('');

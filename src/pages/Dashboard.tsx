@@ -33,7 +33,7 @@ const lastMonth = (() => {
 })();
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, fetchWithAuth } = useAuth();
   const [kpis, setKpis] = useState<KPIs>({
     ventasMes: 0, ventasMesAnterior: 0, ultimoCierre: 0, totalCierres: 0,
     gastosMes: 0, tareasPendientes: 0, tareasHoy: 0,
@@ -44,13 +44,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_URL}/api/cierres`).then(r => r.json()).catch(() => []),
-      fetch(`${API_URL}/api/gastos`).then(r => r.json()).catch(() => []),
-      fetch(`${API_URL}/api/tareas`).then(r => r.json()).catch(() => []),
-      fetch(`${API_URL}/api/eventos`).then(r => r.json()).catch(() => []),
-      fetch(`${API_URL}/api/inventario`).then(r => r.json()).catch(() => []),
-      fetch(`${API_URL}/api/usuarios`).then(r => r.json()).catch(() => []),
-      fetch(`${API_URL}/api/fichajes/presencia`).then(r => r.json()).catch(() => []),
+      fetchWithAuth(`${API_URL}/api/cierres`).then(r => r.json()).catch(() => []),
+      fetchWithAuth(`${API_URL}/api/gastos`).then(r => r.json()).catch(() => []),
+      fetchWithAuth(`${API_URL}/api/tareas`).then(r => r.json()).catch(() => []),
+      fetchWithAuth(`${API_URL}/api/eventos`).then(r => r.json()).catch(() => []),
+      fetchWithAuth(`${API_URL}/api/inventario`).then(r => r.json()).catch(() => []),
+      fetchWithAuth(`${API_URL}/api/usuarios`).then(r => r.json()).catch(() => []),
+      fetchWithAuth(`${API_URL}/api/fichajes/presencia`).then(r => r.json()).catch(() => []),
     ]).then(([cierres, gastos, tareas, eventos, productos, usuarios, presenciaData]) => {
       setPresencia(presenciaData || []);
 

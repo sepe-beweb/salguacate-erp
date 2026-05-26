@@ -22,7 +22,7 @@ const COLORS = [
 ];
 
 export default function Notes() {
-  const { user } = useAuth();
+  const { user, fetchWithAuth } = useAuth();
   const [notas, setNotas] = useState<Nota[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -36,7 +36,7 @@ export default function Notes() {
 
   const fetchNotas = () => {
     setLoading(true);
-    fetch(`${API_URL}/api/notas`)
+    fetchWithAuth(`${API_URL}/api/notas`)
       .then(res => res.json())
       .then(data => { setNotas(data); setLoading(false); })
       .catch(err => { console.error(err); setLoading(false); });
@@ -98,7 +98,7 @@ export default function Notes() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/notas`, {
+      const res = await fetchWithAuth(`${API_URL}/api/notas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -122,7 +122,7 @@ export default function Notes() {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`${API_URL}/api/notas/${id}`, { method: 'DELETE' });
+      const res = await fetchWithAuth(`${API_URL}/api/notas/${id}`, { method: 'DELETE' });
       if (res.ok) fetchNotas();
     } catch (err) {
       console.error(err);
@@ -131,7 +131,7 @@ export default function Notes() {
 
   const handleTogglePin = async (nota: Nota) => {
     try {
-      await fetch(`${API_URL}/api/notas/${nota.id}`, {
+      await fetchWithAuth(`${API_URL}/api/notas/${nota.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contenido: nota.contenido, color: nota.color, fijada: !nota.fijada })
