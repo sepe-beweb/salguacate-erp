@@ -120,6 +120,7 @@ erDiagram
     usuarios ||--o{ tareas : "se le asigna"
     usuarios ||--o{ notas : "escribe"
     usuarios ||--o{ mensajes : "recibe/envia"
+    usuarios ||--o{ peticiones : "realiza"
     proveedores ||--o{ inventario : "surtido por"
     proveedores ||--o{ pedidos : "recibe pedido"
     inventario }|--|| proveedores : "vinculado"
@@ -134,7 +135,7 @@ Almacena la información de la plantilla.
 - `rol` (TEXT NOT NULL): Rol en el ERP (`owner`, `manager`, `employee`).
 - `local` (TEXT): Local asignado habitual (`Principal`, `Segundo Local`, `Todos`).
 - `telefono` (TEXT): Teléfono de contacto.
-- `pin` (TEXT DEFAULT '0000'): Código PIN numérico de acceso rápido.
+- `pin` (TEXT DEFAULT '0000'): PIN de acceso rápido. El backend acepta los PINs iniciales en claro y los migra a hash SHA-256 al iniciar sesión; los nuevos usuarios ya guardan el PIN hasheado.
 
 #### 2. `fichajes`
 Historial de control horario de la plantilla.
@@ -247,21 +248,32 @@ Registro histórico de pedidos de stock.
 - `estado` (TEXT DEFAULT 'pendiente'): `pendiente` o `recibido`.
 - `creado_en` (DATETIME DEFAULT CURRENT_TIMESTAMP)
 
+#### 13. `peticiones`
+Solicitudes internas del personal.
+- `id` (INTEGER, PRIMARY KEY AUTOINCREMENT)
+- `usuario_id` (INTEGER, FOREIGN KEY -> `usuarios.id`): Empleado que realiza la petición.
+- `tipo` (TEXT NOT NULL): Tipo de solicitud (vacaciones, baja, asunto propio, cambio, etc.).
+- `fecha_inicio` (TEXT NOT NULL): Fecha de inicio `YYYY-MM-DD`.
+- `fecha_fin` (TEXT): Fecha final opcional `YYYY-MM-DD`.
+- `comentarios` (TEXT): Comentarios del empleado.
+- `estado` (TEXT DEFAULT 'pendiente'): `pendiente`, `aprobado` o `rechazado`.
+- `creado_en` (DATETIME DEFAULT CURRENT_TIMESTAMP)
+
 ---
 
 ## 5. Catálogo de la API REST
 
-Todos los endpoints están expuestos bajo el puerto base `http://localhost:3001`. El payload y el intercambio se realizan exclusivamente en formato JSON.
+Todos los endpoints están expuestos bajo el puerto base `http://localhost:3001`. El payload y el intercambio se realizan exclusivamente en formato JSON. Salvo `POST /api/login` y `GET /api/usuarios/public`, los endpoints requieren cabecera `Authorization: Bearer <token>`; el frontend debe llamarlos mediante `fetchWithAuth`.
 
 ### Endpoints de Usuarios / Autenticación
-- **`GET /api/usuarios`**: Obtiene la plantilla completa (incluye PINs de seguridad; uso restringido a owners/managers).
+- **`GET /api/usuarios`**: Obtiene la plantilla completa sin revelar PINs; expone `has_pin` como indicador. Uso restringido a `owner` y `manager`.
 - **`GET /api/usuarios/public`**: Obtiene lista simplificada de empleados (ID, nombre, rol) para la pantalla táctil de selección de Login.
 - **`POST /api/login`**:
   - Payload: `{ usuario_id: INTEGER, pin: STRING }`
-  - Retorna: `{ success: true, user: { id, nombre, rol, local } }` o error 401 si el PIN es incorrecto.
-- **`POST /api/usuarios`**: Registra un empleado. Payload: `{ nombre, rol, local, telefono, pin }`
-- **`PUT /api/usuarios/:id`**: Edita un empleado. Payload: `{ nombre, rol, local, telefono, pin }`
-- **`DELETE /api/usuarios/:id`**: Elimina un empleado de la BD.
+  - Retorna: `{ success: true, user: { id, nombre, rol, local }, token }` o error 401 si el PIN es incorrecto.
+- **`POST /api/usuarios`**: Registra un empleado. Payload: `{ nombre, rol, local, telefono, pin }`. Los `manager` solo pueden crear `employee`; los `owner` pueden crear roles administrativos.
+- **`PUT /api/usuarios/:id`**: Edita un empleado. Payload: `{ nombre, rol, local, telefono, pin }`. Si `pin` viene vacío se conserva el PIN anterior.
+- **`DELETE /api/usuarios/:id`**: Elimina un empleado de la BD. Solo `owner`; no permite eliminar el último propietario.
 
 ### Endpoints de Inventario y Control de Stock
 - **`GET /api/inventario?local=STRING`**: Obtiene el catálogo del local especificado (opcional). Realiza un `LEFT JOIN` para incluir el nombre del proveedor.
@@ -271,26 +283,41 @@ Todos los endpoints están expuestos bajo el puerto base `http://localhost:3001`
   - Retorna confirmación tras ejecutar la suma salvaguardando que no sea menor a 0 (`max(0, stock_actual + ?)`).
 - **`GET /api/inventario/alertas?local=STRING`**: Obtiene los artículos donde `stock_actual < stock_minimo`.
 
+### Endpoints de Proveedores
+- **`GET /api/proveedores`**: Lista el directorio de proveedores.
+- **`POST /api/proveedores`**: Registra un proveedor. Payload: `{ nombre, telefono, email, categoria }`. Uso restringido a `owner` y `manager`.
+
 ### Endpoints de Fichajes y Turnos
+- **`GET /api/fichajes/activo?usuario_id=INTEGER`**: Devuelve el fichaje activo (`trabajando` o `descanso`) del usuario autenticado. `owner` y `manager` pueden consultar a otros usuarios.
 - **`POST /api/fichar`**:
-  - Payload: `{ usuario_id: INTEGER, tipo: 'entrada' | 'salida' }`
-  - Registra marcas de entrada e introduce el registro en la tabla `fichajes` o actualiza la marca de salida y marca el estado como `fuera`.
-- **`GET /api/turnos?usuario_id=INTEGER`**: Lista los turnos programados en el calendario (opcionalmente filtrado por empleado).
-- **`POST /api/turnos`**: Registra un cuadrante. Payload: `{ usuario_id, fecha, hora_inicio, hora_fin, local, compañeros }`
+  - Payload: `{ usuario_id?: INTEGER, tipo: 'entrada' | 'salida' | 'descanso' | 'volver' }`
+  - Registra entrada, salida, inicio de descanso o vuelta de descanso. Impide duplicar fichajes activos y evita operar sobre usuarios ajenos salvo roles administrativos.
+- **`GET /api/fichajes/presencia`**: Control de presencia en tiempo real de la plantilla. Uso restringido a `owner` y `manager`.
+- **`GET /api/turnos?usuario_id=INTEGER`**: Lista los turnos programados. Los empleados solo ven sus propios turnos; administración puede filtrar por empleado.
+- **`POST /api/turnos`**: Registra un cuadrante. Payload: `{ usuario_id, fecha, hora_inicio, hora_fin, local, compañeros }`. Uso restringido a `owner` y `manager`.
 
 ### Endpoints de Notas y Mensajes
 - **`GET /api/notas`**: Lista las notas en el muro, ordenadas por fijadas arriba primero, luego por fecha.
-- **`POST /api/notas`**: Guarda una nota. Payload: `{ contenido, color, usuario_id }`
+- **`POST /api/notas`**: Guarda una nota. Payload: `{ contenido, color }`. El `usuario_id` real se toma del token.
 - **`PUT /api/notas/:id`**: Edita una nota. Payload: `{ contenido, color, fijada }`
 - **`DELETE /api/notas/:id`**: Borra una nota física de la base de datos.
-- **`GET /api/mensajes?usuario_id=INTEGER`**: Mensajes dirigidos al buzón del usuario logueado.
-- **`POST /api/mensajes`**: Envía correspondencia interna. Payload: `{ remitente_id, destinatario_id, asunto, cuerpo }`
+- **`GET /api/mensajes`**: Mensajes dirigidos al buzón del usuario autenticado. No permite consultar el buzón de otro usuario.
+- **`POST /api/mensajes`**: Envía correspondencia interna. Payload: `{ destinatario_id, asunto, cuerpo }`. El `remitente_id` real se toma del token.
+
+### Endpoints de Tareas y Peticiones
+- **`GET /api/tareas?local=STRING`**: Lista tareas. Los empleados solo ven tareas propias, grupales o de su local; administración puede filtrar por local.
+- **`POST /api/tareas`**: Crea una tarea. Payload: `{ titulo, descripcion, asignado_a, fecha, prioridad, local }`. Uso restringido a `owner` y `manager`.
+- **`PUT /api/tareas/:id/completada`**: Marca o desmarca una tarea. Los empleados solo pueden modificar tareas permitidas por asignación/local.
+- **`DELETE /api/tareas/:id`**: Borra una tarea. Uso restringido a `owner` y `manager`.
+- **`GET /api/peticiones`**: Lista peticiones. Los empleados solo ven sus propias peticiones; administración ve todas.
+- **`POST /api/peticiones`**: Crea una petición del usuario autenticado. Payload: `{ tipo, fecha_inicio, fecha_fin, comentarios }`.
+- **`PATCH /api/peticiones/:id`**: Aprueba o rechaza una petición. Payload: `{ estado: 'aprobado' | 'rechazado' }`. Uso restringido a `owner` y `manager`.
 
 ### Endpoints de Finanzas y Pedidos
 - **`GET /api/cierres`**: Historial completo de ventas en orden descendente.
-- **`POST /api/cierres`**: Registra el arqueo de caja (calcula el `total` sumando efectivo + tarjeta). Payload: `{ fecha, local, efectivo, tarjeta, invitaciones, descuadre }`
-- **`GET /api/gastos`**: Historial de facturas y gastos.
-- **`POST /api/gastos`**: Registra gastos del negocio. Payload: `{ fecha, proveedor_nombre, total, concepto }`
+- **`POST /api/cierres`**: Registra el arqueo de caja (calcula el `total` sumando efectivo + tarjeta). Payload: `{ fecha, local, efectivo, tarjeta, invitaciones, descuadre }`. Valida importes, fecha, local y duplicados por fecha/local.
+- **`GET /api/gastos?local=STRING`**: Historial de facturas y gastos, opcionalmente filtrado por local.
+- **`POST /api/gastos`**: Registra gastos del negocio. Payload: `{ fecha, proveedor_nombre, total, concepto, local }`
 - **`GET /api/pedidos`**: Lista histórica de pedidos realizados.
 - **`POST /api/pedidos`**: Registra un pedido realizado. Payload: `{ fecha, local, proveedor_id, proveedor_nombre, productos }` (donde productos es un array JSON de artículos pedidos).
 - **`PATCH /api/pedidos/:id/recibido`**: Cambia el estado del pedido a 'recibido'.
@@ -320,12 +347,14 @@ Expuesto en el endpoint **`POST /api/ai/vision`**. Recibe una imagen en Base64 y
 
 ### B. Chatbot de Gestión Contextual y "Function Calling" (Gemini 2.5 Flash)
 Expuesto en el endpoint **`POST /api/ai/chat`**. Es un asistente interactivo ("Salguabot") integrado en un chat overlay flotante (`AIChatbot.tsx`).
-- **Contexto en tiempo real**: En cada mensaje, el backend inyecta dinámicamente en el prompt del sistema el estado completo en tiempo real de la plantilla (`usuarios`) y el inventario del bar (`inventario`).
+- **Contexto en tiempo real**: En cada mensaje, el backend inyecta dinámicamente en el prompt del sistema el estado completo en tiempo real de la plantilla (`usuarios`), el inventario del bar (`inventario`) y el directorio de proveedores (`proveedores`).
 - **Llamada a Funciones (Function Calling)**: El modelo está equipado con herramientas para interactuar con la base de datos de manera autónoma si el usuario realiza comandos de lenguaje natural. Las funciones registradas son:
   - `crear_evento`: Crea eventos en la agenda.
   - `borrar_evento`: Elimina eventos mediante su ID.
   - `modificar_stock`: Suma o resta botellas del inventario.
   - `asignar_turno`: Programa cuadrantes para el personal.
+  - `crear_proveedor`: Registra proveedores en el directorio.
+- **Resiliencia**: El chat mantiene historial reciente para confirmaciones y prueba modelos fallback (`gemini-2.5-flash-lite`, `gemini-2.0-flash`) si `gemini-2.5-flash` está saturado temporalmente.
 - **Flujo de Ejecución**:
   ```
   Mensaje de Usuario -> Gemini -> Petición de Función -> Ejecución SQL local -> Gemini (Resumen Natural) -> Frontend
