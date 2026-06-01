@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Informe TicketBAI - Viabilidad de aplicación propia</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #172033;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.48;
+      background: #f4f7f4;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      background: #fff;
+      box-shadow: 0 10px 40px rgba(15, 23, 42, 0.10);
+    }
+    .page { padding: 26px 34px; break-after: page; min-height: 1060px; }
+    .page:last-child { break-after: auto; }
+    .cover {
+      min-height: 1120px;
+      color: white;
+      background:
+        radial-gradient(circle at 12% 18%, rgba(255,255,255,0.26), transparent 21%),
+        linear-gradient(135deg, #14532d 0%, #15803d 42%, #1d4ed8 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-mark {
+      width: 48px; height: 48px; border-radius: 16px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.35);
+      display: grid; place-items: center; font-weight: 800; font-size: 18px;
+    }
+    .brand-text { font-size: 15px; opacity: .92; letter-spacing: .04em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: 46px; line-height: 1.04; letter-spacing: -0.04em; }
+    .subtitle { margin-top: 18px; max-width: 700px; font-size: 19px; color: rgba(255,255,255,0.86); }
+    .cover-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 36px; }
+    .cover-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.13);
+      border: 1px solid rgba(255,255,255,0.26);
+      backdrop-filter: blur(5px);
+    }
+    .cover-card strong { display: block; font-size: 15px; margin-bottom: 6px; }
+    .cover-card span { color: rgba(255,255,255,0.78); font-size: 12px; }
+    .cover-footer { display: flex; justify-content: space-between; gap: 24px; color: rgba(255,255,255,0.78); font-size: 12px; }
+    h2 { margin: 0 0 14px; color: #14532d; font-size: 23px; letter-spacing: -0.02em; }
+    h3 { margin: 22px 0 8px; color: #1e293b; font-size: 15px; }
+    h4 { margin: 16px 0 6px; color: #334155; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+    p { margin: 0 0 10px; }
+    ul, ol { margin: 8px 0 12px 20px; padding: 0; }
+    li { margin: 4px 0; }
+    .lead { font-size: 13.5px; color: #334155; }
+    .note, .warning, .decision, .ok {
+      margin: 14px 0;
+      padding: 13px 15px;
+      border-radius: 14px;
+      border: 1px solid #dbe7dd;
+      background: #f7fbf8;
+    }
+    .warning { border-color: #fed7aa; background: #fff7ed; }
+    .decision { border-color: #bfdbfe; background: #eff6ff; }
+    .ok { border-color: #bbf7d0; background: #f0fdf4; }
+    .tag { display: inline-block; padding: 3px 9px; border-radius: 999px; background: #dcfce7; color: #166534; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .tag.blue { background: #dbeafe; color: #1d4ed8; }
+    .tag.amber { background: #fef3c7; color: #92400e; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .card { padding: 14px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
+    .card strong { color: #14532d; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 9.4pt; }
+    th, td { vertical-align: top; border: 1px solid #e2e8f0; padding: 8px 9px; }
+    th { background: #f1f5f9; color: #0f172a; text-align: left; }
+    tr:nth-child(even) td { background: #fbfdff; }
+    .small { color: #64748b; font-size: 9pt; }
+    .source-list li { margin-bottom: 7px; word-break: break-word; }
+    .toc a { color: #14532d; text-decoration: none; }
+    .number { color: #15803d; font-weight: 800; }
+    .risk-high { color: #b91c1c; font-weight: 700; }
+    .risk-med { color: #b45309; font-weight: 700; }
+    .risk-low { color: #166534; font-weight: 700; }
+    code { font-family: Consolas, monospace; font-size: 9.2pt; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 1px 4px; border-radius: 5px; }
+    .diagram {
+      margin: 14px 0;
+      padding: 16px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #f8fafc, #eefdf2);
+      border: 1px solid #dbeafe;
+      font-family: Consolas, monospace;
+      font-size: 9.2pt;
+      color: #0f172a;
+      white-space: pre-wrap;
+    }
+    .footer-line { margin-top: 26px; padding-top: 10px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 8.8pt; }
+    @media print {
+      body { background: #fff; }
+      main { box-shadow: none; max-width: none; }
+      .page { min-height: auto; padding: 0; }
+      .cover { min-height: 260mm; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <section class="cover">
+    <div>
+      <div class="brand">
+        <div class="brand-mark">S</div>
+        <div>
+          <div class="brand-text">Salguacate ERP</div>
+          <div class="small" style="color: rgba(255,255,255,.72)">Investigación técnica y de viabilidad</div>
+        </div>
+      </div>
+      <div style="margin-top: 130px">
+        <h1>TicketBAI y aplicación propia de gestión hostelera</h1>
+        <div class="subtitle">Evaluación para desarrollar un TPV/ERP propio que emita tickets y facturas compatibles con las obligaciones de TicketBAI y, si aplica, BATUZ/LROE.</div>
+        <div class="cover-grid">
+          <div class="cover-card"><strong>Conclusión</strong><span>Viable, pero no como simple módulo cosmético: requiere núcleo fiscal robusto.</span></div>
+          <div class="cover-card"><strong>Hardware</strong><span>No hay caja fiscal de Hacienda; hay dispositivo, certificado, impresora/QR y envío telemático.</span></div>
+          <div class="cover-card"><strong>Riesgo</strong><span>Alto si se implementa sin asesor fiscal, pruebas oficiales y mantenimiento normativo.</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="cover-footer">
+      <div>Fecha: 26/05/2026</div>
+      <div>Ámbito: País Vasco, TicketBAI, BATUZ y referencia estatal VERI*FACTU</div>
+    </div>
+  </section>
+
+  <section class="page toc">
+    <h2>Índice</h2>
+    <ol>
+      <li><a href="#resumen">Resumen ejecutivo</a></li>
+      <li><a href="#alcance">Alcance y fuentes consultadas</a></li>
+      <li><a href="#marco">Marco normativo y operativo</a></li>
+      <li><a href="#hardware">Aclaración sobre el supuesto hardware obligatorio</a></li>
+      <li><a href="#viabilidad">Viabilidad de una aplicación propia</a></li>
+      <li><a href="#requisitos">Requisitos funcionales y técnicos</a></li>
+      <li><a href="#arquitectura">Arquitectura recomendada para Salguacate</a></li>
+      <li><a href="#opciones">Opciones de ejecución</a></li>
+      <li><a href="#plan">Plan, calendario y coste relativo</a></li>
+      <li><a href="#riesgos">Riesgos y controles</a></li>
+      <li><a href="#siguientes">Siguientes decisiones</a></li>
+      <li><a href="#fuentes">Fuentes</a></li>
+    </ol>
+    <div class="note">
+      <strong>Nota de responsabilidad.</strong> Este informe es técnico y de producto. No sustituye una validación jurídica/fiscal por asesoría especializada ni una confirmación formal de la Diputación Foral aplicable antes de pasar a producción.
+    </div>
+  </section>
+
+  <section class="page" id="resumen">
+    <h2>1. Resumen Ejecutivo</h2>
+    <p class="lead">Sí es posible construir una aplicación propia de gestión/TPV para hostelería que facture bajo TicketBAI. La cuestión clave no es conectar con un hardware especial de Hacienda, sino construir o integrar un núcleo de facturación garante capaz de generar, firmar, encadenar, enviar y conservar los ficheros TicketBAI, además de imprimir tickets con identificativo TicketBAI y código QR.</p>
+    <div class="ok">
+      <strong>Conclusión principal:</strong> para Salguacate la vía recomendada es integrar el ERP/TPV con un módulo fiscal aislado. Ese módulo puede ser propio o de un proveedor especializado. Para una primera puesta en marcha, la opción más prudente es usar un middleware/SDK fiscal TicketBAI y mantener la experiencia de usuario propia.
+    </div>
+    <h3>Hallazgos críticos</h3>
+    <table>
+      <tr><th>Pregunta</th><th>Respuesta</th><th>Impacto</th></tr>
+      <tr><td>¿Hay hardware obligatorio de Hacienda?</td><td>No en el sentido de una caja fiscal o impresora oficial. Las fuentes hablan de dispositivo con Internet, certificado digital, software garante y, en algunos casos, registro/vinculación de certificado de dispositivo.</td><td>La arquitectura debe tratar el “dispositivo” como identidad técnica/fiscal, no como periférico propietario.</td></tr>
+      <tr><td>¿Puede ser una app propia?</td><td>Sí, si cumple requisitos técnicos y se inscribe o declara como software garante según el territorio foral aplicable.</td><td>No basta con emitir PDFs bonitos: debe existir XML TicketBAI firmado, encadenado y enviado.</td></tr>
+      <tr><td>¿Es igual en Álava, Gipuzkoa y Bizkaia?</td><td>Comparten el concepto TicketBAI, pero cambian documentación, endpoints, política de firma, registro de dispositivos y obligaciones complementarias. Bizkaia añade BATUZ/LROE.</td><td>Necesario diseñar adaptadores por territorio.</td></tr>
+      <tr><td>¿Qué pasa si el local está en Bizkaia?</td><td>BATUZ combina software garante TicketBAI, LROE y borradores/declaraciones. El LROE exige modelos 140/240 y anotaciones adicionales.</td><td>Mayor alcance funcional y de mantenimiento.</td></tr>
+      <tr><td>¿Se puede improvisar sobre el ERP actual?</td><td>No es recomendable. El ERP actual puede seguir siendo la capa operativa, pero la facturación fiscal debe ser transaccional, trazable, inmutable y probada contra entornos oficiales.</td><td>Crear un módulo fiscal separado reduce riesgo.</td></tr>
+    </table>
+    <h3>Recomendación</h3>
+    <p>El camino con mejor relación riesgo/velocidad es:</p>
+    <ol>
+      <li>Confirmar territorio fiscal real del negocio y sociedades/autónomos emisores.</li>
+      <li>Hacer un prototipo de TicketBAI en entorno de pruebas para un único territorio.</li>
+      <li>Integrar impresión de ticket 80 mm con QR e identificativo TicketBAI.</li>
+      <li>Decidir si el motor fiscal será propio o un SDK/proveedor especializado.</li>
+      <li>Registrar el software o presentar la declaración responsable/memoria exigida antes de producción.</li>
+    </ol>
+    <div class="warning">
+      <strong>Advertencia para demo/cliente:</strong> conviene explicar que TicketBAI es una obligación de facturación online y de integridad del software. No debe venderse como “conectarse a una máquina de Hacienda”, porque la carga real está en el software, certificado, firma y envío.
+    </div>
+  </section>
+
+  <section class="page" id="alcance">
+    <h2>2. Alcance y Fuentes Consultadas</h2>
+    <p>Se han revisado fuentes oficiales de las tres haciendas forales y de la Agencia Tributaria estatal para entender el encaje de una aplicación propia en un negocio hostelero del País Vasco.</p>
+    <div class="grid-3">
+      <div class="card"><span class="tag">Álava</span><p><strong>TicketBAI Araba</strong></p><p class="small">Información general, qué necesito, documentación técnica, endpoints, registro de software y FakturAraba.</p></div>
+      <div class="card"><span class="tag">Gipuzkoa</span><p><strong>TicketBAI Gipuzkoa</strong></p><p class="small">Documentación y normativa, registro de dispositivos, listado de software y FakturaBAI.</p></div>
+      <div class="card"><span class="tag">Bizkaia</span><p><strong>BATUZ</strong></p><p class="small">Componentes BATUZ: software garante TicketBAI, LROE, modelos 140/240 y registro de software.</p></div>
+    </div>
+    <h3>Limitaciones</h3>
+    <ul>
+      <li>Las normas y validaciones técnicas cambian. Por ejemplo, las páginas oficiales muestran actualizaciones de validaciones, XSD y documentación en 2025 y 2026.</li>
+      <li>No se ha realizado todavía una prueba real con certificado de Salguacate ni envío contra entorno de pruebas foral.</li>
+      <li>No se ha determinado si el negocio opera como autónomo, sociedad limitada, varias entidades o varios emisores fiscales. Esto cambia series, certificados, encadenamiento y LROE.</li>
+      <li>No se ha confirmado el territorio histórico fiscal de cada local. “País Vasco” no es suficiente para diseñar el conector.</li>
+    </ul>
+  </section>
+
+  <section class="page" id="marco">
+    <h2>3. Marco Normativo y Operativo</h2>
+    <h3>Qué es TicketBAI</h3>
+    <p>TicketBAI es un sistema de facturación que busca prevenir fraude fiscal, reducir competencia desleal y facilitar el cumplimiento tributario. En la práctica, cada factura o ticket emitido debe provocar la generación de un fichero informático con datos fiscales, su remisión telemática a la Hacienda Foral correspondiente y la inclusión de un QR en el documento entregado al cliente.</p>
+    <p>Álava lo resume de forma directa: al emitir una factura se genera un fichero informático con datos de la misma y se remite telemáticamente a Hacienda; el cliente puede comprobar la factura escaneando el código QR impreso.</p>
+    <h3>Qué exige a un TPV hostelero</h3>
+    <ul>
+      <li>Emitir factura completa o simplificada conforme a la normativa de facturación.</li>
+      <li>Generar fichero XML TicketBAI de alta antes o en el momento de emitir el documento fiscal.</li>
+      <li>Firmar electrónicamente el XML con política de firma del territorio correspondiente.</li>
+      <li>Encadenar registros de facturación para asegurar trazabilidad.</li>
+      <li>Enviar el fichero al servicio de Hacienda Foral y gestionar respuesta.</li>
+      <li>Imprimir o entregar ticket/factura con identificativo TicketBAI y QR.</li>
+      <li>Registrar anulaciones, rectificaciones, subsanaciones y errores de forma auditada.</li>
+      <li>Conservar registros, XML, respuestas y evidencias durante el plazo legal.</li>
+    </ul>
+    <h3>Diferencias territoriales</h3>
+    <table>
+      <tr><th>Territorio</th><th>Particularidades relevantes</th><th>Implicación para app propia</th></tr>
+      <tr><td>Álava / Araba</td><td>Documenta endpoints de alta y anulación, XSD 1.2.2, política de firma, entorno de pruebas, registro de certificados de dispositivo y registro de software garante.</td><td>Implementar adaptador Araba y proceso de alta de software con memoria y declaración responsable.</td></tr>
+      <tr><td>Gipuzkoa</td><td>Publica anexos técnicos, XSD, validaciones, entorno de pruebas, registro de dispositivos y lista de software registrado. FakturaBAI sirve como aplicación web oficial.</td><td>Adaptador Gipuzkoa con su política de firma, endpoints y gestión posterior de dispositivos.</td></tr>
+      <tr><td>Bizkaia</td><td>BATUZ integra software garante TicketBAI, LROE y borradores. El LROE aplica a modelos 140 y 240; las facturas TicketBAI se anotan automáticamente según la información oficial, pero el sistema debe contemplar operaciones y anotaciones LROE.</td><td>Mayor alcance. El conector Bizkaia no debe limitarse a TicketBAI: debe analizar LROE, modelos 140/240 y obligaciones por tipo de contribuyente.</td></tr>
+    </table>
+    <h3>Relación con SIF/VERI*FACTU estatal</h3>
+    <p>La normativa estatal del Real Decreto 1007/2023 y la Orden HAC/1177/2024 regulan requisitos de sistemas informáticos de facturación y VERI*FACTU. El propio Real Decreto indica que se aplica sin perjuicio de los regímenes forales y que, para País Vasco/Navarra, aplica a obligados con domicilio fiscal en territorio común.</p>
+    <p>Para una app de uso interno de Salguacate con domicilio fiscal foral, el foco debe ser TicketBAI/BATUZ. Si el software se comercializa fuera o se usa con emisores en territorio común, habrá que diseñarlo también conforme a SIF/VERI*FACTU.</p>
+  </section>
+
+  <section class="page" id="hardware">
+    <h2>4. Sobre el “Hardware Obligatorio”</h2>
+    <p class="lead">La investigación no confirma la existencia de un hardware obligatorio proporcionado por Hacienda al que haya que conectarse. Las obligaciones oficiales hablan de dispositivo, certificado, software y envío telemático.</p>
+    <div class="grid-2">
+      <div class="card">
+        <span class="tag blue">No obligatorio</span>
+        <h3>Caja fiscal dedicada</h3>
+        <p>No se identifica una caja fiscal oficial al estilo de otros países. El control se produce por software, firma, XML, QR y remisión a Hacienda.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Sí necesario</span>
+        <h3>Dispositivo operativo</h3>
+        <p>Álava enumera TPV, datáfono, balanza u ordenador como dispositivos posibles. Deben poder operar con Internet, certificado y software compatible.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Sí necesario</span>
+        <h3>Certificado digital</h3>
+        <p>Puede ser certificado de persona física/jurídica/representante o certificado de dispositivo según el caso. El certificado de dispositivo puede requerir registro o vinculación.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Sí práctico</span>
+        <h3>Impresora o entrega digital</h3>
+        <p>En hostelería será necesaria una impresora 80 mm capaz de imprimir QR legible, o emisión digital con representación equivalente si aplica.</p>
+      </div>
+    </div>
+    <h3>Implicación de diseño</h3>
+    <p>La app debe gestionar “dispositivos fiscales” como identidades técnicas: local, caja, serie, certificado, número de dispositivo si existe, último hash/factura y estado de alta. La impresora es un periférico operativo, no el elemento de cumplimiento principal.</p>
+  </section>
+
+  <section class="page" id="viabilidad">
+    <h2>5. Viabilidad de una Aplicación Propia</h2>
+    <h3>Respuesta corta</h3>
+    <p>Sí, se puede. Pero hay que distinguir entre “hacer una app de gestión” y “hacer un software garante TicketBAI”. La primera ya existe parcialmente en Salguacate ERP. La segunda implica responsabilidad fiscal, firma electrónica, validaciones oficiales, registro y mantenimiento continuado.</p>
+    <h3>Condiciones para que sea viable</h3>
+    <ol>
+      <li>El software debe ser capaz de emitir facturas simplificadas/tickets y facturas completas de forma fiscalmente correcta.</li>
+      <li>Debe generar XML TicketBAI de alta y anulación conforme a XSD y validaciones del territorio.</li>
+      <li>Debe firmar electrónicamente con XAdES enveloped y política de firma correspondiente.</li>
+      <li>Debe calcular identificativo TicketBAI y QR conforme al anexo técnico aplicable.</li>
+      <li>Debe enviar los ficheros al servicio de Hacienda y registrar acuses, errores y reintentos.</li>
+      <li>Debe impedir manipulación posterior de facturas emitidas: no edición destructiva, sólo anulación/rectificación/subsanación.</li>
+      <li>Debe estar documentado y, si corresponde, inscrito en el registro de software garante con declaración responsable/memoria.</li>
+    </ol>
+    <h3>Viabilidad para el ERP actual</h3>
+    <p>El stack actual de Salguacate ERP, basado en React, Express y SQLite/Turso, es suficiente como interfaz de gestión y backend operativo, pero no basta por sí solo para producción fiscal. Se recomienda añadir un módulo separado de facturación fiscal con almacenamiento transaccional, cola de envío, firma, validación XML y auditoría.</p>
+    <div class="decision">
+      <strong>Decisión estratégica:</strong> si el objetivo es operar el bar cuanto antes, integrar un proveedor fiscal es más seguro. Si el objetivo es construir un producto propio comercializable, entonces desarrollar el motor TicketBAI completo tiene sentido, pero debe presupuestarse como proyecto regulado.
+    </div>
+  </section>
+
+  <section class="page" id="requisitos">
+    <h2>6. Requisitos Funcionales y Técnicos</h2>
+    <h3>Funcionales mínimos para hostelería</h3>
+    <ul>
+      <li>Apertura de mesa/barra, comandas, cobro parcial, invitaciones/descuentos y cierre.</li>
+      <li>Emisión de factura simplificada inmediata al cobro.</li>
+      <li>Emisión de factura completa si el cliente la solicita.</li>
+      <li>Series por local/caja/emisor y control de numeración sin saltos indebidos.</li>
+      <li>Anulación y rectificación con causa, usuario, hora y vínculo a factura original.</li>
+      <li>Impresión con QR, identificativo TicketBAI, desglose fiscal y datos mínimos del ticket.</li>
+      <li>Modo contingencia ante caída de Internet, con cola y alertas para envío posterior conforme a norma.</li>
+      <li>Panel de errores TicketBAI para corregir rechazos sin perder trazabilidad.</li>
+    </ul>
+    <h3>Técnicos mínimos</h3>
+    <table>
+      <tr><th>Área</th><th>Necesidad</th><th>Comentario</th></tr>
+      <tr><td>XML</td><td>Generación de alta, anulación, subsanación/modificación si aplica.</td><td>Debe validarse contra XSD oficial y validaciones de negocio.</td></tr>
+      <tr><td>Firma</td><td>XAdES enveloped con certificado válido y política de firma foral.</td><td>Es una de las partes de mayor riesgo técnico en Node.js; conviene aislarla.</td></tr>
+      <tr><td>Encadenamiento</td><td>Referencia a factura/registro anterior, hash y fecha/hora.</td><td>Crítico en multi-caja y multi-local.</td></tr>
+      <tr><td>QR</td><td>Generación de URL/código QR e identificativo TicketBAI.</td><td>Debe ser legible en impresoras térmicas.</td></tr>
+      <tr><td>Envío</td><td>HTTP seguro a endpoints forales, con certificado/autenticación y tratamiento de respuesta.</td><td>Los endpoints y entornos difieren por territorio.</td></tr>
+      <tr><td>Auditoría</td><td>Registro inmutable de facturas, XML, firmas, respuestas, eventos y usuarios.</td><td>Necesario para inspección y soporte.</td></tr>
+      <tr><td>Conservación</td><td>Exportación, copias y acceso durante plazos legales.</td><td>No depender sólo de una SQLite local sin backup.</td></tr>
+      <tr><td>Actualizaciones</td><td>Gestión de versiones XSD, validaciones y normativa.</td><td>Debe existir calendario de mantenimiento.</td></tr>
+    </table>
+    <h3>Estados de una factura</h3>
+    <div class="diagram">BORRADOR -> EMITIDA_LOCAL -> XML_GENERADO -> FIRMADA -> ENVIADA -> ACEPTADA
+                                                \-> RECHAZADA -> SUBSANACION/RECTIFICACION
+ACEPTADA -> ANULACION_SOLICITADA -> XML_ANULACION -> FIRMADA -> ENVIADA -> ANULADA</div>
+  </section>
+
+  <section class="page" id="arquitectura">
+    <h2>7. Arquitectura Recomendada para Salguacate</h2>
+    <p>La recomendación es no mezclar la lógica fiscal dentro de pantallas de ventas o cierres. Debe existir un núcleo fiscal con API propia y garantías fuertes.</p>
+    <div class="diagram">React TPV / ERP
+   |
+   | venta, cobro, datos cliente
+   v
+Backend Salguacate
+   |
+   | crea factura fiscal inmutable
+   v
+Módulo Fiscal TicketBAI
+   |-- Validador de factura y series
+   |-- Generador XML por territorio
+   |-- Motor de firma XAdES
+   |-- Generador QR / Identificativo TBAI
+   |-- Cola de envío y reintentos
+   |-- Registro de respuestas y auditoría
+   v
+Hacienda Foral: Araba / Gipuzkoa / Bizkaia-BATUZ</div>
+    <h3>Componentes propuestos</h3>
+    <table>
+      <tr><th>Componente</th><th>Responsabilidad</th><th>Tecnología posible</th></tr>
+      <tr><td>Fiscal API</td><td>Crear facturas, bloquear cambios, consultar estado, anular/rectificar.</td><td>Express/Node separado del ERP actual.</td></tr>
+      <tr><td>Repositorio fiscal</td><td>Guardar facturas, XML, hashes, certificados usados, respuestas y eventos.</td><td>PostgreSQL o SQLite local endurecido con backup; Turso sólo si se valida offline y latencia.</td></tr>
+      <tr><td>Firma XAdES</td><td>Firmar XML con certificado y política foral.</td><td>Servicio aislado Java/.NET o librería madura; evitar acoplarlo a UI.</td></tr>
+      <tr><td>Adaptadores forales</td><td>Araba, Gipuzkoa, Bizkaia/BATUZ.</td><td>Interfaces independientes con tests por territorio.</td></tr>
+      <tr><td>Impresión</td><td>Ticket 80 mm, QR, reimpresión marcada como copia.</td><td>ESC/POS local, navegador con print CSS o agente local.</td></tr>
+      <tr><td>Monitor fiscal</td><td>Alertas de facturas pendientes/rechazadas y salud de certificados.</td><td>Dashboard interno owner/manager.</td></tr>
+    </table>
+    <h3>Base de datos fiscal sugerida</h3>
+    <ul>
+      <li><code>tax_issuers</code>: NIF, razón social, territorio, certificado activo.</li>
+      <li><code>fiscal_devices</code>: local, caja, certificado, serie, estado, número/registro si aplica.</li>
+      <li><code>invoice_series</code>: serie, emisor, local, dispositivo, contador y reglas.</li>
+      <li><code>fiscal_invoices</code>: datos fiscales inmutables, totales, estado, TBAI ID, QR URL.</li>
+      <li><code>fiscal_invoice_lines</code>: líneas de venta y tipos de IVA.</li>
+      <li><code>tbai_xml_documents</code>: XML sin firmar, XML firmado, hash, firma, XSD/version.</li>
+      <li><code>tbai_submissions</code>: endpoint, fecha, request/response, código de error, reintentos.</li>
+      <li><code>fiscal_events</code>: eventos de auditoría, exportaciones, fallos de integridad, cambios de configuración.</li>
+    </ul>
+  </section>
+
+  <section class="page" id="opciones">
+    <h2>8. Opciones de Ejecución</h2>
+    <table>
+      <tr><th>Opción</th><th>Ventajas</th><th>Inconvenientes</th><th>Recomendación</th></tr>
+      <tr><td>A. Integrar proveedor/SDK fiscal</td><td>Menor riesgo, puesta en marcha más rápida, soporte de cambios normativos, menos carga de firma/XSD.</td><td>Coste recurrente, dependencia externa, integración contractual.</td><td><span class="risk-low">Recomendada para operar el negocio.</span></td></tr>
+      <tr><td>B. Desarrollar motor propio completo</td><td>Control total, sin dependencia por transacción, posibilidad de convertirlo en producto.</td><td>Alto coste, responsabilidad fiscal directa, mantenimiento normativo, pruebas largas.</td><td><span class="risk-med">Recomendable sólo si se quiere producto estratégico.</span></td></tr>
+      <tr><td>C. Usar apps oficiales FakturAraba/FakturaBAI/Haz tu factura</td><td>Oficial, útil como backup manual.</td><td>No encaja bien con flujo de TPV hostelero, comandas, cierres, integración de stock y caja.</td><td><span class="risk-med">Backup, no solución principal.</span></td></tr>
+      <tr><td>D. Mantener ERP sin facturación fiscal</td><td>Sin inversión inicial.</td><td>No resuelve TicketBAI; duplicidad operativa con otro TPV.</td><td><span class="risk-high">No recomendada.</span></td></tr>
+    </table>
+    <h3>Decisión recomendada</h3>
+    <p>Para un establecimiento hostelero real, conviene empezar por la opción A: mantener la interfaz Salguacate y delegar el núcleo fiscal en un proveedor o SDK. En paralelo se puede construir un POC propio para valorar si merece la pena internalizar el motor a medio plazo.</p>
+  </section>
+
+  <section class="page" id="plan">
+    <h2>9. Plan de Implantación</h2>
+    <h3>Fase 0: Definición fiscal y operativa (1-2 semanas)</h3>
+    <ul>
+      <li>Confirmar territorio histórico, domicilio fiscal y forma jurídica.</li>
+      <li>Identificar emisores: una sociedad, varios autónomos, varios locales o franquicia.</li>
+      <li>Definir tipos de documento: ticket, factura completa, rectificativa, invitaciones, autoconsumo si aplica.</li>
+      <li>Inventariar hardware: TPVs, tablets, impresoras, red, datáfonos y balanzas.</li>
+    </ul>
+    <h3>Fase 1: Prueba técnica TicketBAI (3-5 semanas)</h3>
+    <ul>
+      <li>Generar XML de alta con datos de ejemplo.</li>
+      <li>Firmar con certificado de pruebas o certificado real controlado.</li>
+      <li>Validar contra XSD y entorno de pruebas foral.</li>
+      <li>Imprimir ticket con QR y verificar lectura.</li>
+    </ul>
+    <h3>Fase 2: MVP fiscal integrado (6-10 semanas)</h3>
+    <ul>
+      <li>Integrar flujo de venta/cobro del ERP con Fiscal API.</li>
+      <li>Crear panel de estado fiscal y errores.</li>
+      <li>Implementar anulación/rectificativa.</li>
+      <li>Implementar copias/exports y reimpresión controlada.</li>
+    </ul>
+    <h3>Fase 3: Registro, piloto y paso a producción (4-8 semanas)</h3>
+    <ul>
+      <li>Preparar memoria descriptiva y declaración responsable si procede.</li>
+      <li>Registrar software o confirmar alta con Diputación Foral.</li>
+      <li>Formar al personal y hacer piloto fuera de horas punta.</li>
+      <li>Arrancar con monitor diario de rechazos y facturas pendientes.</li>
+    </ul>
+    <table>
+      <tr><th>Escenario</th><th>Tiempo estimado</th><th>Riesgo</th></tr>
+      <tr><td>Integración con proveedor fiscal en un territorio</td><td>6-10 semanas</td><td><span class="risk-med">Medio</span></td></tr>
+      <tr><td>Motor propio en un territorio</td><td>3-5 meses</td><td><span class="risk-high">Alto</span></td></tr>
+      <tr><td>Motor propio multi-territorio con Bizkaia/BATUZ</td><td>5-8 meses</td><td><span class="risk-high">Alto</span></td></tr>
+    </table>
+  </section>
+
+  <section class="page" id="riesgos">
+    <h2>10. Riesgos y Controles</h2>
+    <table>
+      <tr><th>Riesgo</th><th>Severidad</th><th>Control recomendado</th></tr>
+      <tr><td>XML aceptado en pruebas pero rechazado en producción por validación territorial o datos reales.</td><td><span class="risk-high">Alta</span></td><td>Suite de tests con casos reales: tickets simplificados, facturas completas, rectificativas, descuentos, IVA, exentos.</td></tr>
+      <tr><td>Fallo de firma XAdES o certificado caducado.</td><td><span class="risk-high">Alta</span></td><td>Monitor de certificado, pruebas automáticas, renovación planificada y fallback operativo.</td></tr>
+      <tr><td>Duplicidad o pérdida de numeración por varias cajas.</td><td><span class="risk-high">Alta</span></td><td>Series por caja/local o servicio central transaccional; bloqueo optimista y auditoría.</td></tr>
+      <tr><td>Caída de Internet en hora punta.</td><td><span class="risk-med">Media</span></td><td>Cola offline controlada, alertas visibles, procedimiento interno de revisión diaria.</td></tr>
+      <tr><td>Personal edita o borra ventas ya facturadas.</td><td><span class="risk-high">Alta</span></td><td>Modelo inmutable: anulación/rectificación, permisos y trazabilidad por usuario.</td></tr>
+      <tr><td>Cambios normativos/XSD no aplicados.</td><td><span class="risk-high">Alta</span></td><td>Responsable de mantenimiento fiscal, calendario de revisión mensual y suscripción a novedades forales.</td></tr>
+      <tr><td>Confusión entre cierre de caja interno y factura fiscal.</td><td><span class="risk-med">Media</span></td><td>Separar contabilidad operativa de emisión fiscal; conciliación diaria.</td></tr>
+      <tr><td>Uso de datos personales sin control.</td><td><span class="risk-med">Media</span></td><td>Minimización de datos, cifrado de certificados y accesos, política RGPD.</td></tr>
+    </table>
+    <h3>Controles que deberían ser obligatorios en producción</h3>
+    <ul>
+      <li>Backup diario automático y prueba mensual de restauración.</li>
+      <li>Panel de facturas pendientes/rechazadas visible para administración.</li>
+      <li>Bloqueo de edición de facturas emitidas.</li>
+      <li>Registro de auditoría de configuración fiscal.</li>
+      <li>Alertas 30/15/7 días antes de caducidad de certificado.</li>
+      <li>Exportación de XML y respuestas por periodo.</li>
+      <li>Tests de regresión antes de cada despliegue.</li>
+    </ul>
+  </section>
+
+  <section class="page" id="siguientes">
+    <h2>11. Siguientes Decisiones</h2>
+    <div class="decision">
+      <strong>Preguntas para cerrar antes de programar:</strong>
+      <ol>
+        <li>¿En qué territorio histórico tributa exactamente el emisor de las facturas: Álava, Gipuzkoa o Bizkaia?</li>
+        <li>¿El negocio factura como sociedad limitada, autónomo o varias entidades?</li>
+        <li>¿Los dos locales comparten NIF emisor y series o cada uno tendrá series/cajas independientes?</li>
+        <li>¿Necesitamos sólo tickets simplificados o también factura completa frecuente?</li>
+        <li>¿Queremos llegar rápido a producción o construir propiedad intelectual fiscal propia?</li>
+        <li>¿Qué impresoras, TPVs y datáfonos se usarán?</li>
+      </ol>
+    </div>
+    <h3>Recomendación final</h3>
+    <p>Salguacate debería evolucionar hacia un TPV/ERP propio, pero incorporando TicketBAI como módulo fiscal especializado. La decisión práctica es si ese módulo lo implementamos íntegramente o si compramos/integramos un componente fiscal ya mantenido.</p>
+    <p>Para minimizar riesgo de sanciones y acelerar la puesta en marcha, recomiendo una arquitectura híbrida: UX y gestión propia de Salguacate, motor fiscal de proveedor en la primera versión, y POC interno en paralelo sólo si se quiere independencia a medio plazo.</p>
+    <h3>Primer entregable técnico propuesto</h3>
+    <p>Un POC de “ticket fiscal mínimo” con una venta de bar de ejemplo: 2 líneas, IVA, cobro, XML TicketBAI, firma, QR, impresión y envío a entorno de pruebas del territorio confirmado.</p>
+  </section>
+
+  <section class="page" id="fuentes">
+    <h2>12. Fuentes Oficiales Consultadas</h2>
+    <ul class="source-list">
+      <li>Diputación Foral de Álava, TicketBAI: <a href="https://web.araba.eus/es/hacienda/ticketbai">https://web.araba.eus/es/hacienda/ticketbai</a></li>
+      <li>Álava, información general TicketBAI: <a href="https://web.araba.eus/es/hacienda/ticketbai/informacion-general">https://web.araba.eus/es/hacienda/ticketbai/informacion-general</a></li>
+      <li>Álava, qué necesito para empezar: <a href="https://web.araba.eus/es/hacienda/ticketbai/que-necesito">https://web.araba.eus/es/hacienda/ticketbai/que-necesito</a></li>
+      <li>Álava, documentación técnica: <a href="https://web.araba.eus/es/hacienda/ticketbai/documentacion-tecnica">https://web.araba.eus/es/hacienda/ticketbai/documentacion-tecnica</a></li>
+      <li>Álava, listado y registro de software: <a href="https://web.araba.eus/es/hacienda/ticketbai/listado-de-software">https://web.araba.eus/es/hacienda/ticketbai/listado-de-software</a></li>
+      <li>Álava, FakturAraba: <a href="https://web.araba.eus/es/hacienda/fakturaraba">https://web.araba.eus/es/hacienda/fakturaraba</a></li>
+      <li>Diputación Foral de Gipuzkoa, TicketBAI: <a href="https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai">https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai</a></li>
+      <li>Gipuzkoa, documentación y normativa: <a href="https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai/documentacion-y-normativa">https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai/documentacion-y-normativa</a></li>
+      <li>Gipuzkoa, registro de dispositivos: <a href="https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai/dispositivos">https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai/dispositivos</a></li>
+      <li>Gipuzkoa, listado de software TicketBAI: <a href="https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai/listado-software">https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai/listado-software</a></li>
+      <li>Gipuzkoa, FakturaBAI: <a href="https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai/fakturabai">https://www.gipuzkoa.eus/es/web/ogasuna/ticketbai/fakturabai</a></li>
+      <li>Bizkaia BATUZ: <a href="https://www.batuz.eus/es/">https://www.batuz.eus/es/</a></li>
+      <li>Bizkaia BATUZ, documentación técnica: <a href="https://www.batuz.eus/es/documentacion-tecnica">https://www.batuz.eus/es/documentacion-tecnica</a></li>
+      <li>Bizkaia BATUZ, LROE: <a href="https://www.batuz.eus/es/lroe">https://www.batuz.eus/es/lroe</a></li>
+      <li>Bizkaia BATUZ, registro de software: <a href="https://www.batuz.eus/es/registro-de-software">https://www.batuz.eus/es/registro-de-software</a></li>
+      <li>Agencia Tributaria, Sistemas Informáticos de Facturación y VERI*FACTU: <a href="https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu.html">https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu.html</a></li>
+      <li>BOE, Real Decreto 1007/2023: <a href="https://www.boe.es/buscar/act.php?id=BOE-A-2023-24840">https://www.boe.es/buscar/act.php?id=BOE-A-2023-24840</a></li>
+      <li>BOE, Orden HAC/1177/2024: <a href="https://www.boe.es/buscar/act.php?id=BOE-A-2024-22138">https://www.boe.es/buscar/act.php?id=BOE-A-2024-22138</a></li>
+    </ul>
+    <div class="footer-line">Informe generado para Salguacate ERP. Uso interno para decisión técnica y conversación con asesoría fiscal.</div>
+  </section>
+</main>
+</body>
+</html>
