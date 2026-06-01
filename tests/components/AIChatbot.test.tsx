@@ -1,9 +1,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import AIChatbot from '../../src/components/AIChatbot';
+import AIChatbot from '../../apps/erp-web/src/components/AIChatbot';
 
 // Mock del AuthContext
-vi.mock('../../src/context/AuthContext', () => {
+vi.mock('../../apps/erp-web/src/context/AuthContext', () => {
   return {
     useAuth: () => ({
       user: { id: '1', name: 'Jefe (Admin)', role: 'owner' }

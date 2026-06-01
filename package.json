@@ -1,16 +1,22 @@
 {
-  "name": "salguacate-erp",
+  "name": "salguacate-platform",
   "private": true,
+  "workspaces": [
+    "apps/api"
+  ],
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "npm run dev:erp",
+    "dev:erp": "vite",
+    "dev:api": "npm --prefix apps/api start",
+    "build": "npm run build:erp",
+    "build:erp": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "build:android": "npm run build && node -e \"fs.cpSync('dist', 'android/app/src/main/assets/www', {recursive:true, force:true})\""
+    "build:android": "npm run build:erp && node -e \"fs.cpSync('dist/erp', 'apps/android/app/src/main/assets/www', {recursive:true, force:true})\""
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -7,6 +7,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './tests/setup.ts',
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/components/**/*.{test,spec}.{ts,tsx}', 'server/tests/**/*.{test,spec}.{js,ts}'],
+    include: [
+      'apps/erp-web/src/**/*.{test,spec}.{ts,tsx}',
+      'tests/components/**/*.{test,spec}.{ts,tsx}',
+      'apps/api/tests/**/*.{test,spec}.{js,ts}'
+    ],
   },
 });

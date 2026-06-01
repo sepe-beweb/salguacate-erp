@@ -19,7 +19,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npm run dev',
+      command: 'npm run dev:erp',
       url: 'http://localhost:5173',
       reuseExistingServer: false,
       timeout: 120000,

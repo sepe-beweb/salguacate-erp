@@ -2,30 +2,30 @@ services:
   - type: web
     name: salguacate-backend
     env: node
-    rootDir: server
+    rootDir: apps/api
     buildCommand: npm ci
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: SQLITE_DATABASE_PATH
-        value: /opt/render/project/src/server/persistent/database.sqlite
+        value: /opt/render/project/src/apps/api/persistent/database.sqlite
       - key: UPLOADS_DIR
-        value: /opt/render/project/src/server/persistent/uploads
+        value: /opt/render/project/src/apps/api/persistent/uploads
       - key: GEMINI_API_KEY
         sync: false
       - key: JWT_SECRET
         sync: false
     disk:
       name: data
-      mountPath: /opt/render/project/src/server/persistent
+      mountPath: /opt/render/project/src/apps/api/persistent
       sizeGB: 1
         
   - type: web
     name: salguacate-frontend
     env: static
-    buildCommand: npm ci && npm run build
-    staticPublishPath: ./dist
+    buildCommand: npm ci && npm run build:erp
+    staticPublishPath: ./dist/erp
     routes:
       - type: rewrite
         source: /*

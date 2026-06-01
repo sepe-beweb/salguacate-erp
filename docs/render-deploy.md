@@ -18,8 +18,8 @@ Configura estas variables en `salguacate-backend`:
 
 ```env
 NODE_ENV=production
-SQLITE_DATABASE_PATH=/opt/render/project/src/server/persistent/database.sqlite
-UPLOADS_DIR=/opt/render/project/src/server/persistent/uploads
+SQLITE_DATABASE_PATH=/opt/render/project/src/apps/api/persistent/database.sqlite
+UPLOADS_DIR=/opt/render/project/src/apps/api/persistent/uploads
 GEMINI_API_KEY=...
 JWT_SECRET=...
 ```
@@ -33,7 +33,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 Para que SQLite conserve datos en Render, el backend necesita un disco persistente montado en:
 
 ```text
-/opt/render/project/src/server/persistent
+/opt/render/project/src/apps/api/persistent
 ```
 
 Render puede requerir un plan de pago para discos persistentes. Sin disco persistente, SQLite y los uploads funcionarán, pero los datos pueden perderse en redeploys o reinicios.

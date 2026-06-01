@@ -45,13 +45,13 @@ graph TD
 - **Entorno**: Node.js con el framework **Express**.
 - **Base de Datos (Dual)**: 
   - Producción/Cloud: Integración nativa con **Turso (libSQL)** distribuido en la nube, usando las variables de entorno `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`.
-  - Desarrollo/Local: Respaldo (fallback) automático a SQLite3 nativo en archivo (`server/database.sqlite`) si las credenciales de Turso no están presentes.
-- **SDK de IA**: `@google/genai` (SDK profesional y oficial de Google) que se comunica directamente con la API Key contenida en `server/.env`.
-- **Almacenamiento de archivos**: Sistema de archivos local (`server/uploads/`) para guardar imágenes de productos e imágenes analizadas por visión artificial.
+  - Desarrollo/Local: Respaldo (fallback) automático a SQLite3 nativo en archivo (`apps/api/database.sqlite`) si las credenciales de Turso no están presentes.
+- **SDK de IA**: `@google/genai` (SDK profesional y oficial de Google) que se comunica directamente con la API Key contenida en `apps/api/.env`.
+- **Almacenamiento de archivos**: Sistema de archivos local (`apps/api/uploads/`) para guardar imágenes de productos e imágenes analizadas por visión artificial.
 - **Despliegue en la Nube**: El backend está configurado para despliegue automatizado y gratuito en **Render** mediante el archivo declarativo `render.yaml`.
 
 ### Aplicación Nativa Móvil (Android)
-- El ERP cuenta con un envoltorio nativo (wrapper) en el directorio `/android`.
+- El ERP cuenta con un envoltorio nativo (wrapper) en el directorio `apps/android`.
 - La aplicación de Android carga el frontend React (SPA) optimizado a través de un componente `WebView` programado en `MainActivity.kt` con aceleración por hardware y pantalla completa inmersiva.
 - **Compilación de assets**: El script `npm run build:android` automatiza el empaquetado y transferencia del código del frontend web a los assets locales de la aplicación nativa.
 
@@ -59,59 +59,40 @@ graph TD
 
 ## 3. Estructura del Repositorio
 
-El árbol de directorios de Salguacate ERP se organiza de la siguiente manera:
+El repositorio queda organizado como plataforma monorepo para separar ERP, API, TPV futuro y módulos compartidos/fiscales:
 
 ```
 d:/00_Proyectos/SALGUACATE/
-├── package.json              # Dependencias de frontend
-├── tsconfig.json             # Ajustes de TypeScript
-├── vite.config.ts            # Configuración de Vite
-├── tailwind.config.js        # Configuración de estilos Tailwind
-├── index.html                # Entrada HTML principal de la SPA
-├── agents.md                 # Este documento de arquitectura (guía de desarrollo)
-├── src/                      # Código fuente del Frontend
-│   ├── main.tsx              # Punto de entrada de React (monta AuthProvider y App)
-│   ├── App.tsx               # Enrutamiento de páginas, BottomNav por rol y Layout global
-│   ├── index.css             # Estilos CSS globales y variables de Tailwind
-│   ├── components/
-│   │   └── AIChatbot.tsx     # Ventana de chat overlay con el asistente AI ("Salguabot")
-│   ├── context/
-│   │   └── AuthContext.tsx   # Contexto global de sesión contra el endpoint /api/login
-│   └── pages/                # Vistas principales del ERP
-│       ├── Login.tsx         # Pantalla táctil de acceso rápido por selección de usuario + PIN
-│       ├── Dashboard.tsx     # KPIs dinámicos, alertas de stock, y accesos para owner/manager
-│       ├── Inventory.tsx     # Catálogo de stock, alertas y modal para añadir productos
-│       ├── Sales.tsx         # Gestión de cierres de caja diarios (Efectivo/Tarjeta/Descuadres)
-│       ├── Providers.tsx     # Directorio telefónico y de datos de proveedores
-│       ├── Scanner.tsx       # Escáner de PDFs e Inteligencia Artificial de visión (facturas/almacén)
-│       ├── ManagerCalendar.tsx # Gestión de eventos de ocio e integración con Imagen 3 para carteles
-│       ├── Tasks.tsx         # Gestión y asignación de checklists diarios para el personal por local
-│       ├── StockControl.tsx  # Flujo de revisión manual, pedidos a proveedores y envíos a WhatsApp
-│       ├── Notes.tsx         # Notas rápidas con dictado de voz nativo por navegador
-│       ├── Reports.tsx       # Generación de informes financieros mensuales para exportación en PDF
-│       ├── Analytics.tsx     # Gráficas de ventas, gastos, beneficio neto y descuadres de caja
-│       ├── Settings.tsx      # Configuración de perfil y visualización de datos del usuario
-│       └── employee/         # Páginas exclusivas para personal (camareros/cocineros)
-│           ├── EmployeeDashboard.tsx # Turno del día, checklist de tareas asignadas
-│           ├── Calendar.tsx  # Vista mensual simplificada de turnos programados
-│           ├── Clock.tsx     # Interfaz interactiva de fichaje (entrada, descanso, salida)
-│           ├── Messages.tsx  # Bandeja de entrada de comunicaciones internas de la empresa
-│           └── Requests.tsx  # Formulario de peticiones de vacaciones, cambios y bajas médicas
-└── server/                   # Backend del ERP (Express)
-    ├── package.json          # Dependencias de backend
-    ├── .env                  # GEMINI_API_KEY (clave secreta de la API de Google)
-    ├── database.sqlite       # Archivo de la Base de Datos SQLite
-    ├── database.js           # Esquema e inicialización de tablas SQLite
-    ├── index.js              # API REST del servidor y lógica de Gemini (SDK GenAI)
-    ├── server.log            # Historial de logs profesionales de operaciones
-    └── uploads/              # Almacén de fotos de inventario y facturas
+├── apps/
+│   ├── erp-web/              # Frontend React/Vite del ERP actual
+│   │   ├── index.html
+│   │   └── src/              # App, páginas, componentes y AuthContext del ERP
+│   ├── api/                  # Backend Express actual de la plataforma
+│   │   ├── package.json
+│   │   ├── database.js       # Esquema e inicialización de SQLite/Turso
+│   │   ├── index.js          # API REST, seguridad, IA y lógica de negocio actual
+│   │   └── tests/            # Tests API
+│   ├── android/              # Wrapper Android del ERP web
+│   └── tpv-web/              # Espacio reservado para Salguacate TPV
+├── packages/
+│   ├── shared/               # Tipos, constantes y validadores compartidos
+│   ├── fiscal-core/          # Dominio fiscal independiente de TicketBAI concreto
+│   └── ticketbai/            # Adaptadores TicketBAI/BATUZ
+├── docs/                     # Documentación funcional, técnica y fiscal
+├── scripts/                  # Automatizaciones del repositorio
+├── package.json              # Scripts raíz de plataforma
+├── vite.config.ts            # Configuración Vite apuntando a apps/erp-web
+├── tailwind.config.js        # Configuración Tailwind de ERP web
+└── agents.md                 # Este documento de arquitectura
 ```
+
+Regla de separación: el ERP gestiona el negocio, el TPV vende/cobra, `packages/fiscal-core` modela facturas fiscales inmutables y `packages/ticketbai` implementa la comunicación normativa concreta. Ninguna pantalla del ERP o TPV debe generar XML TicketBAI directamente.
 
 ---
 
 ## 4. Esquema de Base de Datos (SQLite)
 
-La base de datos SQLite se almacena físicamente en `server/database.sqlite`. Su esquema y relaciones son gestionados en `server/database.js`.
+La base de datos SQLite se almacena físicamente en `apps/api/database.sqlite`. Su esquema y relaciones son gestionados en `apps/api/database.js`.
 
 ```mermaid
 erDiagram
@@ -390,7 +371,7 @@ Para conservar la excelente cohesión visual y el comportamiento del ERP, se deb
 
 ### Requisitos Previos
 - Node.js instalado (versión 18 o superior).
-- Un archivo `.env` en la carpeta `server/` con la clave correspondiente:
+- Un archivo `.env` en la carpeta `apps/api/` con la clave correspondiente:
   ```env
   GEMINI_API_KEY=AIzaSy... (Tu API Key de Google AI Studio)
   ```
@@ -399,7 +380,7 @@ Para conservar la excelente cohesión visual y el comportamiento del ERP, se deb
 
 1. **Iniciar el Backend (API & Base de Datos)**:
    ```powershell
-   cd server
+   cd apps/api
    npm install
    npm start
    ```
@@ -409,7 +390,7 @@ Para conservar la excelente cohesión visual y el comportamiento del ERP, se deb
    Abra una nueva pestaña de terminal en la raíz del proyecto y ejecute:
    ```powershell
    npm install
-   npm run dev
+   npm run dev:erp
    ```
    La aplicación web se servirá de forma local en: `http://localhost:5173`.
 
@@ -418,7 +399,7 @@ Para conservar la excelente cohesión visual y el comportamiento del ERP, se deb
    ```powershell
    npm run build:android
    ```
-   Esto compilará el código de React en modo de producción y lo copiará de forma automática a la carpeta `android/app/src/main/assets/www/`. Una vez copiado, abra la carpeta `android` utilizando Android Studio y genere el paquete compilado (APK) mediante *Build > Build APK(s)*.
+   Esto compilará el código de React en modo de producción y lo copiará de forma automática a la carpeta `apps/android/app/src/main/assets/www/`. Una vez copiado, abra la carpeta `apps/android` utilizando Android Studio y genere el paquete compilado (APK) mediante *Build > Build APK(s)*.
 
 ### Usuarios y PINs Iniciales de Prueba
 Para pruebas rápidas de los flujos del ERP, se pueden utilizar las siguientes credenciales en la pantalla táctil de login:

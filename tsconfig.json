@@ -20,6 +20,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["apps/erp-web/src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

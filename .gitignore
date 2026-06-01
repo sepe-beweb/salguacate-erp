@@ -7,12 +7,17 @@ docs/keys.txt
 
 # Base de datos local
 server/database.sqlite
+apps/api/database.sqlite
+apps/api/persistent/
 
 # Uploads
 server/uploads/
+apps/api/uploads/
 
 # Logs
 server/server.log
+apps/api/server.log
 
 # Build
 dist/
+apps/erp-web/dist/

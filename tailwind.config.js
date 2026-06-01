@@ -2,8 +2,8 @@
 export default {
   darkMode: 'class',
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./apps/erp-web/index.html",
+    "./apps/erp-web/src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {

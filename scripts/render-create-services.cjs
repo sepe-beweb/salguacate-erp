@@ -125,7 +125,7 @@ async function main() {
   if (config.enableDisk) {
     backendDetails.disk = {
       name: 'data',
-      mountPath: '/opt/render/project/src/server/persistent',
+      mountPath: '/opt/render/project/src/apps/api/persistent',
       sizeGB: 1,
     };
   } else {
@@ -138,12 +138,12 @@ async function main() {
     ownerId: config.ownerId,
     repo: config.repo,
     branch: config.branch,
-    rootDir: 'server',
+    rootDir: 'apps/api',
     autoDeploy: 'yes',
     envVars: [
       { key: 'NODE_ENV', value: 'production' },
-      { key: 'SQLITE_DATABASE_PATH', value: '/opt/render/project/src/server/persistent/database.sqlite' },
-      { key: 'UPLOADS_DIR', value: '/opt/render/project/src/server/persistent/uploads' },
+      { key: 'SQLITE_DATABASE_PATH', value: '/opt/render/project/src/apps/api/persistent/database.sqlite' },
+      { key: 'UPLOADS_DIR', value: '/opt/render/project/src/apps/api/persistent/uploads' },
       { key: 'GEMINI_API_KEY', value: config.geminiKey },
       { key: 'JWT_SECRET', value: config.jwtSecret },
     ],
@@ -161,8 +161,8 @@ async function main() {
       { key: 'VITE_API_URL', value: backendUrl },
     ],
     serviceDetails: {
-      buildCommand: 'npm ci && npm run build',
-      publishPath: './dist',
+      buildCommand: 'npm ci && npm run build:erp',
+      publishPath: './dist/erp',
       routes: [
         { type: 'rewrite', source: '/*', destination: '/index.html' },
       ],
