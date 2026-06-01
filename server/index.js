@@ -844,6 +844,69 @@ const dbAllAsync = (query, params) => new Promise((resolve, reject) => {
   });
 });
 
+const AI_CHAT_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRetryableAIError(error) {
+  const raw = `${error?.message || ''} ${error?.status || ''} ${error?.code || ''}`;
+  return /\b(429|500|502|503|504)\b|UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED/i.test(raw);
+}
+
+function mapChatHistory(history) {
+  if (!Array.isArray(history)) return [];
+
+  const mappedHistory = history
+    .filter(msg => msg && ['user', 'ai'].includes(msg.sender) && typeof msg.text === 'string' && msg.text.trim())
+    .slice(-12)
+    .map(msg => ({
+      role: msg.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.text.trim() }]
+    }));
+
+  while (mappedHistory.length > 0 && mappedHistory[0].role !== 'user') {
+    mappedHistory.shift();
+  }
+
+  return mappedHistory;
+}
+
+function createAIChatSession(ai, model, systemInstruction, history) {
+  return ai.chats.create({
+    model,
+    history,
+    config: {
+      systemInstruction,
+      tools: aiTools,
+      temperature: 0.2
+    }
+  });
+}
+
+async function sendInitialChatMessageWithFallback(ai, systemInstruction, history, message) {
+  let lastError = null;
+
+  for (let i = 0; i < AI_CHAT_MODELS.length; i++) {
+    const model = AI_CHAT_MODELS[i];
+    const chatSession = createAIChatSession(ai, model, systemInstruction, history);
+
+    try {
+      const response = await chatSession.sendMessage({ message });
+      if (i > 0) logger('info', `Chat IA respondido con modelo fallback: ${model}`);
+      return { chatSession, response, model };
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableAIError(error) || i === AI_CHAT_MODELS.length - 1) throw error;
+      logger('warn', `Modelo ${model} no disponible temporalmente. Probando ${AI_CHAT_MODELS[i + 1]}`);
+      await sleep(400 * (i + 1));
+    }
+  }
+
+  throw lastError;
+}
+
 // Definir Herramientas (Tools) para Gemini
 const aiTools = [{
   functionDeclarations: [
@@ -897,6 +960,20 @@ const aiTools = [{
           compañeros: { type: "STRING", description: "Nombre de compañeros de turno" }
         },
         required: ["usuario_id", "fecha", "hora_inicio", "hora_fin"]
+      }
+    },
+    {
+      name: "crear_proveedor",
+      description: "Registra un nuevo proveedor en el directorio de proveedores.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          nombre: { type: "STRING", description: "Nombre comercial o razón social del proveedor" },
+          telefono: { type: "STRING", description: "Teléfono de contacto, si se conoce" },
+          email: { type: "STRING", description: "Email de contacto, si se conoce" },
+          categoria: { type: "STRING", description: "Categoría del proveedor, por ejemplo Bebidas, Alimentación, Limpieza o General" }
+        },
+        required: ["nombre"]
       }
     }
   ]
@@ -992,7 +1069,7 @@ app.post('/api/ai/vision', requireAuth, requireRole(['owner', 'manager']), async
 });
 
 app.post('/api/ai/chat', requireAuth, requireRole(['owner', 'manager']), async (req, res) => {
-  const { message } = req.body;
+  const { message, history } = req.body;
   logger('info', `Nueva petición de chat: "${message}"`);
   let actionExecuted = false;
   
@@ -1003,87 +1080,120 @@ app.post('/api/ai/chat', requireAuth, requireRole(['owner', 'manager']), async (
     // 1. Obtener contexto en tiempo real
     const usuarios = await dbAllAsync('SELECT id, nombre, rol, local FROM usuarios', []);
     const inventario = await dbAllAsync('SELECT id, producto, stock_actual, stock_minimo, local FROM inventario', []);
+    const proveedores = await dbAllAsync('SELECT id, nombre, telefono, email, categoria FROM proveedores', []);
+    const chatHistory = mapChatHistory(history);
 
     // 2. Construir Historial/Prompt
     const systemInstruction = `Eres "Salguabot", asistente del restaurante "Salguacate". 
     HOY ES: ${new Date().toISOString().split('T')[0]}.
     Tienes herramientas (functions) para modificar la base de datos si el usuario te lo pide.
-    IMPORTANTE: Antes de usar herramientas que modifiquen o borren datos (borrar_evento, modificar_stock, asignar_turno, crear_evento), DEBES pedir confirmación explícita al usuario en el chat. Solo ejecuta la herramienta una vez que el usuario te haya confirmado su intención.
+    IMPORTANTE: Antes de usar herramientas que modifiquen o borren datos (borrar_evento, modificar_stock, asignar_turno, crear_evento, crear_proveedor), DEBES pedir confirmación explícita al usuario en el chat. Solo ejecuta la herramienta una vez que el usuario te haya confirmado su intención.
+    Si faltan datos obligatorios para una acción, pide solo los datos que faltan. Si el usuario confirma una propuesta previa, usa el historial de conversación para ejecutar la herramienta correcta.
     Plantilla: ${JSON.stringify(usuarios)}
-    Inventario: ${JSON.stringify(inventario)}`;
+    Inventario: ${JSON.stringify(inventario)}
+    Proveedores: ${JSON.stringify(proveedores)}`;
 
-    const chatSession = ai.chats.create({
-      model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: systemInstruction,
-        tools: aiTools,
-        temperature: 0.2
-      }
-    });
-
-    let response = await chatSession.sendMessage({ message: message });
+    let { chatSession, response } = await sendInitialChatMessageWithFallback(ai, systemInstruction, chatHistory, message);
 
     // 3. Comprobar si Gemini quiere llamar a una función
     if (response.functionCalls && response.functionCalls.length > 0) {
-      const call = response.functionCalls[0];
-      const args = call.args;
-      logger('info', `Gemini solicita ejecutar función: ${call.name} con args ${JSON.stringify(args)}`);
-      
-      let funcResult = {};
-      
-      try {
-        if (call.name === 'crear_evento') {
-          await dbRunAsync(`INSERT INTO eventos (titulo, fecha, hora, tipo, descripcion) VALUES (?, ?, ?, ?, ?)`, 
-            [args.titulo, args.fecha, args.hora, args.tipo, args.descripcion || '']);
-          funcResult = { status: "success", message: "Evento insertado en base de datos correctamente." };
-          actionExecuted = true;
-        } 
-        else if (call.name === 'borrar_evento') {
-          const check = await dbRunAsync(`DELETE FROM eventos WHERE id = ?`, [args.id]);
-          if (check.changes > 0) {
-            funcResult = { status: "success", message: `Evento con ID ${args.id} eliminado.` };
-            actionExecuted = true;
-          } else {
-            funcResult = { status: "error", message: `No se encontró ningún evento con el ID ${args.id}.` };
-          }
-        }
-        else if (call.name === 'modificar_stock') {
-          // UPDATE SET stock_actual = max(0, stock_actual + ?) para evitar stock negativo
-          await dbRunAsync(`UPDATE inventario SET stock_actual = max(0, stock_actual + ?) WHERE id = ?`, 
-            [args.cantidad, args.producto_id]);
-          funcResult = { status: "success", message: `Stock del producto ${args.producto_id} actualizado.` };
-          actionExecuted = true;
-        }
-        else if (call.name === 'asignar_turno') {
-          await dbRunAsync(`INSERT INTO turnos (usuario_id, fecha, hora_inicio, hora_fin, local, compañeros) VALUES (?, ?, ?, ?, ?, ?)`,
-            [args.usuario_id, args.fecha, args.hora_inicio, args.hora_fin, args.local || 'Principal', args.compañeros || '']);
-          funcResult = { status: "success", message: `Turno programado correctamente.` };
-          actionExecuted = true;
-        }
-      } catch (dbErr) {
-        funcResult = { status: "error", message: dbErr.message };
-        logger('error', 'Error ejecutando función de base de datos desde Chatbot', dbErr);
-      }
+      const functionResponseParts = [];
 
-      // 4. Devolver resultado a Gemini con la firma correcta del SDK (sendMessage({ message: [...] }))
-      response = await chatSession.sendMessage({
-        message: [{
+      for (const call of response.functionCalls) {
+        const args = call.args || {};
+        logger('info', `Gemini solicita ejecutar función: ${call.name} con args ${JSON.stringify(args)}`);
+        
+        let funcResult = {};
+        
+        try {
+          if (call.name === 'crear_evento') {
+            const result = await dbRunAsync(`INSERT INTO eventos (titulo, fecha, hora, tipo, descripcion) VALUES (?, ?, ?, ?, ?)`, 
+              [args.titulo, args.fecha, args.hora, args.tipo, args.descripcion || '']);
+            funcResult = { status: "success", message: `Evento "${args.titulo}" insertado correctamente.`, id: result.lastID };
+            actionExecuted = true;
+          } 
+          else if (call.name === 'borrar_evento') {
+            const check = await dbRunAsync(`DELETE FROM eventos WHERE id = ?`, [args.id]);
+            if (check.changes > 0) {
+              funcResult = { status: "success", message: `Evento con ID ${args.id} eliminado.` };
+              actionExecuted = true;
+            } else {
+              funcResult = { status: "error", message: `No se encontró ningún evento con el ID ${args.id}.` };
+            }
+          }
+          else if (call.name === 'modificar_stock') {
+            // UPDATE SET stock_actual = max(0, stock_actual + ?) para evitar stock negativo
+            await dbRunAsync(`UPDATE inventario SET stock_actual = max(0, stock_actual + ?) WHERE id = ?`, 
+              [args.cantidad, args.producto_id]);
+            funcResult = { status: "success", message: `Stock del producto ${args.producto_id} actualizado.` };
+            actionExecuted = true;
+          }
+          else if (call.name === 'asignar_turno') {
+            await dbRunAsync(`INSERT INTO turnos (usuario_id, fecha, hora_inicio, hora_fin, local, compañeros) VALUES (?, ?, ?, ?, ?, ?)`,
+              [args.usuario_id, args.fecha, args.hora_inicio, args.hora_fin, args.local || 'Principal', args.compañeros || '']);
+            funcResult = { status: "success", message: `Turno programado correctamente.` };
+            actionExecuted = true;
+          }
+          else if (call.name === 'crear_proveedor') {
+            const nombre = typeof args.nombre === 'string' ? args.nombre.trim() : '';
+            if (!nombre) {
+              funcResult = { status: "error", message: "Falta el nombre del proveedor." };
+            } else {
+              const result = await dbRunAsync(`INSERT INTO proveedores (nombre, telefono, email, categoria) VALUES (?, ?, ?, ?)`,
+                [nombre, args.telefono || '', args.email || '', args.categoria || 'General']);
+              funcResult = { status: "success", message: `Proveedor "${nombre}" registrado correctamente.`, id: result.lastID };
+              actionExecuted = true;
+            }
+          }
+          else {
+            funcResult = { status: "error", message: `Función desconocida: ${call.name}` };
+          }
+        } catch (dbErr) {
+          funcResult = { status: "error", message: dbErr.message };
+          logger('error', 'Error ejecutando función de base de datos desde Chatbot', dbErr);
+        }
+
+        functionResponseParts.push({
           functionResponse: {
             name: call.name,
             response: funcResult
           }
-        }]
-      });
+        });
+      }
+
+      // 4. Devolver resultado a Gemini con la firma correcta del SDK (sendMessage({ message: [...] }))
+      try {
+        response = await chatSession.sendMessage({ message: functionResponseParts });
+      } catch (error) {
+        if (!isRetryableAIError(error)) throw error;
+
+        const resultMessages = functionResponseParts
+          .map(part => part.functionResponse.response.message)
+          .filter(Boolean);
+        logger('warn', 'Gemini no pudo redactar la respuesta final tras ejecutar acciones. Usando resumen local.');
+        return res.json({
+          success: true,
+          reply: resultMessages.length > 0 ? resultMessages.join('\n') : 'Acción procesada, pero la IA no pudo redactar el resumen final.',
+          actionExecuted: actionExecuted
+        });
+      }
     }
 
     res.json({ 
       success: true, 
-      reply: response.text,
+      reply: response.text || 'He procesado la solicitud correctamente.',
       actionExecuted: actionExecuted
     });
 
   } catch (error) {
     logger('error', 'Error en el endpoint de chat AI', error);
+    if (isRetryableAIError(error)) {
+      return res.json({
+        success: true,
+        reply: 'Gemini está saturado temporalmente. El servidor está bien; inténtalo otra vez en unos segundos.',
+        actionExecuted: false
+      });
+    }
     res.status(500).json({ error: 'Error en el chat de IA', details: error.message });
   }
 });

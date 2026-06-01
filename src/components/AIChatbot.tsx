@@ -55,7 +55,10 @@ export default function AIChatbot() {
       const res = await fetchWithAuth(`${API_URL}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.text })
+        body: JSON.stringify({
+          message: userMessage.text,
+          history: messages.map(msg => ({ sender: msg.sender, text: msg.text }))
+        })
       });
 
       const data = await res.json();
@@ -70,14 +73,14 @@ export default function AIChatbot() {
           window.dispatchEvent(new Event('ai_action_executed'));
         }
       } else {
-        throw new Error('Error en la respuesta del servidor');
+        throw new Error(data.details || data.error || 'Error en la respuesta del servidor');
       }
     } catch (error) {
       console.error(error);
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: 'Lo siento, he tenido un problema de conexión con el servidor. ¿Puedes repetirlo?'
+        text: error instanceof Error ? error.message : 'Lo siento, he tenido un problema de conexión con el servidor. ¿Puedes repetirlo?'
       }]);
     } finally {
       setIsLoading(false);
@@ -161,7 +164,7 @@ export default function AIChatbot() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Pregúntame sobre el stock o la plantilla..."
+                placeholder="Pregúntame por stock, agenda o proveedores..."
                 className="w-full pl-4 pr-12 py-3 bg-slate-100 dark:bg-slate-800 border-none rounded-full text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 transition-all outline-none"
               />
               <button
