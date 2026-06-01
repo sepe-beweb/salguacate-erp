@@ -22,6 +22,15 @@ El ERP gestiona el negocio. El TPV vende y cobra. Fiscal Core emite documentos f
 
 Ninguna pantalla del ERP o TPV debe generar XML TicketBAI directamente.
 
+## Documentos Relacionados
+
+- `README.md`: indice de arquitectura.
+- `salguacate-tpv-roadmap.md`: plan por fases para TPV y fiscal.
+- `decision-log.md`: decisiones aceptadas y pendientes.
+- `tpv-domain-model.md`: dominio de ventas, caja y pagos.
+- `fiscal-domain-model.md`: dominio fiscal independiente.
+- `tpv-fiscal-flow.md`: flujos entre TPV, ERP, Fiscal Core y TicketBAI.
+
 ## Posible Separacion En Repos
 
 Mantener monorepo mientras se estabilizan contratos internos. Separar en repos solo cuando existan APIs estables y ciclos de despliegue independientes.
