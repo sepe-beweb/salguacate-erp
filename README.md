@@ -69,6 +69,8 @@ El [plan gratuito aprobado](docs/architecture/recovery-free-hosting.md) comienza
 desechable, separado del servidor. SQLite sigue siendo el valor por defecto;
 el ensayo inicial no constituye despliegue. El [bloque asíncrono](docs/architecture/recovery-async-api.md)
 aporta comprobaciones HTTP con Turso y el [arranque explícito](docs/architecture/recovery-remote-startup.md)
-prepara su selección operacional, pendiente del bootstrap y la validación conjunta.
+prepara su selección operacional. El alta remota del propietario ya está confirmada;
+falta validar el despliegue conjunto. El [procedimiento actual de Render](docs/render-deploy.md)
+usa API Free sin disco, Turso y Cloudinary, con secretos fuera del repositorio.
 
 CI comprueba los cambios; no publica. El workflow de Render es manual y exige validación. `render.yaml` declara despliegues automáticos desactivados, pero un cambio en este archivo **no demuestra** que esa configuración se haya aplicado al servicio remoto. No se han modificado servicios remotos desde esta rama.

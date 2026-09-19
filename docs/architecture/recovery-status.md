@@ -56,15 +56,17 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 | Aceptación operativa y seguridad de exposición | Pendiente | Reglas por local, acceso público, dispositivos y operación descritos abajo |
 | Merge, activación y despliegue | No realizados | Decisión específica, instalación aceptada y procedimiento de copia/vuelta |
 
-## Siguiente paso: fotos y arranque remoto explícito
+## Siguiente paso: publicar el piloto gratuito
 
 La [API asíncrona](recovery-async-api.md) conserva transacciones, autorización y
 recibos y ya tiene evidencia HTTP con Turso. Las fotos tienen evidencia real
 independiente con Cloudinary. El arranque remoto explícito está preparado y
 validado localmente; el bootstrap remoto ya terminó con entrada privada del titular
 en la base nueva. Aún faltan login remoto del titular, ensayo conjunto, backup remoto
-y despliegue. No activar el blueprint
-antiguo como gratuito. La clave temporal Cloudinary no es una credencial operativa.
+y despliegue. El titular ha autorizado priorizar una URL accesible y posponer el
+pulido funcional. El blueprint se adapta a API Free sin disco, Turso y Cloudinary,
+según el [procedimiento de Render](../render-deploy.md); todavía no se ha aplicado
+en la cuenta. La clave temporal Cloudinary no es una credencial operativa.
 
 ## Instalación nueva local disponible
 
@@ -90,7 +92,7 @@ Si más adelante cambia la decisión y aparece una base que deba conservarse, re
 
 La [CI](../../.github/workflows/ci.yml) ejecuta check, navegador y archivos compilados; no publica servicios. El [workflow de Render](../../.github/workflows/render-deploy.yml) es manual, depende de validación y limita el disparo a `main`. Sus hooks son opcionales: un workflow verde no demuestra que existan ni que se haya desplegado. No se invocaron en esta recuperación.
 
-`render.yaml` declara despliegue automático desactivado, pero no confirma la configuración remota efectiva. Antes de publicar se debe revisar volumen persistente, rutas, orígenes HTTPS, URL de API compilada, copias y política de conservación de assets/HTML. Después de una publicación autorizada, comprobar versión realmente servida, disponibilidad, login y flujo clave, imágenes, consola y vista móvil; HTTP 200 o CI correcta no bastan.
+`render.yaml` declara despliegue automático desactivado, API Free sin disco y almacenamiento remoto explícito, pero no confirma la configuración remota efectiva. Antes de publicar se deben revisar destinos Turso/Cloudinary, rutas, orígenes HTTPS, URL de API compilada, copias y política de conservación de assets/HTML. Después de una publicación autorizada, comprobar versión realmente servida, disponibilidad, login y flujo clave, imágenes, consola y vista móvil; HTTP 200 o CI correcta no bastan.
 
 ## Cómo mantener este estado
 
