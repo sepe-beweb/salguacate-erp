@@ -12,7 +12,7 @@
     "dev": "npm run dev:erp",
     "dev:erp": "vite",
     "dev:api": "npm run start --workspace apps/api",
-    "bootstrap": "npm run bootstrap --workspace apps/api",
+    "bootstrap": "node apps/api/scripts/bootstrap-owner.js",
     "recovery": "node scripts/recovery.cjs",
     "build": "npm run build:erp",
     "build:erp": "tsc && vite build",

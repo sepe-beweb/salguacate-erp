@@ -11,10 +11,10 @@ Consultar primero el [estado y las puertas de salida de la recuperación](docs/a
 - npm 10/11 para `ci`; si npm 10 falla al actualizar dependencias con `edgesOut`, regenerar con npm 11.19.1 sin ignorar las dependencias peer. No es necesario cambiar la instalación global.
 - `npm ci --ignore-scripts`.
 - Copiar `apps/api/.env.example` a `apps/api/.env` y ajustar las opciones necesarias.
-- Para una base **vacía**, definir `BOOTSTRAP_OWNER_NAME` y un `BOOTSTRAP_OWNER_PIN` privado de 6–8 dígitos; ejecutar `npm run bootstrap` una sola vez. Retirar esas dos variables después. No hay usuarios automáticos ni PIN universal.
+- Para una instalación **nueva**, seguir [alta inicial privada](docs/architecture/recovery-fresh-install.md): ruta explícita nueva y PIN por entrada estándar desde un prompt privado. `npm run bootstrap -- --help` describe el comando. No hay usuarios automáticos ni PIN universal.
 - Ejecutar `npm run dev:api` y, en otra terminal, `npm run dev:erp`. Abrir `http://localhost:5173`.
 
-El bootstrap se niega a modificar una base que ya contiene usuarios. No crea contraseñas por defecto ni cambia las cuentas existentes.
+El modo explícito se niega a usar cualquier archivo de base existente. El modo anterior sin argumentos sigue admitiendo `BOOTSTRAP_OWNER_NAME`/`BOOTSTRAP_OWNER_PIN` para una tabla de usuarios vacía; retirar esas variables después. Ninguno cambia cuentas existentes.
 
 ## Configuración
 
