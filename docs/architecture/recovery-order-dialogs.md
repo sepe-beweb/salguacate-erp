@@ -14,4 +14,6 @@ Este bloque no añade idempotencia a pedidos: una respuesta de escritura perdida
 
 Validación local: `npm run check` supera 412 pruebas, lint, TypeScript y build; pasan 34 recorridos E2E de desarrollo y 5 sobre producción local. JavaScript inicial: 230175 bytes, 73975 comprimidos, dentro del presupuesto.
 
+Publicado como `96b9380969d7358217f8f34ea9191db23cbbff65`; [CI completada correctamente](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35441806791).
+
 Siguiente bloque: lectura del almacén y proveedores, coherencia de alertas y categorías sin atribuir valores ausentes.

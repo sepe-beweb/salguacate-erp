@@ -4,21 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 import { readJson, errorMessage } from '../apiResponse';
-import { useApiLists } from '../hooks/useApiLists';
+import { useApiRead } from '../hooks/useApiLists';
+import { readProviders } from '../catalogData';
 import RequestError from '../components/RequestError';
-
-interface Provider {
-  id: number;
-  nombre: string;
-  telefono: string;
-  email: string;
-  categoria: string;
-}
 
 export default function Providers() {
   const { fetchWithAuth } = useAuth();
-  const { data, loading, error: loadError, reload: fetchProviders } = useApiLists<[Provider]>(['/api/proveedores']);
-  const providers = data?.[0] ?? [];
+  const { data, loading, error: loadError, reload: fetchProviders } = useApiRead(['/api/proveedores'], responses => readProviders(responses[0]));
+  const providers = data ?? [];
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newProvider, setNewProvider] = useState({ nombre: '', telefono: '', email: '', categoria: 'General' });
@@ -64,7 +57,7 @@ export default function Providers() {
           Proveedores
         </h2>
         <button 
-          aria-label="Nuevo proveedor" onClick={() => { setError(''); setShowAddModal(true); }}
+          aria-label="Nuevo proveedor" disabled={!!loadError} onClick={() => { setError(''); setShowAddModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 dark:hover:bg-brand-500 text-white p-2 rounded-full transition-colors shadow-md dark:shadow-brand-500/20"
         >
           <Plus size={20} />
@@ -148,12 +141,12 @@ export default function Providers() {
           <p className="text-slate-500 text-center py-8 col-span-full">No hay proveedores registrados.</p>
         ) : (
           providers.map(provider => (
-            <div key={provider.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col transition-colors duration-200">
+            <div key={provider.id} className="min-w-0 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col transition-colors duration-200 [overflow-wrap:anywhere]">
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h4 className="text-slate-900 dark:text-white font-bold">{provider.nombre}</h4>
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 mt-1 inline-block">
-                    {provider.categoria}
+                    {provider.categoria || 'Sin categoría'}
                   </span>
                 </div>
               </div>
