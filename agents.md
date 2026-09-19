@@ -25,6 +25,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Navegación móvil](docs/architecture/recovery-mobile-navigation.md): destinos compartidos por rol y navegación independiente de fallos del panel.
 - [Renovación de PIN](docs/architecture/recovery-pin-renewal.md): confirmación, validación coherente y bloqueo durante la escritura.
 - [Pantalla de acceso](docs/architecture/recovery-login.md): perfiles validados, recuperación anónima y envío único del PIN.
+- [Sesión autenticada](docs/architecture/recovery-authenticated-session.md): identidad validada, cancelación y respuestas tardías aisladas.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.

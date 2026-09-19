@@ -10,4 +10,4 @@ La prueba de navegador mantiene indisponible únicamente el directorio hasta el 
 
 Validación local final: `npm run check` correcto con 340 pruebas, lint, TypeScript y compilación; 31 recorridos funcionales y 5 de producción. Presupuesto inicial: 229.057 bytes de JavaScript, 73.632 comprimidos. Sin despliegue ni cuentas reales.
 
-Siguiente bloque: validación de la respuesta autenticada y aislamiento de intentos de login para impedir que una respuesta antigua reabra o sustituya una sesión.
+Publicado en `dbc3db0555f060672012bd96def86ae6f7314e1b`; [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35440530507). Continuación: [frontera de sesión autenticada](recovery-authenticated-session.md).

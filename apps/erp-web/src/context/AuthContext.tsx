@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { API_URL } from '../config';
 import { createPendingCreates } from '../pendingCreates';
+import { readAuthenticatedSession } from '../authenticatedSession';
 
 export type Role = 'owner' | 'manager' | 'employee';
 
@@ -29,22 +30,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const currentToken = useRef<string | null>(null);
   const [pendingCreates, setPendingCreates] = useState(createPendingCreates);
   const currentCreates = useRef(pendingCreates);
+  const mounted = useRef(false);
+  const loginGeneration = useRef(0);
+  const loginController = useRef<AbortController | null>(null);
   useEffect(() => {
+    mounted.current = true;
     const warn = (event: BeforeUnloadEvent) => {
       if (currentCreates.current.hasPending()) { event.preventDefault(); event.returnValue = ''; }
     };
     window.addEventListener('beforeunload', warn);
-    return () => { window.removeEventListener('beforeunload', warn); currentCreates.current.close(); };
+    return () => { mounted.current = false; loginGeneration.current++; loginController.current?.abort(); window.removeEventListener('beforeunload', warn); currentCreates.current.close(); };
   }, []);
 
   // Real login against the database
   const login = async (userId: number, pin: string): Promise<{ success: boolean; error?: string }> => {
+    const generation = ++loginGeneration.current;
+    loginController.current?.abort(); loginController.current = null;
+    const cancelled = () => !mounted.current || generation !== loginGeneration.current;
+    const cancelledResult = { success: false, error: 'Intento de acceso cancelado.' };
+    if (cancelled()) return cancelledResult;
+    if (!Number.isSafeInteger(userId) || userId < 1 || typeof pin !== 'string' || !/^\d{4,8}$/.test(pin)) return { success: false, error: 'Usuario o PIN inválido.' };
+    const controller = new AbortController(); loginController.current = controller;
     try {
       const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario_id: userId, pin })
       });
+      if (cancelled()) return cancelledResult;
       
       if (res.status === 401) {
         return { success: false, error: 'PIN incorrecto' };
@@ -55,32 +69,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Servidor no disponible. Reintente.' };
       }
       
-      const data = await res.json();
-      if (data.success && data.user && data.token) {
-        currentCreates.current.close();
-        const creates = createPendingCreates();
-        currentCreates.current = creates; setPendingCreates(creates);
-        currentToken.current = data.token;
-        setToken(data.token);
-        setUser({
-          id: String(data.user.id),
-          name: data.user.nombre,
-          role: data.user.rol as Role,
-          location: data.user.local,
-          mustChangePin: Boolean(data.user.must_change_pin)
-        });
-        return { success: true };
-      }
-      return { success: false, error: 'Respuesta inválida del servidor' };
+      let session;
+      try { session = readAuthenticatedSession(await res.json(), userId); }
+      catch { return cancelled() ? cancelledResult : { success: false, error: 'Respuesta inválida del servidor' }; }
+      if (cancelled()) return cancelledResult;
+      currentCreates.current.close();
+      const creates = createPendingCreates();
+      currentCreates.current = creates; setPendingCreates(creates);
+      currentToken.current = session.token;
+      setToken(session.token);
+      setUser(session.user);
+      return { success: true };
     } catch {
-      return { success: false, error: 'Error de red o conexión al servidor' };
+      return cancelled() ? cancelledResult : { success: false, error: 'Error de red o conexión al servidor' };
+    } finally {
+      if (loginController.current === controller) loginController.current = null;
     }
   };
 
   const logout = () => {
     if (currentCreates.current.hasPending() && !window.confirm('Hay guardados sin confirmar. Cerrar sesión perderá sus borradores y claves en este dispositivo. El servidor puede haberlos guardado: comprueba las listas antes de repetirlos. ¿Cerrar sesión?')) return;
-    if (token) void fetch(`${API_URL}/api/logout`, {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` }
+    loginGeneration.current++; loginController.current?.abort(); loginController.current = null;
+    const activeToken = currentToken.current;
+    if (activeToken) void fetch(`${API_URL}/api/logout`, {
+      method: 'POST', headers: { Authorization: `Bearer ${activeToken}` }
     }).catch(() => { /* Local session cleared even offline; server expiry remains. */ });
     currentToken.current = null;
     currentCreates.current.close();
@@ -94,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     headers.set('Authorization', `Bearer ${token || ''}`);
     const response = await fetch(url, { ...options, headers });
     if (response.status === 401 && currentToken.current === token) {
+      loginGeneration.current++; loginController.current?.abort(); loginController.current = null;
       currentCreates.current.close();
       currentToken.current = null; setToken(null); setUser(null);
     }

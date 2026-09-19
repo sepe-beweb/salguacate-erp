@@ -6,7 +6,7 @@ import { createPendingCreates } from '../../apps/erp-web/src/pendingCreates';
 
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const payload = { contenido: 'Solo en esta sesión', color: 'yellow' };
-const loginResponse = (id: number) => response({ success: true, token: `session-${id}`, user: { id, nombre: `User ${id}`, rol: 'owner', local: 'Principal' } });
+const loginResponse = (id: number) => response({ success: true, token: String(id).padStart(64, 'a'), user: { id, nombre: `User ${id}`, rol: 'owner', local: 'Principal', must_change_pin: false } });
 const wrapper = ({ children }: { children: React.ReactNode }) => <StrictMode><AuthProvider>{children}</AuthProvider></StrictMode>;
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
