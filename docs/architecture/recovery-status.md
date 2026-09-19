@@ -4,6 +4,13 @@ Consolidación documental del bloque 28, actualizada con fotos, [alta de instala
 
 ## Evidencia de la base candidata
 
+El bloque 33 publicó `7d97313bdf6685b6ec7f72dc0eb28cd2d76dca0b`, con
+[CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35451650477),
+559 pruebas y recorridos 39/5, además del ensayo HTTP Turso descrito en su informe.
+El [bloque 34](recovery-cloudinary-storage.md) prepara fotos Cloudinary con transporte
+simulado y cuenta permitida explícitamente en el frontend; su ensayo remoto sigue
+pendiente del acceso del titular. No se atribuye esta ampliación a la CI del 33.
+
 Ampliación local del bloque 31: lint y compilación correctos, batería final de
 537 pruebas en 33 archivos (27 nuevas del ensayo/adaptador), 39 recorridos E2E y
 5 de archivos compilados correctos. El SDK HTTP usa transporte simulado y las
@@ -34,6 +41,7 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 | Migración de datos existentes | No aplicable a la decisión vigente | No hay datos anteriores que conservar; no se han borrado instalaciones |
 | Instalación nueva | Comando y pruebas preparados; destino real no creado | Elegir entorno/rutas y dar de alta el propietario con PIN privado |
 | Compatibilidad Turso/libSQL | Base y rutas HTTP ensayadas en Irlanda | [Compatibilidad](recovery-turso-compatibility.md) y [API asíncrona](recovery-async-api.md), cuenta Free; no son despliegue ni navegador contra Turso |
+| Fotos Cloudinary | Implementación y pruebas simuladas | [Almacén remoto](recovery-cloudinary-storage.md); pendiente acceso personal y subida/descarga real |
 | Aceptación operativa y seguridad de exposición | Pendiente | Reglas por local, acceso público, dispositivos y operación descritos abajo |
 | Merge, activación y despliegue | No realizados | Decisión específica, instalación aceptada y procedimiento de copia/vuelta |
 

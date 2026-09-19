@@ -13,7 +13,7 @@ export default defineConfig({
     {
       command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5174 --strictPort',
       url: 'http://127.0.0.1:5174',
-      env: { VITE_API_URL: 'http://127.0.0.1:3101' },
+      env: { VITE_API_URL: 'http://127.0.0.1:3101', VITE_CLOUDINARY_CLOUD_NAME: 'e2e-synthetic' },
       reuseExistingServer: false, timeout: 60000,
     },
     {

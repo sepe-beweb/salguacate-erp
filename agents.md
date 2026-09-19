@@ -39,6 +39,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Alojamiento gratuito](docs/architecture/recovery-free-hosting.md): plan aprobado y ensayo Turso aislado; no activa el backend remoto.
 - [Compatibilidad remota](docs/architecture/recovery-turso-compatibility.md): ensayo inicial de esquema y transacciones en una base Turso desechable.
 - [API asíncrona](docs/architecture/recovery-async-api.md): interfaz de aplicación, permisos transaccionales y ensayo HTTP sobre Turso; arranque ordinario aún local.
+- [Fotos Cloudinary](docs/architecture/recovery-cloudinary-storage.md): configuración privada del backend, cuenta pública permitida en el frontend y límites de copia; validación remota pendiente.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.

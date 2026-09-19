@@ -3,6 +3,7 @@ const cors = require('cors');
 const fs = require('node:fs');
 const { createSecurity, asyncRoute } = require('./security');
 const { createAsyncStore } = require('./async-store');
+const { createLocalImageStore } = require('./image-store');
 const { HttpError } = require('./http');
 const { validId } = require('./validation');
 const { registerOperations } = require('./operations');
@@ -14,7 +15,7 @@ const { registerEvents } = require('./modules/events');
 const { registerTasks } = require('./modules/tasks');
 const { registerAi } = require('./modules/ai');
 
-function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5173'], uploadsDir, aiEnabled = false }) {
+function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5173'], uploadsDir, imageStore, aiEnabled = false }) {
   db = createAsyncStore(db);
   const app = express();
   const { requireAuth, requireRole, register } = createSecurity(db);
@@ -47,10 +48,12 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
   register(app);
   registerOperations(app, db, { requireAuth, requireRole });
   if (uploadsDir) {
+    if (imageStore) throw new Error('Choose one image store; local fallback is not supported.');
     fs.mkdirSync(uploadsDir, { recursive: true });
+    imageStore = createLocalImageStore(uploadsDir);
     app.use('/uploads', express.static(uploadsDir, { dotfiles: 'deny', index: false }));
   }
-  const context = { db, requireAuth, requireRole, uploadsDir, logger, aiEnabled };
+  const context = { db, requireAuth, requireRole, imageStore, logger, aiEnabled };
   registerWorkforce(app, context);
   registerCatalog(app, context);
   registerFinance(app, context);

@@ -5,7 +5,7 @@ import { API_URL } from '../config';
 
 import { readJson, errorMessage } from '../apiResponse';
 import { useApiRead } from '../hooks/useApiLists';
-import { readInventoryWorkspace, stockAlerts, groupStockAlerts, stockAlertText, type CatalogItem } from '../catalogData';
+import { readInventoryWorkspace, stockAlerts, groupStockAlerts, stockAlertText, catalogImageSource, type CatalogItem } from '../catalogData';
 import RequestError from '../components/RequestError';
 import ModalDialog from '../components/ModalDialog';
 import { emptyProduct, readProductForm } from '../catalogForms';
@@ -346,7 +346,7 @@ export default function Inventory() {
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0 flex gap-3">
                   {item.imagen_url ? (
-                    <img src={`${API_URL}${item.imagen_url}`} alt={item.producto} className="w-12 h-12 object-cover rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    <img src={catalogImageSource(item.imagen_url, API_URL)} referrerPolicy="no-referrer" alt={item.producto} className="w-12 h-12 object-cover rounded-lg bg-slate-100 dark:bg-slate-800" />
                   ) : (
                     <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shrink-0">
                       <span className="text-slate-400 text-xs font-medium">No img</span>
@@ -426,7 +426,7 @@ export default function Inventory() {
                       <div className="flex items-center gap-3">
                         <div className="bg-slate-100 dark:bg-slate-800 h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {p.imagen_url ? (
-                            <img src={`${API_URL}${p.imagen_url}`} alt={p.producto} className="h-full w-full object-cover" />
+                            <img src={catalogImageSource(p.imagen_url, API_URL)} referrerPolicy="no-referrer" alt={p.producto} className="h-full w-full object-cover" />
                           ) : (
                             <span className="text-slate-400 font-bold text-lg">{p.producto.charAt(0)}</span>
                           )}

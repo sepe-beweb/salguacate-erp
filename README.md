@@ -18,7 +18,13 @@ El modo explícito se niega a usar cualquier archivo de base existente. El modo 
 
 ## Configuración
 
-La API lee `apps/api/.env`. El frontend lee el `.env` de la raíz; solo la URL pública de API usa el prefijo `VITE_`. Nunca poner secretos en variables `VITE_*`.
+La API lee `apps/api/.env`. El frontend lee el `.env` de la raíz; solo configuración pública usa el prefijo `VITE_`. Nunca poner secretos en variables `VITE_*`.
+
+El [almacén Cloudinary](docs/architecture/recovery-cloudinary-storage.md) requiere
+`IMAGE_STORAGE=cloudinary` y sus tres variables privadas en la API, sin `UPLOADS_DIR`.
+El frontend necesita al compilar `VITE_CLOUDINARY_CLOUD_NAME` con el nombre público
+de la misma cuenta (no la API key ni el secreto). Por defecto se conserva el
+almacenamiento local. No hay fallback implícito ni validación remota Cloudinary aún.
 
 En desarrollo: API en loopback, puerto 3001; SQLite y fotos bajo `apps/api`. En producción: ruta persistente explícita y orígenes HTTPS exactos obligatorios. Si el frontend y API no comparten origen, establecer `VITE_API_URL` al compilar. No existe conexión implícita a un servidor de producción.
 
@@ -49,6 +55,8 @@ Los scripts `generate-user-guide.cjs` y `render-create-services.cjs` son histór
 El [plan gratuito aprobado](docs/architecture/recovery-free-hosting.md) comienza con
 `npm run probe:turso -- --help`: ensayo manual en una base Turso/libSQL nueva y
 desechable, separado del servidor. El backend activo sigue siendo SQLite local;
-el ensayo no constituye despliegue ni integración de la aplicación con Turso.
+el ensayo inicial no constituye despliegue. El [bloque asíncrono](docs/architecture/recovery-async-api.md)
+ya aporta comprobaciones HTTP de las rutas reales con Turso, pero el arranque
+ordinario no activa todavía el proveedor remoto.
 
 CI comprueba los cambios; no publica. El workflow de Render es manual y exige validación. `render.yaml` declara despliegues automáticos desactivados, pero un cambio en este archivo **no demuestra** que esa configuración se haya aplicado al servicio remoto. No se han modificado servicios remotos desde esta rama.

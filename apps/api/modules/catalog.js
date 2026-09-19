@@ -1,12 +1,10 @@
 const { runWrite } = require('../authorization');
 const { asyncRoute } = require('../security');
-const fs = require('node:fs');
-const path = require('node:path');
-const crypto = require('node:crypto');
+const { readImage } = require('../image-store');
 const { sendDatabaseError } = require('../http');
 const { LOCALS, validDate, validId, text, requireValid } = require('../validation');
 
-function registerCatalog(app, { db, requireAuth, requireRole, uploadsDir, logger }) {
+function registerCatalog(app, { db, requireAuth, requireRole, imageStore, logger }) {
   // --- RUTAS DE INVENTARIO ---
 
   app.get('/api/inventario', requireAuth, asyncRoute(async (req, res) => {
@@ -35,19 +33,13 @@ function registerCatalog(app, { db, requireAuth, requireRole, uploadsDir, logger
       return res.status(400).json({ error: 'Proveedor inválido.' });
     }
     let imagen_url = null;
-    let savedPath;
+    let savedImage;
     if (imagen_base64) {
-      if (!uploadsDir) return res.status(503).json({ error: 'Almacenamiento de imágenes no configurado.' });
-      const match = typeof imagen_base64 === 'string' && /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(imagen_base64);
-      if (!match) return res.status(400).json({ error: 'Solo se admiten imágenes PNG o JPEG.' });
-      const bytes = Buffer.from(match[2], 'base64');
-      const validHeader = match[1] === 'png' ? bytes.subarray(0, 8).toString('hex') === '89504e470d0a1a0a' : bytes.subarray(0, 3).toString('hex') === 'ffd8ff';
-      if (!validHeader || bytes.length > 3 * 1024 * 1024) return res.status(400).json({ error: 'Imagen inválida o superior a 3 MB.' });
+      if (!imageStore) return res.status(503).json({ error: 'Almacenamiento de imágenes no configurado.' });
+      const image = readImage(imagen_base64);
       try {
-        const fileName = `${crypto.randomUUID()}.${match[1] === 'png' ? 'png' : 'jpg'}`;
-        savedPath = path.join(uploadsDir, fileName);
-        fs.writeFileSync(savedPath, bytes, { flag: 'wx' });
-        imagen_url = `/uploads/${fileName}`;
+        savedImage = await imageStore.save(image);
+        imagen_url = savedImage.url;
       } catch (e) {
         logger('error', 'Error al guardar la foto del inventario', e);
         return res.status(500).json({ error: 'No se pudo guardar la imagen. El producto no se ha creado.' });
@@ -56,11 +48,11 @@ function registerCatalog(app, { db, requireAuth, requireRole, uploadsDir, logger
 
     (await runWrite(db, req, `INSERT INTO inventario (producto, stock_actual, stock_minimo, local, categoria, imagen_url, proveedor_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [producto.trim(), stock, minimum, local, categoria || 'Bebida', imagen_url, supplier],
-      function(err) {
+      async function(err) {
         if (err) {
           // Keep the image when COMMIT may have succeeded; removing it could
           // break a persisted product. Reconcile uncertain outcomes explicitly.
-          if (savedPath && err.code !== 'COMMIT_UNCONFIRMED') { try { fs.unlinkSync(savedPath); } catch { logger('error', 'No se pudo retirar una imagen sin producto.'); } }
+          if (savedImage && err.code !== 'COMMIT_UNCONFIRMED') { try { await savedImage.remove(); } catch { logger('error', 'No se pudo retirar una imagen sin producto.'); } }
           return sendDatabaseError(res, err);
         }
         res.json({ id: this.lastID, mensaje: 'Producto añadido al inventario' });

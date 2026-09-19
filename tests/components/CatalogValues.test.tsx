@@ -10,7 +10,7 @@ const response = (body: unknown, status = 200) => new Response(JSON.stringify(bo
 const product = { id: 1, producto: 'Agua', stock_actual: 2, stock_minimo: 5, local: 'Principal', categoria: null, proveedor_id: null, proveedor_nombre: null, proveedor_telefono: null, imagen_url: null };
 const provider = { id: 1, nombre: 'Distribuidor', telefono: null, email: null, categoria: null };
 beforeEach(() => { mocks.fetchWithAuth.mockReset().mockImplementation(async url => response(url.includes('/inventario') ? [product] : [provider])); });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 it.each([{ id: '1' }, { id: 0 }, { nombre: '' }, { nombre: {} }, { telefono: 42 }, { email: [] }, { categoria: false }])('rejects invalid supplier fields %j', async change => {
   await expect(readProviders(response([{ ...provider, ...change }]))).rejects.toThrow('proveedores contiene datos inválidos');
@@ -38,6 +38,14 @@ it('derives alerts including equality from the same catalogue snapshot and group
   expect(groups[1].providerId).toBe(2); expect(groups[2].local).toBe('Segundo Local');
   const text = stockAlertText('__proto__', 'Principal', [items[1]]);
   expect(text).toContain('5 en stock; mínimo 5; hasta el mínimo: 0'); expect(text).toContain('No registra un pedido');
+});
+it('renders only the configured Cloudinary account without prefixing the API or sending a referrer', async () => {
+  vi.stubEnv('VITE_CLOUDINARY_CLOUD_NAME', 'synthetic-cloud');
+  const url = 'https://res.cloudinary.com/synthetic-cloud/image/upload/v123/salguacate/inventory/12345678-1234-4123-8123-123456789abc.png';
+  mocks.fetchWithAuth.mockImplementation(async endpoint => response(endpoint.includes('/inventario') ? [{ ...product, imagen_url: url }] : []));
+  render(<Inventory />);
+  const image = await screen.findByRole('img', { name: 'Agua' });
+  expect(image).toHaveAttribute('src', url); expect(image).toHaveAttribute('referrerPolicy', 'no-referrer');
 });
 it('does not classify a missing category as a drink and does not query a second alerts snapshot', async () => {
   render(<Inventory />); await screen.findByRole('heading', { name: 'Agua' });
