@@ -80,9 +80,10 @@ test('cash closing accepts blank optional amounts, rejects a duplicate without l
   await page.getByLabel('Local', { exact: true }).selectOption('Segundo Local');
   await page.getByLabel('Total Efectivo').fill('31.25');
   await page.getByLabel('Total Tarjeta').fill('20.50');
+  await expect(page.getByLabel('Total previsto del cierre')).toHaveText('51,75 €');
   await page.getByRole('button', { name: 'Guardar Cierre' }).click();
   await expect(page.getByText('Cierre registrado correctamente.', { exact: true })).toBeVisible();
-  await expect(page.getByText('€51.75', { exact: true })).toBeVisible();
+  await expect(page.getByText('51,75 €', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Nuevo Cierre (Z)' }).click();
   await page.getByLabel('Fecha del Cierre').fill(date);
   await page.getByLabel('Local', { exact: true }).selectOption('Segundo Local');

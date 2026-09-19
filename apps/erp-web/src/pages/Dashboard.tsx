@@ -2,9 +2,11 @@ import { TrendingUp, Users, FileText, Calendar as CalendarIcon, StickyNote, File
 import { Link } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
-import { useApiLists } from '../hooks/useApiLists';
+import { useApiRead } from '../hooks/useApiLists';
 import RequestError from '../components/RequestError';
 import { localDate } from '../localDate';
+import { dashboardFinancialSummary, readDashboardLists } from '../dashboardData';
+import { formatCivilDate, formatEuroCents, toCents } from '../financialValues';
 
 interface KPIs {
   // Sales
@@ -28,40 +30,37 @@ interface KPIs {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { data, loading, error, reload } = useApiLists<[any, any, any, any, any, any, any]>([
+  const { data, loading, error, reload } = useApiRead([
     '/api/cierres', '/api/gastos', '/api/tareas', '/api/eventos', '/api/inventario', '/api/usuarios', '/api/fichajes/presencia'
-  ]);
+  ], readDashboardLists);
   if (loading) return <p role="status" className="p-8 text-center">Cargando resumen...</p>;
   if (error || !data) return <RequestError message={error || 'No se pudo cargar el resumen.'} onRetry={reload} />;
   const [cierres, gastos, tareas, eventos, productos, usuarios, presencia] = data;
   const now = new Date();
   const today = localDate(now);
-  const thisMonth = today.slice(0, 7);
-  const lastMonth = localDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)).slice(0, 7);
+  const financial = dashboardFinancialSummary([cierres, gastos], today);
+  const ventasMes = financial.income;
+  const ventasMesAnterior = financial.previousIncome;
+  const ultimoCierre = financial.latest ? toCents(financial.latest.total) : 0;
+  const gastosMes = financial.expenses;
 
-  const ventasMes = cierres.filter((c: any) => c.fecha?.startsWith(thisMonth)).reduce((s: number, c: any) => s + (c.total || 0), 0);
-  const ventasMesAnterior = cierres.filter((c: any) => c.fecha?.startsWith(lastMonth)).reduce((s: number, c: any) => s + (c.total || 0), 0);
-  const ultimoCierre = cierres.length > 0 ? cierres[0].total : 0;
+  const tareasPendientes = tareas.filter(t => !t.completada).length;
+  const tareasHoy = tareas.filter(t => !t.completada && t.fecha === today).length;
 
-  const gastosMes = gastos.filter((g: any) => g.fecha?.startsWith(thisMonth)).reduce((s: number, g: any) => s + (g.total || 0), 0);
-
-  const tareasPendientes = tareas.filter((t: any) => !t.completada).length;
-  const tareasHoy = tareas.filter((t: any) => !t.completada && t.fecha === today).length;
-
-  const futureEvents = eventos.filter((e: any) => e.fecha >= today).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
+  const futureEvents = eventos.filter(e => e.fecha >= today).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const proximoEvento = futureEvents.length > 0 ? futureEvents[0] : null;
 
-  const stockBajo = productos.filter((p: any) => p.stock_actual !== undefined && p.stock_minimo !== undefined && p.stock_actual <= p.stock_minimo).length;
+  const stockBajo = productos.filter(p => p.stock_actual !== undefined && p.stock_minimo !== undefined && p.stock_actual <= p.stock_minimo).length;
 
   const kpis: KPIs = {
     ventasMes, ventasMesAnterior, ultimoCierre,
-    totalCierres: cierres.filter((c: any) => c.fecha?.startsWith(thisMonth)).length,
+    totalCierres: financial.closingCount,
     gastosMes, tareasPendientes, tareasHoy, proximoEvento,
     productosStock: productos.length, stockBajo,
     totalEmpleados: usuarios.length
   };
 
-  const beneficio = kpis.ventasMes - kpis.gastosMes;
+  const beneficio = financial.balance;
   const tendencia = kpis.ventasMesAnterior > 0
     ? ((kpis.ventasMes - kpis.ventasMesAnterior) / kpis.ventasMesAnterior * 100)
     : 0;
@@ -81,11 +80,12 @@ export default function Dashboard() {
       </div>
 
       {/* Revenue Hero Card */}
-      <div className="bg-gradient-to-br from-brand-600 to-brand-700 dark:from-brand-700 dark:to-brand-900 rounded-2xl p-5 text-white shadow-lg shadow-brand-500/20">
-        <div className="flex justify-between items-start">
+      {financial.inconsistentHistory && <p role="alert" className="text-amber-700 dark:text-amber-400">Hay cierres cuyo total no coincide con efectivo más tarjeta. Se conservan los totales registrados; revisa el historial.</p>}
+      <section aria-label="Resumen financiero mensual" className="bg-gradient-to-br from-brand-600 to-brand-700 dark:from-brand-700 dark:to-brand-900 rounded-2xl p-5 text-white shadow-lg shadow-brand-500/20">
+        <div className="flex flex-wrap gap-3 justify-between items-start">
           <div>
             <p className="text-brand-100 text-xs font-medium uppercase tracking-wider">Ingresos — {monthName}</p>
-            <p className="text-3xl font-bold mt-1">€{kpis.ventasMes.toFixed(2)}</p>
+            <p className="text-3xl font-bold mt-1 break-all">{formatEuroCents(kpis.ventasMes)}</p>
             {tendencia !== 0 && (
               <div className={`flex items-center gap-1 mt-1.5 text-xs font-semibold ${tendencia > 0 ? 'text-emerald-300' : 'text-red-300'}`}>
                 {tendencia > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
@@ -95,15 +95,15 @@ export default function Dashboard() {
           </div>
           <div className="text-right">
             <p className="text-brand-200 text-xs">Saldo ingresos − gastos</p>
-            <p className={`text-xl font-bold ${beneficio >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>€{beneficio.toFixed(2)}</p>
+            <p className={`text-xl font-bold break-all ${beneficio >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{formatEuroCents(beneficio)}</p>
           </div>
         </div>
-        <div className="flex gap-4 mt-4 pt-3 border-t border-white/20 text-xs">
+        <div className="flex flex-wrap gap-4 mt-4 pt-3 border-t border-white/20 text-xs">
           <div><span className="text-brand-200">Cierres:</span> <span className="font-bold">{kpis.totalCierres}</span></div>
-          <div><span className="text-brand-200">Gastos:</span> <span className="font-bold text-red-300">€{kpis.gastosMes.toFixed(2)}</span></div>
-          <div><span className="text-brand-200">Último:</span> <span className="font-bold">€{kpis.ultimoCierre.toFixed(2)}</span></div>
+          <div><span className="text-brand-200">Gastos:</span> <span className="font-bold text-red-300">{formatEuroCents(kpis.gastosMes)}</span></div>
+          <div><span className="text-brand-200">Último cierre:</span> <span className="font-bold">{financial.latest ? `${formatEuroCents(kpis.ultimoCierre)} · ${formatCivilDate(financial.latest.fecha)} · ${financial.latest.local}` : 'Sin cierres'}</span></div>
         </div>
-      </div>
+      </section>
 
       {/* Quick Alerts */}
       {(kpis.tareasHoy > 0 || kpis.stockBajo > 0 || kpis.proximoEvento) && (
@@ -131,7 +131,7 @@ export default function Dashboard() {
               <div className="bg-violet-500 text-white p-2 rounded-lg"><Music size={16} /></div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-violet-800 dark:text-violet-300">{kpis.proximoEvento.titulo}</p>
-                <p className="text-xs text-violet-600 dark:text-violet-400">{new Date(kpis.proximoEvento.fecha).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · {kpis.proximoEvento.tipo}</p>
+                <p className="text-xs text-violet-600 dark:text-violet-400">{formatCivilDate(kpis.proximoEvento.fecha)} · {kpis.proximoEvento.tipo}</p>
               </div>
               <ArrowUpRight size={16} className="text-violet-400" />
             </Link>
@@ -186,7 +186,7 @@ export default function Dashboard() {
           {presencia.length === 0 ? (
             <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">No hay información de turnos disponible.</p>
           ) : (
-            presencia.map((emp: any) => {
+            presencia.map(emp => {
               const dateOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
               
               let statusText = 'Fuera';

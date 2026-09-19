@@ -15,6 +15,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Intentos por sesión](docs/architecture/recovery-session-attempts.md): recuperación entre rutas, resultados tardíos, cierre de sesión y límites de privacidad.
 - [Gastos manuales](docs/architecture/recovery-manual-expenses.md): alta sin IA, formulario compartido, filtros y consulta de registros.
 - [Valores financieros](docs/architecture/recovery-financial-values.md): fechas civiles, céntimos, lectura conjunta y consistencia de informe/analíticas.
+- [Panel y cierres](docs/architecture/recovery-dashboard-closings.md): resumen mensual, historial validado y vista previa del alta de cierre.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -39,6 +40,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - Los intentos enviados pertenecen a una instancia de sesión, no a una ruta ni a un singleton. Navegar no desbloquea una petición en curso. Cerrar/expirar sesión invalida su almacén y ninguna respuesta tardía puede repoblarlo. No persistir borradores sensibles ni trasladar consentimientos o fotos para recuperar un guardado.
 - Alta manual y escáner comparten el mismo intento de gasto. Una coincidencia en la lista no confirma un POST: solo lo hace su recibo. Un fallo de lectura posterior al éxito no debe repetir el alta. La consulta no añade conciliación automática ni permisos de edición/borrado.
 - En informes y analíticas, usar los valores financieros comunes: fechas civiles sin convertir a instantes, agregación en céntimos seguros y formato común. Preservar el total registrado de cierres inconsistentes y advertir; no reinterpretar invitaciones, descuadres ni históricos para cuadrarlos. Una lectura inválida bloquea el informe, no genera totales parciales.
+- Panel e historial de cierres comparten esos valores y validadores. La vista previa del alta no envía un total cliente ni sustituye la validación de la API; preservar el borrador rechazado y no repetir el POST por un fallo del GET posterior. El último cierre se elige por fecha civil e ID, no por el orden recibido ni por una hora inferida.
 
 ## Arquitectura vigente
 

@@ -11,7 +11,12 @@ export function financialSummary(cierres: CashClosing[], gastos: Expense[]) {
     inconsistent: cierres.some(row => toCents(row.total) !== sumCents([toCents(row.efectivo), toCents(row.tarjeta)])) };
 }
 export async function readFinancialLists(responses: Response[]): Promise<FinancialLists> {
-  const [cierres, gastos] = await Promise.all([readList<CashClosing>(responses[0]), readExpenses([responses[1]])]);
+  const [cierres, gastos] = await Promise.all([readCashClosings([responses[0]]), readExpenses([responses[1]])]);
+  financialSummary(cierres, gastos);
+  return [cierres, gastos];
+}
+export async function readCashClosings(responses: Response[]): Promise<CashClosing[]> {
+  const cierres = await readList<CashClosing>(responses[0]);
   const ids = new Set<number>();
   for (const row of cierres) {
     if (!row || !Number.isSafeInteger(row.id) || row.id < 1 || ids.has(row.id) || !isCivilDate(row.fecha) || typeof row.local !== 'string') throw new Error('La lista de cierres contiene datos inválidos.');
@@ -24,8 +29,11 @@ export async function readFinancialLists(responses: Response[]): Promise<Financi
   }
   // Guard the complete dataset before publishing it, including arbitrary local/month subsets.
   sumCents(cierres.map(row => Math.abs(toCents(row.descuadre))));
-  financialSummary(cierres, gastos);
-  return [cierres, gastos];
+  financialSummary(cierres, []);
+  return cierres;
+}
+export function closingHistory(cierres: CashClosing[], local = 'Todos') {
+  return cierres.filter(row => local === 'Todos' || row.local === local).sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id);
 }
 export function selectFinancialPeriod([cierres, gastos]: FinancialLists, local = 'Todos', month = ''): FinancialLists {
   const matches = (row: { local: string; fecha: string }) => (local === 'Todos' || row.local === local) && (!month || row.fecha.slice(0, 7) === month);

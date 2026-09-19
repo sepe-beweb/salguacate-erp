@@ -29,11 +29,43 @@ test('financial screens and printable report agree on cents and civil dates in w
     await context.addInitScript(() => { window.print = () => {}; }); // Inspect print HTML; do not open the OS print dialog.
     const page = await context.newPage();
     try {
+      // Keep the business day in February in both browser time zones; timers still run normally.
+      await page.clock.setFixedTime(new Date(timezoneId === 'America/Los_Angeles' ? '2024-02-29T12:00:00-08:00' : '2024-02-29T12:00:00+14:00'));
       await page.goto('/');
       await page.getByRole('button', { name: /Jefe Admin/ }).click();
       await page.getByLabel('PIN de acceso').fill('246810');
       await page.getByRole('button', { name: 'Acceder' }).click();
       await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+      const dashboard = page.getByRole('region', { name: 'Resumen financiero mensual' });
+      await expect(dashboard).toContainText('1,00 €');
+      await expect(dashboard).toContainText('0,85 €');
+      await expect(dashboard).toContainText('0,70 € · 29/02/2024 · Segundo Local');
+      await page.screenshot({ path: testInfo.outputPath(`dashboard-${timezoneId.split('/')[1]}.png`), fullPage: true, animations: 'disabled' });
+      await page.getByRole('link', { name: 'Cierres', exact: true }).click();
+      await expect(page.getByLabel('Fecha del Cierre')).toHaveValue('2024-02-29');
+      await page.getByLabel('Total Efectivo').fill('0.10');
+      await page.getByLabel('Total Tarjeta').fill('0.20');
+      await page.getByLabel('Invitaciones (Valor)').fill('2.50');
+      await page.getByLabel('Descuadre de Caja').fill('-0.01');
+      await expect(page.getByLabel('Total previsto del cierre')).toHaveText('0,30 €');
+      await page.getByRole('button', { name: 'Guardar Cierre' }).evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+      await page.screenshot({ path: testInfo.outputPath(`closing-editor-${timezoneId.split('/')[1]}.png`), animations: 'disabled' });
+      // Duplicate fixture: the real API must reject it and the complete form stays available.
+      await page.getByRole('button', { name: 'Guardar Cierre' }).click();
+      await expect(page.getByRole('alert')).toContainText('Ya existe un cierre');
+      await expect(page.getByLabel('Total Efectivo')).toHaveValue('0.10');
+      await expect(page.getByLabel('Invitaciones (Valor)')).toHaveValue('2.50');
+      await expect(page.getByLabel('Descuadre de Caja')).toHaveValue('-0.01');
+      await page.getByRole('button', { name: 'Historial', exact: true }).click();
+      await page.getByRole('button', { name: 'Principal', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Principal', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      const history = page.getByRole('article', { name: 'Cierre 29/02/2024 · Principal' });
+      await expect(history).toContainText('0,30 €');
+      await expect(history).toContainText('Descuadre: -0,01 €');
+      await expect(history).toContainText('0,10 €');
+      await expect(history).toContainText('2,50 €');
+      await page.screenshot({ path: testInfo.outputPath(`closing-history-${timezoneId.split('/')[1]}.png`), fullPage: true, animations: 'disabled' });
+      await page.getByRole('button', { name: 'Inicio', exact: true }).click();
       await page.getByRole('link', { name: 'Informes', exact: true }).click();
       await expect(page.getByRole('button', { name: /Exportar Informe/ })).toBeVisible();
       await page.getByLabel('Año del informe').selectOption('2024');

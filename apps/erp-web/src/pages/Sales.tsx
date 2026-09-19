@@ -4,44 +4,31 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 import { readJson, errorMessage } from '../apiResponse';
-import { useApiLists } from '../hooks/useApiLists';
+import { useApiRead } from '../hooks/useApiLists';
 import RequestError from '../components/RequestError';
-import { localDate } from '../localDate';
-
-interface Cierre {
-  id: number;
-  fecha: string;
-  local: string;
-  efectivo: number;
-  tarjeta: number;
-  invitaciones: number;
-  descuadre: number;
-  total: number;
-}
+import { closingHistory, financialSummary, readCashClosings } from '../financialData';
+import { formatCivilDate, formatEuroCents, toCents } from '../financialValues';
+import { closingPreview, emptyClosing } from '../closingDraft';
 
 export default function Sales() {
   const { fetchWithAuth } = useAuth();
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
-  const { data, loading, error: loadError, reload: fetchCierres } = useApiLists<[Cierre]>(['/api/cierres']);
-  const cierres = data?.[0] ?? [];
+  const { data, loading, error: loadError, reload: fetchCierres } = useApiRead(['/api/cierres'], readCashClosings);
+  const cierres = data ?? [];
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [filterLocal, setFilterLocal] = useState('Todos');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [newCierre, setNewCierre] = useState({
-    fecha: localDate(),
-    local: 'Principal',
-    efectivo: '',
-    tarjeta: '',
-    invitaciones: '',
-    descuadre: ''
-  });
+  const [newCierre, setNewCierre] = useState(emptyClosing);
+  const preview = closingPreview(newCierre);
+  const history = closingHistory(cierres, filterLocal);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     setError(''); setSuccess('');
+    if (!preview.valid) { setError(preview.error); return; }
     setIsSubmitting(true);
     try {
       const res = await fetchWithAuth(`${API_URL}/api/cierres`, {
@@ -50,14 +37,7 @@ export default function Sales() {
         body: JSON.stringify({ ...newCierre, invitaciones: newCierre.invitaciones || '0', descuadre: newCierre.descuadre || '0' })
       });
       await readJson(res);
-      setNewCierre({
-        fecha: localDate(),
-        local: 'Principal',
-        efectivo: '',
-        tarjeta: '',
-        invitaciones: '',
-        descuadre: ''
-      });
+      setNewCierre(emptyClosing());
       setSuccess('Cierre registrado correctamente.');
       void fetchCierres();
       setActiveTab('history');
@@ -203,6 +183,11 @@ export default function Sales() {
             
           </div>
 
+          <section aria-label="Vista previa del cierre" className="rounded-xl border border-brand-200 dark:border-brand-800 p-4 space-y-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">Total del cierre (efectivo + tarjeta)</p>
+            <output aria-label="Total previsto del cierre" className="block text-2xl font-bold text-slate-900 dark:text-white break-all">{preview.valid ? formatEuroCents(preview.total) : 'Pendiente de importes válidos'}</output>
+            <p className="text-xs text-slate-500">Invitaciones y descuadre se registran aparte; no modifican este total. La API calcula el total definitivo al guardar.</p>
+          </section>
           <button 
             type="submit"
             disabled={isSubmitting}
@@ -217,7 +202,7 @@ export default function Sales() {
           {/* Filtro por local */}
           <div className="flex gap-2">
             {['Todos', 'Principal', 'Segundo Local'].map(l => (
-              <button key={l} onClick={() => setFilterLocal(l)}
+              <button key={l} onClick={() => setFilterLocal(l)} aria-pressed={filterLocal === l}
                 className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${filterLocal === l ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}
               >
                 <MapPin size={12} />{l}
@@ -225,32 +210,40 @@ export default function Sales() {
             ))}
           </div>
           {loading ? (
-            <div className="flex justify-center p-8 text-brand-500">
+            <div role="status" aria-label="Cargando cierres" className="flex justify-center p-8 text-brand-500">
               <Loader2 className="animate-spin" size={32} />
             </div>
-          ) : loadError ? <RequestError message={loadError} onRetry={fetchCierres} /> : cierres.filter(c => filterLocal === 'Todos' || c.local === filterLocal).length === 0 ? (
+          ) : loadError ? <RequestError message={loadError} onRetry={fetchCierres} /> : history.length === 0 ? (
             <div className="text-center py-10 text-slate-500">No hay cierres registrados para este filtro.</div>
           ) : (
-            cierres.filter(c => filterLocal === 'Todos' || c.local === filterLocal).map(item => (
-              <div key={item.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors duration-200">
+            history.map(item => (
+              <article key={item.id} aria-label={`Cierre ${formatCivilDate(item.fecha)} · ${item.local}`} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 transition-colors duration-200">
+              <div className="flex flex-wrap gap-3 items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="bg-brand-100 dark:bg-brand-900/30 p-2 rounded-lg text-brand-600 dark:text-brand-400">
                     <TrendingUp size={20} />
                   </div>
                   <div>
-                    <p className="font-medium text-slate-900 dark:text-white">{new Date(item.fecha).toLocaleDateString()}</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{formatCivilDate(item.fecha)}</p>
                     <p className="text-xs text-slate-500">{item.local}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-slate-900 dark:text-white">€{item.total.toFixed(2)}</p>
+                  <p className="font-bold text-slate-900 dark:text-white break-all">{formatEuroCents(toCents(item.total))}</p>
                   {item.descuadre !== 0 && (
                     <p className={`text-[10px] font-medium ${item.descuadre < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                      Descuadre: {item.descuadre > 0 ? '+' : ''}{item.descuadre.toFixed(2)}
+                      Descuadre: {item.descuadre > 0 ? '+' : ''}{formatEuroCents(toCents(item.descuadre))}
                     </p>
                   )}
                 </div>
               </div>
+              <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <div><dt>Efectivo</dt><dd>{formatEuroCents(toCents(item.efectivo))}</dd></div>
+                <div><dt>Tarjeta</dt><dd>{formatEuroCents(toCents(item.tarjeta))}</dd></div>
+                <div><dt>Invitaciones</dt><dd>{formatEuroCents(toCents(item.invitaciones))}</dd></div>
+              </dl>
+              {financialSummary([item], []).inconsistent && <p role="alert" className="text-sm text-amber-700 dark:text-amber-400">El total registrado no coincide con efectivo más tarjeta. Se conserva el histórico sin modificar.</p>}
+              </article>
             ))
           )}
         </div>

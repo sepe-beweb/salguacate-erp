@@ -2,7 +2,7 @@
 
 ## Estado y alcance
 
-Décimo bloque local en `refactor/recovery-foundation`. El noveno se publicó como `b73eeef`, con [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35422723783). Este documento no acredita publicación del décimo ni despliegue.
+Décimo bloque publicado como `437e819` en `refactor/recovery-foundation`, con [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35429587555). Este documento no acredita despliegue.
 
 Se unifican lectura, agregación y presentación de informes mensuales y analíticas. La pantalla de gastos reutiliza los mismos validadores y formateadores. No se cambia la API, el esquema, los recibos de idempotencia ni ningún registro persistido.
 
@@ -32,7 +32,7 @@ Los informes siguen filtrados por mes/año y local. Analíticas mantiene su alca
 
 Pantalla e informe imprimible utilizan las mismas sumas y formatos. Se mantiene el escape HTML de textos de usuario. La exportación sigue abriendo HTML para imprimir/guardar desde el navegador: no se introduce un generador PDF nuevo ni se acredita impresión física. Las proporciones de medios de pago conservan las reglas existentes; este bloque no redefine invitaciones ni cierres históricos inconsistentes.
 
-Panel de control e historial/editor de cierres quedan fuera de esta iteración y aún usan sus funciones anteriores. El siguiente bloque propuesto es extender allí estos valores comunes sin alterar las reglas del cierre.
+Panel de control e historial/formulario de cierres quedaron fuera de esta iteración. Su continuación se documenta en el [undécimo bloque local](recovery-dashboard-closings.md), sin alterar las reglas del cierre.
 
 ## Validación y límites
 
