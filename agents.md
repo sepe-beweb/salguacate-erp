@@ -9,6 +9,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Módulos y flujos](docs/architecture/recovery-modules.md): organización vigente y contratos reforzados del segundo bloque.
 - [Pantallas de gestión](docs/architecture/recovery-screens.md): carga, errores, borradores y confirmaciones del tercer bloque.
 - [Recuperación de datos](docs/architecture/recovery-data.md): backup, restauración aislada y ensayo de migraciones.
+- [Notas, escáner y empleado](docs/architecture/recovery-personal-workflows.md): errores, borradores, consentimiento y conciliación del fichaje.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -27,6 +28,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - No asumir implementados TPV, TicketBAI o el wrapper Android por existir sus directorios.
 - Las nuevas pantallas deben conservar soporte móvil/tablet, accesibilidad y permisos por rol.
 - Para cargas de listas relacionadas, usar `useApiLists`: no sustituir un fallo por una lista vacía ni publicar métricas parciales. Las escrituras comprueban HTTP/JSON, conservan el borrador si fallan y no se reintentan automáticamente.
+- Un estado de fichaje desconocido bloquea las acciones; después de escribir se consulta al servidor antes de habilitar otro fichaje. El análisis externo de imágenes y el dictado requieren aceptación explícita; no se confunden con la generación local de PDF.
 
 ## Arquitectura vigente
 

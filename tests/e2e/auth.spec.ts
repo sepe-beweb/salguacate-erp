@@ -56,6 +56,11 @@ test.describe('Salguacate ERP - Integración local con datos desechables', () =>
     await expect(page.locator('text=Turno Activo')).toBeVisible();
     await expect(page.locator('text=Finalizar')).toBeVisible();
 
+    await page.getByRole('button', { name: 'Descanso', exact: true }).click();
+    await expect(page.getByText('En Descanso', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Volver', exact: true }).click();
+    await expect(page.getByText('Turno Activo', { exact: true })).toBeVisible();
+
     // Finalizar/Fichar Salida
     await page.click('text=Finalizar');
 

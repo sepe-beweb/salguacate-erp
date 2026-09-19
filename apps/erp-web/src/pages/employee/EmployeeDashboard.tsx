@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, CalendarDays, Bell, CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { Clock, CalendarDays, Bell, CheckCircle2, Circle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
+
+import { useApiLists } from '../../hooks/useApiLists';
+import { readJson, errorMessage } from '../../apiResponse';
+import { localDate } from '../../localDate';
+import RequestError from '../../components/RequestError';
 
 interface Tarea {
   id: number;
@@ -28,69 +33,38 @@ interface Turno {
 export default function EmployeeDashboard() {
   const { user, fetchWithAuth } = useAuth();
   const navigate = useNavigate();
-  const [tareas, setTareas] = useState<Tarea[]>([]);
-  const [turnoHoy, setTurnoHoy] = useState<Turno | null>(null);
-  const [loading, setLoading] = useState(true);
-
+  const { data, loading, error: loadError, reload: fetchDashboardData } = useApiLists<[Tarea, Turno]>(['/api/tareas', '/api/turnos']);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const today = localDate();
   const dateStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const today = new Date().toISOString().split('T')[0];
-
-  const fetchDashboardData = () => {
-    if (!user) return;
-    setLoading(true);
-    
-    Promise.all([
-      fetchWithAuth(`${API_URL}/api/tareas`).then(r => r.json()),
-      fetchWithAuth(`${API_URL}/api/turnos?usuario_id=${user.id}`).then(r => r.json())
-    ])
-    .then(([tareasData, turnosData]) => {
-      const tareasList = Array.isArray(tareasData) ? tareasData : [];
-      const turnosList = Array.isArray(turnosData) ? turnosData : [];
-      // Filtrar tareas de hoy, del local del empleado (o grupal/ambos) y asignadas a él (o grupales)
-      const filtradas = tareasList.filter((t: Tarea) => {
-        const matchesDate = t.fecha === today;
-        const matchesEmployee = t.asignado_a === null || String(t.asignado_a) === String(user.id);
-        const matchesLocal = !t.local || t.local === '' || t.local === 'Ambos' || t.local === user.location;
-        return matchesDate && matchesEmployee && matchesLocal;
-      });
-      setTareas(filtradas);
-
-      // Buscar turno programado para hoy
-      const turnoDeHoy = turnosList.find((t: Turno) => t.fecha === today);
-      setTurnoHoy(turnoDeHoy || null);
-
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error("Error al cargar datos del dashboard del empleado", err);
-      setLoading(false);
-    });
-  };
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [user]);
+  const tareas = (data?.[0] ?? []).filter(t => t.fecha === today && (t.asignado_a === null || String(t.asignado_a) === user?.id) && (!t.local || t.local === 'Ambos' || t.local === user?.location));
+  const turnoHoy = data?.[1].find(t => t.fecha === today);
 
   const handleToggleTarea = async (tarea: Tarea) => {
+    if (busy || loading || loadError) return;
+    setBusy(true); setError('');
     const nextCompleted = !tarea.completada;
-    // Actualización optimista de UI
-    setTareas(prev => prev.map(t => t.id === tarea.id ? { ...t, completada: nextCompleted } : t));
-    
     try {
       const res = await fetchWithAuth(`${API_URL}/api/tareas/${tarea.id}/completada`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completada: nextCompleted })
       });
-      if (!res.ok) throw new Error('No se pudo actualizar la tarea');
+      await readJson(res);
+      await fetchDashboardData();
     } catch (err) {
-      console.error("Error al marcar la tarea", err);
-      fetchDashboardData(); // Revertir en caso de error
-    }
+      setError(`${errorMessage(err)} Comprueba el estado antes de repetir el cambio.`);
+      await fetchDashboardData();
+    } finally { setBusy(false); }
   };
+
+  if (loading) return <p role="status" className="p-8 text-center">Cargando turnos y tareas...</p>;
+  if (loadError) return <RequestError message={loadError} onRetry={fetchDashboardData} />;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <RequestError message={error} />
       {/* Saludo */}
       <div className="flex justify-between items-start">
         <div>
@@ -133,7 +107,7 @@ export default function EmployeeDashboard() {
         ) : (
           <>
             <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-              ¡Hoy libras! 🎉
+              Sin turno registrado hoy
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               No tienes ningún turno programado para hoy en el cuadrante.
@@ -157,14 +131,10 @@ export default function EmployeeDashboard() {
           Checklist de Hoy
         </h3>
 
-        {loading ? (
-          <div className="flex justify-center py-6 text-brand-500">
-            <Loader2 className="animate-spin" size={24} />
-          </div>
-        ) : tareas.length === 0 ? (
+        {tareas.length === 0 ? (
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 text-center text-slate-500">
             <CheckCircle2 className="text-emerald-500 mx-auto mb-2" size={32} />
-            <p className="font-medium text-slate-800 dark:text-slate-300">¡Todo limpio por hoy!</p>
+            <p className="font-medium text-slate-800 dark:text-slate-300">Sin tareas para hoy</p>
             <p className="text-xs mt-0.5">No tienes tareas asignadas pendientes en {user?.location}.</p>
           </div>
         ) : (
@@ -172,7 +142,7 @@ export default function EmployeeDashboard() {
             {tareas.map(tarea => (
               <button
                 key={tarea.id}
-                onClick={() => handleToggleTarea(tarea)}
+                disabled={busy} aria-pressed={Boolean(tarea.completada)} onClick={() => handleToggleTarea(tarea)}
                 className={`w-full bg-white dark:bg-slate-900 p-4 rounded-xl border transition-all flex items-start gap-3 text-left shadow-sm ${
                   tarea.completada 
                     ? 'border-emerald-200 dark:border-emerald-900/30 opacity-60' 

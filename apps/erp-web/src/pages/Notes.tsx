@@ -3,6 +3,10 @@ import { StickyNote, Plus, Trash2, Loader2, Mic, MicOff, Pin, PinOff, X, User } 
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
+import { readJson, errorMessage } from '../apiResponse';
+import { useApiLists } from '../hooks/useApiLists';
+import RequestError from '../components/RequestError';
+
 interface Nota {
   id: number;
   contenido: string;
@@ -23,8 +27,13 @@ const COLORS = [
 
 export default function Notes() {
   const { user, fetchWithAuth } = useAuth();
-  const [notas, setNotas] = useState<Nota[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, reload: fetchNotas } = useApiLists<[Nota]>(['/api/notas']);
+  const notas = data?.[0] ?? [];
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const modalRef = useRef<HTMLDialogElement>(null);
+  const noteInputRef = useRef<HTMLTextAreaElement>(null);
+  const [voiceConsent, setVoiceConsent] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newNote, setNewNote] = useState('');
@@ -34,68 +43,67 @@ export default function Notes() {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  const fetchNotas = () => {
-    setLoading(true);
-    fetchWithAuth(`${API_URL}/api/notas`)
-      .then(res => res.json())
-      .then(data => { setNotas(data); setLoading(false); })
-      .catch(err => { console.error(err); setLoading(false); });
+  useEffect(() => {
+    const handleAction = () => { void fetchNotas(); };
+    window.addEventListener('ai_action_executed', handleAction);
+    return () => window.removeEventListener('ai_action_executed', handleAction);
+  }, [fetchNotas]);
+
+  useEffect(() => {
+    if (showModal) {
+      modalRef.current?.showModal();
+      noteInputRef.current?.focus();
+    }
+  }, [showModal]);
+  useEffect(() => () => {
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    if (recognition) { recognition.onresult = null; recognition.onerror = null; recognition.onend = null; recognition.abort(); }
+  }, []);
+
+  const stopVoice = () => {
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    if (recognition) { recognition.onresult = null; recognition.onerror = null; recognition.onend = null; recognition.abort(); }
+    setIsListening(false);
   };
-
-  useEffect(() => {
-    fetchNotas();
-    const handleAiAction = () => fetchNotas();
-    window.addEventListener('ai_action_executed', handleAiAction);
-    return () => window.removeEventListener('ai_action_executed', handleAiAction);
-  }, []);
-
-  // Setup Speech Recognition
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'es-ES';
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = 0; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
-        }
-        setNewNote(transcript);
-      };
-
-      recognition.onerror = () => setIsListening(false);
-      recognition.onend = () => setIsListening(false);
-      
-      recognitionRef.current = recognition;
-    }
-  }, []);
-
+  const closeModal = () => {
+    if (isSubmitting) return;
+    stopVoice(); setVoiceConsent(false);
+    modalRef.current?.close(); setShowModal(false);
+  };
   const toggleVoice = () => {
-    if (!recognitionRef.current) {
-      alert('Tu navegador no soporta dictado por voz. Usa Chrome o Edge.');
-      return;
-    }
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      recognitionRef.current.start();
-      setIsListening(true);
-    }
+    if (isListening) { stopVoice(); return; }
+    if (!voiceConsent || isSubmitting) return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) { setError('Este navegador no ofrece dictado. Puedes escribir la nota.'); return; }
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.lang = 'es-ES'; recognition.continuous = true; recognition.interimResults = false;
+    let text = newNote;
+    const processed = new Set<number>();
+    recognition.onresult = (event: any) => {
+      if (recognitionRef.current !== recognition) return;
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (!event.results[i].isFinal || processed.has(i)) continue;
+        processed.add(i);
+        const next = [text, event.results[i][0].transcript].filter(Boolean).join(' ');
+        if (next.length > 5000) { stopVoice(); setError('La nota admite hasta 5000 caracteres. Se conserva el texto anterior.'); return; }
+        text = next;
+      }
+      setNewNote(text);
+    };
+    recognition.onerror = () => { if (recognitionRef.current === recognition) { stopVoice(); setError('El dictado no está disponible o no tiene permiso. Se conserva la nota.'); } };
+    recognition.onend = () => { if (recognitionRef.current === recognition) { recognitionRef.current = null; setIsListening(false); } };
+    try { setError(''); recognition.start(); setIsListening(true); }
+    catch { stopVoice(); setError('No se pudo iniciar el dictado. Puedes escribir la nota.'); }
   };
 
   const handleSaveNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNote.trim()) return;
+    if (!newNote.trim() || isSubmitting || isListening) return;
+    setError('');
     
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
-
     setIsSubmitting(true);
     try {
       const res = await fetchWithAuth(`${API_URL}/api/notas`, {
@@ -107,39 +115,44 @@ export default function Notes() {
           usuario_id: user ? parseInt(user.id) : null
         })
       });
-      if (res.ok) {
-        setShowModal(false);
-        setNewNote('');
-        setSelectedColor('yellow');
-        fetchNotas();
-      }
+      await readJson(res);
+      modalRef.current?.close(); setShowModal(false); setVoiceConsent(false);
+      setNewNote('');
+      setSelectedColor('yellow');
+      await fetchNotas();
     } catch (err) {
-      console.error(err);
+      setError(`${errorMessage(err)} Revisa las notas antes de repetir el guardado si se perdió la conexión.`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: number) => {
+    if (busy || !window.confirm('¿Eliminar esta nota? Esta acción no se puede deshacer.')) return;
+    setBusy(true); setError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/notas/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchNotas();
+      await readJson(res);
+      await fetchNotas();
     } catch (err) {
-      console.error(err);
-    }
+      setError(`${errorMessage(err)} Comprueba la lista antes de repetir la eliminación.`);
+    } finally { setBusy(false); }
   };
 
   const handleTogglePin = async (nota: Nota) => {
+    if (busy) return;
+    setBusy(true); setError('');
     try {
-      await fetchWithAuth(`${API_URL}/api/notas/${nota.id}`, {
+      const response = await fetchWithAuth(`${API_URL}/api/notas/${nota.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contenido: nota.contenido, color: nota.color, fijada: !nota.fijada })
       });
-      fetchNotas();
+      await readJson(response);
+      await fetchNotas();
     } catch (err) {
-      console.error(err);
-    }
+      setError(errorMessage(err));
+    } finally { setBusy(false); }
   };
 
   const getColorStyle = (colorId: string) => COLORS.find(c => c.id === colorId) || COLORS[0];
@@ -157,25 +170,28 @@ export default function Notes() {
           Notas
         </h2>
         <button 
-          onClick={() => setShowModal(true)}
+          disabled={busy} onClick={() => { setError(''); setShowModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-full transition-colors shadow-md flex items-center gap-1 px-4"
         >
           <Plus size={18} /> <span className="font-semibold text-sm">Nueva</span>
         </button>
       </div>
 
+      {!showModal && <RequestError message={error} onRetry={fetchNotas} />}
       {/* Modal: Nueva Nota */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <dialog ref={modalRef} aria-labelledby="note-title" onCancel={event => { event.preventDefault(); closeModal(); }} className="m-auto w-11/12 max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl p-0 bg-white dark:bg-slate-900 backdrop:bg-black/50">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nueva Nota</h3>
-              <button onClick={() => { setShowModal(false); if (isListening && recognitionRef.current) { recognitionRef.current.stop(); setIsListening(false); } }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <h3 id="note-title" className="text-lg font-bold text-slate-900 dark:text-white">Nueva Nota</h3>
+              <button aria-label="Cerrar nota" disabled={isSubmitting} onClick={closeModal} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X size={20} />
               </button>
             </div>
             
             <form onSubmit={handleSaveNote} className="space-y-4">
+              <RequestError message={error} onRetry={fetchNotas} />
+              <fieldset disabled={isSubmitting} className="space-y-4">
               {/* Voice indicator */}
               {isListening && (
                 <div className="flex items-center gap-2 text-red-500 text-sm font-medium bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg border border-red-200 dark:border-red-800">
@@ -188,7 +204,7 @@ export default function Notes() {
               )}
 
               <div className="relative">
-                <textarea 
+                <textarea ref={noteInputRef} aria-label="Contenido de la nota" maxLength={5000} disabled={isListening}
                   rows={5}
                   value={newNote}
                   onChange={e => setNewNote(e.target.value)}
@@ -197,7 +213,7 @@ export default function Notes() {
                 ></textarea>
                 <button
                   type="button"
-                  onClick={toggleVoice}
+                  disabled={!voiceConsent && !isListening} onClick={toggleVoice}
                   className={`absolute right-3 bottom-3 p-2.5 rounded-full transition-all shadow-md ${
                     isListening 
                       ? 'bg-red-500 text-white animate-pulse shadow-red-500/30' 
@@ -209,13 +225,17 @@ export default function Notes() {
                 </button>
               </div>
 
+              <label className="flex gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={voiceConsent} disabled={isListening} onChange={event => setVoiceConsent(event.target.checked)} />
+                Autorizo el dictado del navegador, que puede enviar audio a su proveedor. No dictaré datos sensibles.
+              </label>
               {/* Color picker */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Color</label>
                 <div className="flex gap-2">
                   {COLORS.map(c => (
                     <button
-                      key={c.id}
+                      aria-label={`Color ${c.id}`} aria-pressed={selectedColor === c.id} key={c.id}
                       type="button"
                       onClick={() => setSelectedColor(c.id)}
                       className={`w-8 h-8 rounded-full ${c.accent} transition-all ${
@@ -237,14 +257,15 @@ export default function Notes() {
               )}
 
               <button 
-                type="submit" disabled={isSubmitting || !newNote.trim()}
+                type="submit" disabled={isSubmitting || isListening || !newNote.trim()}
                 className="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-3 rounded-lg flex justify-center items-center transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Guardar Nota"}
               </button>
+              </fieldset>
             </form>
           </div>
-        </div>
+        </dialog>
       )}
 
       {/* Lista de notas */}
@@ -252,7 +273,7 @@ export default function Notes() {
         <div className="flex justify-center py-12 text-brand-500">
           <Loader2 className="animate-spin" size={32} />
         </div>
-      ) : notas.length === 0 ? (
+      ) : loadError ? <RequestError message={loadError} onRetry={fetchNotas} /> : notas.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-sm">
           <div className="bg-amber-100 dark:bg-amber-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <StickyNote size={32} className="text-amber-500" />
@@ -290,14 +311,14 @@ export default function Notes() {
                   </div>
                   <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                     <button 
-                      onClick={() => handleTogglePin(nota)} 
+                      disabled={busy} aria-pressed={Boolean(nota.fijada)} onClick={() => handleTogglePin(nota)}
                       className={`p-1.5 rounded-lg transition-colors ${nota.fijada ? 'text-brand-500 hover:text-brand-600' : 'text-slate-400 hover:text-brand-500'}`}
                       title={nota.fijada ? 'Desfijar' : 'Fijar arriba'}
                     >
                       {nota.fijada ? <PinOff size={14} /> : <Pin size={14} />}
                     </button>
                     <button 
-                      onClick={() => handleDelete(nota.id)} 
+                      disabled={busy} onClick={() => handleDelete(nota.id)}
                       className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-lg"
                       title="Eliminar"
                     >

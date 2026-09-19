@@ -3,11 +3,26 @@ import { Play, Square, Coffee, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
 
+import { readJson, errorMessage } from '../../apiResponse';
+import { useApiRead } from '../../hooks/useApiLists';
+import RequestError from '../../components/RequestError';
+
+type ClockStatus = 'out' | 'working' | 'break';
+async function readClock([response]: Response[]): Promise<ClockStatus> {
+  const data = await readJson<unknown>(response);
+  if (data === null) return 'out';
+  if (data && typeof data === 'object' && 'estado' in data) {
+    if (data.estado === 'trabajando') return 'working';
+    if (data.estado === 'descanso') return 'break';
+  }
+  throw new Error('El servidor devolvió un estado de fichaje desconocido.');
+}
+
 export default function Clock() {
   const { user, fetchWithAuth } = useAuth();
   const [time, setTime] = useState(new Date());
-  const [status, setStatus] = useState<'out' | 'working' | 'break'>('out');
-  const [loading, setLoading] = useState(true);
+  const { data: status, loading, error: loadError, reload } = useApiRead(['/api/fichajes/activo'], readClock);
+  const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
@@ -15,58 +30,19 @@ export default function Clock() {
     return () => clearInterval(timer);
   }, []);
 
-  // Cargar estado inicial del fichaje activo desde el servidor
-  useEffect(() => {
-    if (!user) return;
-    setErrorMsg('');
-    setLoading(true);
-    fetchWithAuth(`${API_URL}/api/fichajes/activo`)
-      .then(async res => {
-        if (!res.ok) throw new Error('Error al cargar estado del fichaje');
-        const data = await res.json();
-        if (data) {
-          if (data.estado === 'descanso') {
-            setStatus('break');
-          } else {
-            setStatus('working');
-          }
-        } else {
-          setStatus('out');
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setErrorMsg('No se pudo verificar el estado de tu turno actual en el servidor.');
-        setLoading(false);
-      });
-  }, [user]);
-
   const handleFichaje = async (tipo: 'entrada' | 'salida' | 'descanso' | 'volver') => {
-    if (!user) return;
-    setLoading(true);
-    setErrorMsg('');
+    if (!user || busy || loading || !status || loadError) return;
+    setBusy(true); setErrorMsg('');
     try {
-      const res = await fetchWithAuth(`${API_URL}/api/fichar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario_id: user.id, tipo })
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        if (tipo === 'entrada' || tipo === 'volver') setStatus('working');
-        if (tipo === 'descanso') setStatus('break');
-        if (tipo === 'salida') setStatus('out');
-      } else {
-        setErrorMsg(data.error || 'Error al procesar el marcaje.');
-      }
-    } catch (error) {
-      console.error("Error de conexión al fichar", error);
-      setErrorMsg('Error de red. No se pudo conectar con el servidor.');
+      await readJson(await fetchWithAuth(`${API_URL}/api/fichar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo })
+      }));
+    } catch (cause) {
+      setErrorMsg(`${errorMessage(cause)} Se consulta el estado antes de permitir otro fichaje; no se repite la operación.`);
     } finally {
-      setLoading(false);
+      await reload();
+      setBusy(false);
     }
   };
 
@@ -81,21 +57,18 @@ export default function Clock() {
         </h2>
       </div>
 
-      {errorMsg && (
-        <div className="w-full max-w-sm bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 p-4 rounded-xl text-red-700 dark:text-red-400 text-xs text-center">
-          {errorMsg}
-        </div>
-      )}
+      <RequestError message={errorMsg} />
+      <RequestError message={loadError} onRetry={reload} />
 
       <div className="w-full max-w-sm space-y-4">
-        {loading ? (
+        {loading || busy ? (
           <div className="flex justify-center p-8 text-brand-500">
             <Loader2 className="animate-spin" size={36} />
           </div>
-        ) : status === 'out' ? (
+        ) : loadError || !status ? null : status === 'out' ? (
           <button 
             onClick={() => handleFichaje('entrada')}
-            disabled={loading}
+            disabled={loading || busy}
             className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-6 rounded-3xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-brand-500/30 transition-all active:scale-95 disabled:opacity-70"
           >
             <Play size={32} />
@@ -113,7 +86,7 @@ export default function Clock() {
             <div className="grid grid-cols-2 gap-4">
               <button 
                 onClick={() => handleFichaje(status === 'working' ? 'descanso' : 'volver')}
-                disabled={loading}
+                disabled={loading || busy}
                 className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 font-semibold py-4 rounded-2xl flex flex-col items-center gap-2 transition-colors disabled:opacity-50"
               >
                 <Coffee size={24} />
@@ -122,7 +95,7 @@ export default function Clock() {
               
               <button 
                 onClick={() => handleFichaje('salida')}
-                disabled={loading}
+                disabled={loading || busy}
                 className="bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 font-semibold py-4 rounded-2xl flex flex-col items-center gap-2 transition-colors disabled:opacity-50"
               >
                 <Square size={24} />

@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
 import { Users, Loader2, CalendarX2 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { API_URL } from '../../config';
+import { useApiLists } from '../../hooks/useApiLists';
+import RequestError from '../../components/RequestError';
 
 interface Turno {
   id: number;
@@ -13,24 +12,8 @@ interface Turno {
 }
 
 export default function Calendar() {
-  const { user, fetchWithAuth } = useAuth();
-  const [shifts, setShifts] = useState<Turno[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user) {
-      fetchWithAuth(`${API_URL}/api/turnos?usuario_id=${user.id}`)
-        .then(res => res.json())
-        .then(data => {
-          setShifts(Array.isArray(data) ? data : []);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error("Error cargando turnos", err);
-          setLoading(false);
-        });
-    }
-  }, [user]);
+  const { data, loading, error, reload } = useApiLists<[Turno]>(['/api/turnos']);
+  const shifts = data?.[0] ?? [];
 
   if (loading) {
     return (
@@ -45,18 +28,18 @@ export default function Calendar() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Mis Turnos</h2>
       
-      {shifts.length === 0 ? (
+      {error ? <RequestError message={error} onRetry={reload} /> : shifts.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 flex flex-col items-center text-center">
           <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-full mb-4">
             <CalendarX2 size={32} className="text-slate-400" />
           </div>
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Sin turnos asignados</h3>
-          <p className="text-slate-500 text-sm max-w-xs">No tienes turnos programados próximamente. Disfruta de tu tiempo libre.</p>
+          <p className="text-slate-500 text-sm max-w-xs">No hay turnos registrados en tu calendario.</p>
         </div>
       ) : (
         <div className="space-y-4">
           {shifts.map((shift) => {
-            const dateObj = new Date(shift.fecha);
+            const dateObj = new Date(`${shift.fecha}T12:00:00`);
             const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short' });
             const dayNum = dateObj.toLocaleDateString('es-ES', { day: '2-digit' });
             

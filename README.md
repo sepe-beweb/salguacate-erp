@@ -2,7 +2,7 @@
 
 Aplicación de gestión interna de restauración: React/TypeScript y API Express con SQLite. Esta rama recupera la base técnica; no constituye una versión aprobada para producción.
 
-Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos y flujos operativos](docs/architecture/recovery-modules.md), [recuperación de pantallas](docs/architecture/recovery-screens.md) y [backup/restauración](docs/architecture/recovery-data.md). Los informes distinguen resultados locales de los commits publicados y su CI.
+Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos y flujos operativos](docs/architecture/recovery-modules.md), [recuperación de pantallas](docs/architecture/recovery-screens.md), [backup/restauración](docs/architecture/recovery-data.md) y [notas, escáner y empleado](docs/architecture/recovery-personal-workflows.md). Los informes distinguen resultados locales de los commits publicados y su CI.
 
 ## Requisitos y arranque local
 

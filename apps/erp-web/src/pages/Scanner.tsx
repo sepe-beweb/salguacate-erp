@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
-import { Camera, FileText, CheckCircle2, Download, Trash2, Image as ImageIcon, Sparkles, Box } from 'lucide-react';
+import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react';
+import { Camera, FileText, Download, Trash2, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+import { readJson, errorMessage } from '../apiResponse';
+import { localDate } from '../localDate';
+import { parseScanResult, type ScanMode, type ScanResult } from '../scannerResult';
+import RequestError from '../components/RequestError';
 
-interface ScannedDoc {
-  id: string;
-  name: string;
-  date: string;
-  dataUrl: string;
-}
+interface ScannedDoc { id: string; name: string; date: string; dataUrl: string; }
+const emptyInvoice = () => ({ fecha: localDate(), local: 'Principal', proveedor_nombre: '', total: '', concepto: '' });
+const inputClass = 'w-full p-2 border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white';
 
 function loadImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -24,381 +25,171 @@ export default function Scanner() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => () => { if (imageSrc) URL.revokeObjectURL(imageSrc); }, [imageSrc]);
+  const [success, setSuccess] = useState('');
+  const [consent, setConsent] = useState(false);
   const [documents, setDocuments] = useState<ScannedDoc[]>([]);
-  const [aiResult, setAiResult] = useState<any | null>(null);
-  const [scanMode, setScanMode] = useState<'pdf' | 'ai_invoice' | 'ai_inventory'>('pdf');
-  const [invoiceForm, setInvoiceForm] = useState({
-    fecha: new Date().toISOString().split('T')[0],
-    local: 'Principal',
-    proveedor_nombre: '',
-    total: '',
-    concepto: 'Albarán procesado'
-  });
+  const [aiResult, setAiResult] = useState<ScanResult | null>(null);
+  const [scanMode, setScanMode] = useState<ScanMode>('pdf');
+  const [invoiceForm, setInvoiceForm] = useState(emptyInvoice);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const operation = useRef(0);
+  const pending = useRef(false);
+  useEffect(() => () => { operation.current++; }, []);
+  useEffect(() => () => { if (imageSrc) URL.revokeObjectURL(imageSrc); }, [imageSrc]);
 
-  const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setError('');
-      const imageUrl = URL.createObjectURL(file);
-      setImageSrc(imageUrl);
-    }
+  const clearImage = () => {
+    setImageSrc(null); setAiResult(null); setConsent(false); setInvoiceForm(emptyInvoice());
   };
-
-  const saveAsPdf = async () => {
-    if (!imageSrc) return;
-    setIsProcessing(true);
-    setError('');
-    
+  const handleCapture = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || pending.current) return;
+    setError(''); setSuccess('');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setError('Selecciona una imagen JPEG, PNG o WebP de hasta 10 MB.'); return;
+    }
     try {
-      const { jsPDF } = await import('jspdf');
-      // Create a new jsPDF instance (A4 size)
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      // Load image to get dimensions
+      const url = URL.createObjectURL(file);
+      setAiResult(null); setConsent(false); setInvoiceForm(emptyInvoice()); setImageSrc(url);
+    } catch { setError('No se pudo abrir la imagen. Selecciónala de nuevo.'); }
+  };
+  const changeMode = (mode: ScanMode) => {
+    if (pending.current || mode === scanMode) return;
+    setScanMode(mode); setAiResult(null); setConsent(false); setError('');
+  };
+  const processImage = async () => {
+    if (!imageSrc || pending.current || (scanMode !== 'pdf' && !consent)) return;
+    pending.current = true;
+    const request = ++operation.current;
+    setIsProcessing(true); setError(''); setSuccess('');
+    try {
       const img = await loadImage(imageSrc);
-
-      // Calculate dimensions to fit A4 (210 x 297 mm)
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgRatio = img.width / img.height;
-
-      let renderWidth = pageWidth;
-      let renderHeight = pageHeight;
-
-      // Fit the image within the page margins (10mm margins)
-      const margin = 10;
-      const contentWidth = pageWidth - (margin * 2);
-      const contentHeight = pageHeight - (margin * 2);
-
-      if (imgRatio > contentWidth / contentHeight) {
-        renderWidth = contentWidth;
-        renderHeight = renderWidth / imgRatio;
+      if (request !== operation.current) return;
+      if (!img.width || !img.height || img.width * img.height > 40_000_000) throw new Error('La imagen no es válida o supera los 40 megapíxeles.');
+      if (scanMode === 'pdf') {
+        const { jsPDF } = await import('jspdf');
+        if (request !== operation.current) return;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const width = pdf.internal.pageSize.getWidth();
+        const height = pdf.internal.pageSize.getHeight();
+        const scale = Math.min((width - 20) / img.width, (height - 20) / img.height);
+        const w = img.width * scale; const h = img.height * scale;
+        pdf.addImage(img, 'JPEG', (width - w) / 2, (height - h) / 2, w, h);
+        const doc = { id: crypto.randomUUID(), name: `Factura_${localDate()}`, date: new Date().toLocaleString(), dataUrl: pdf.output('datauristring') };
+        setDocuments(previous => [...previous, doc]); clearImage();
+        setSuccess('PDF preparado. Descárgalo para conservarlo.');
       } else {
-        renderHeight = contentHeight;
-        renderWidth = renderHeight * imgRatio;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('No se pudo preparar la imagen para analizarla.');
+        ctx.drawImage(img, 0, 0);
+        const response = await fetchWithAuth(`${API_URL}/api/ai/vision`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: canvas.toDataURL('image/jpeg').split(',')[1], mode: scanMode === 'ai_invoice' ? 'invoice' : 'inventory' })
+        });
+        const result = parseScanResult(await readJson<unknown>(response), scanMode);
+        if (request !== operation.current) return;
+        setAiResult(result);
+        if (result.kind === 'ai_invoice') setInvoiceForm(previous => ({
+          ...previous, proveedor_nombre: result.proveedor, total: result.total, concepto: result.concepto
+        }));
       }
-
-      // Center the image
-      const x = (pageWidth - renderWidth) / 2;
-      const y = (pageHeight - renderHeight) / 2;
-
-      pdf.addImage(img, 'JPEG', x, y, renderWidth, renderHeight);
-      
-      // Save to mock gallery
-      const pdfDataUri = pdf.output('datauristring');
-      const newDoc: ScannedDoc = {
-        id: Date.now().toString(),
-        name: `Factura_${new Date().toISOString().split('T')[0]}`,
-        date: new Date().toLocaleString(),
-        dataUrl: pdfDataUri
-      };
-      
-      setDocuments(prev => [...prev, newDoc]);
-      
-      // Reset
-      setImageSrc(null);
-    } catch (error) {
-      console.error("Error generating PDF", error);
-      setError('No se pudo generar el PDF. Revisa la imagen e inténtalo de nuevo.');
+    } catch (cause) {
+      if (request === operation.current) setError(errorMessage(cause));
     } finally {
-      setIsProcessing(false);
+      if (request === operation.current) { pending.current = false; setIsProcessing(false); }
     }
   };
-
-  const analyzeWithAI = async () => {
-    if (!imageSrc) return;
-    setIsProcessing(true);
-    setError('');
-    setAiResult(null);
-
+  const saveExpense = async (event: FormEvent) => {
+    event.preventDefault();
+    if (pending.current || aiResult?.kind !== 'ai_invoice') return;
+    pending.current = true;
+    const request = ++operation.current;
+    setIsProcessing(true); setError(''); setSuccess('');
     try {
-      // Extraer base64 (quitando el prefijo de data uri)
-      const canvas = document.createElement('canvas');
-      const img = await loadImage(imageSrc);
-      
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0);
-      
-      // Convertir a jpeg para la API
-      const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
-
-      const res = await fetchWithAuth(`${API_URL}/api/ai/vision`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          imageBase64: base64Image, 
-          mode: scanMode === 'ai_invoice' ? 'invoice' : 'inventory' 
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo analizar la imagen.');
-      if (data.success) {
-        const result = data.result || data;
-        setAiResult(result);
-        if (scanMode === 'ai_invoice') {
-          setInvoiceForm({
-            fecha: new Date().toISOString().split('T')[0],
-            local: 'Principal',
-            proveedor_nombre: result.proveedor || '',
-            total: result.total || '',
-            concepto: result.concepto || 'Albarán procesado'
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error con la IA", error);
-      setError(error instanceof Error ? error.message : 'No se pudo analizar la imagen.');
+      await readJson(await fetchWithAuth(`${API_URL}/api/gastos`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(invoiceForm)
+      }));
+      if (request === operation.current) { clearImage(); setSuccess('Gasto registrado correctamente.'); }
+    } catch (cause) {
+      if (request === operation.current) setError(`${errorMessage(cause)} Se conserva el borrador. Si se perdió la conexión, comprueba los gastos antes de repetir el registro.`);
     } finally {
-      setIsProcessing(false);
+      if (request === operation.current) { pending.current = false; setIsProcessing(false); }
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {error && <p role="alert" className="rounded-lg bg-red-50 text-red-700 p-3">{error}</p>}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Escáner</h2>
-      </div>
-
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Escáner</h2>
+      <RequestError message={error} />
+      {success && <p role="status" className="rounded-lg bg-emerald-50 text-emerald-800 p-3">{success}</p>}
+      <p className="text-sm text-slate-500">El PDF se genera en este dispositivo. Los documentos solo permanecen en esta pantalla: descárgalos antes de salir o recargar.</p>
+      <input aria-label="Seleccionar imagen" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" ref={fileInputRef} onChange={handleCapture} disabled={isProcessing} className="hidden" />
       {!imageSrc ? (
-        <div className="space-y-6">
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:border-brand-500 dark:hover:border-brand-500 transition-colors shadow-sm group min-h-[300px]"
-          >
-            <div className="bg-brand-50 dark:bg-brand-900/20 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform">
-              <Camera size={48} className="text-brand-600 dark:text-brand-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Escanear Documento</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
-              Toca para abrir la cámara y fotografiar un ticket o factura.
-            </p>
-            {/* Input nativo que abre la cámara en móviles */}
-            <input 
-              type="file" 
-              accept="image/*" 
-              capture="environment" 
-              ref={fileInputRef}
-              onChange={handleCapture}
-              className="hidden" 
-            />
-          </div>
-
-          {documents.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="font-semibold text-slate-900 dark:text-white">Documentos Recientes</h3>
-              <div className="space-y-3">
-                {documents.map(doc => (
-                  <div key={doc.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-red-600 dark:text-red-400">
-                        <FileText size={24} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900 dark:text-white">{doc.name}.pdf</p>
-                        <p className="text-xs text-slate-500">{doc.date}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <a 
-                        aria-label={`Descargar ${doc.name}.pdf`}
-                        href={doc.dataUrl} 
-                        download={`${doc.name}.pdf`}
-                        className="p-2 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                      >
-                        <Download size={20} />
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 flex flex-col items-center gap-4 min-h-[220px] bg-white dark:bg-slate-900">
+          <Camera size={48} className="text-brand-600" />
+          <span className="text-lg font-semibold">Escanear Documento</span>
+          <span className="text-sm text-slate-500">Selecciona una foto o abre la cámara. JPEG, PNG o WebP, hasta 10 MB.</span>
+        </button>
       ) : (
         <div className="space-y-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-2 shadow-sm overflow-hidden">
-            <div className="flex justify-between items-center px-2 py-3 border-b border-slate-100 dark:border-slate-800 mb-2">
-              <h3 className="font-medium text-slate-900 dark:text-white flex items-center gap-2">
-                <ImageIcon size={18} className="text-brand-500" />
-                Vista Previa
-              </h3>
-              <button 
-                onClick={() => setImageSrc(null)}
-                className="text-slate-400 hover:text-red-500 transition-colors"
-              >
-                <Trash2 size={18} />
-              </button>
+          <div className="bg-white dark:bg-slate-900 rounded-xl border p-3">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-medium">Vista Previa</h3>
+              <button aria-label="Descartar imagen y borrador" disabled={isProcessing} onClick={() => { clearImage(); setError(''); }} className="p-2 text-red-500"><Trash2 size={20} /></button>
             </div>
-            {/* Vista previa de la imagen */}
-            <div className="relative w-full aspect-[3/4] bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden flex items-center justify-center">
-              <img 
-                src={imageSrc} 
-                alt="Vista previa" 
-                className="max-w-full max-h-full object-contain"
-              />
-            </div>
+            <img src={imageSrc} alt="Vista previa" className="max-h-[50vh] w-full object-contain rounded-lg" />
           </div>
-
-          {aiResult && (
-            <div className="bg-gradient-to-r from-brand-50 to-indigo-50 dark:from-brand-900/20 dark:to-indigo-900/20 border border-brand-200 dark:border-brand-800 rounded-xl p-4 shadow-sm animate-in fade-in zoom-in-95 duration-300">
-              <h4 className="font-semibold text-brand-800 dark:text-brand-300 flex items-center gap-2 mb-3">
-                <Sparkles size={18} />
-                Resultados de la Inteligencia Artificial
-              </h4>
-              
-              {scanMode === 'ai_invoice' && (
-                <div className="space-y-3 mt-4">
-                  <div className="grid grid-cols-2 gap-3 mb-1">
-                    <div>
-                      <label className="text-xs text-slate-500">Total Detectado (€)</label>
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={invoiceForm.total} 
-                        onChange={(e) => setInvoiceForm({...invoiceForm, total: e.target.value})}
-                        className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-bold text-lg" 
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500">Proveedor</label>
-                      <input 
-                        type="text" 
-                        value={invoiceForm.proveedor_nombre} 
-                        onChange={(e) => setInvoiceForm({...invoiceForm, proveedor_nombre: e.target.value})}
-                        className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-medium" 
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3 mb-1">
-                    <div>
-                      <label className="text-xs text-slate-500">Fecha</label>
-                      <input 
-                        type="date" 
-                        value={invoiceForm.fecha} 
-                        onChange={(e) => setInvoiceForm({...invoiceForm, fecha: e.target.value})}
-                        className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500">Local</label>
-                      <select 
-                        value={invoiceForm.local} 
-                        onChange={(e) => setInvoiceForm({...invoiceForm, local: e.target.value})}
-                        className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm" 
-                      >
-                        <option value="Principal">Principal</option>
-                        <option value="Segundo Local">Segundo Local</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="text-xs text-slate-500">Concepto</label>
-                    <input 
-                      type="text" 
-                      value={invoiceForm.concepto} 
-                      onChange={(e) => setInvoiceForm({...invoiceForm, concepto: e.target.value})}
-                      className="w-full p-2 mt-1 border border-brand-100 dark:border-brand-800 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm" 
-                    />
-                  </div>
-                  
-                  <button 
-                    onClick={async () => {
-                      setIsProcessing(true);
-                      try {
-                        const res = await fetchWithAuth(`${API_URL}/api/gastos`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ 
-                            total: invoiceForm.total, 
-                            proveedor_nombre: invoiceForm.proveedor_nombre,
-                            fecha: invoiceForm.fecha,
-                            local: invoiceForm.local,
-                            concepto: invoiceForm.concepto
-                          })
-                        });
-                        if (res.ok) {
-                          alert("Gasto registrado en contabilidad");
-                          setImageSrc(null);
-                          setAiResult(null);
-                        } else {
-                          alert("Error al registrar gasto");
-                        }
-                      } catch (e) {
-                        console.error(e);
-                      } finally {
-                        setIsProcessing(false);
-                      }
-                    }}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg flex justify-center items-center gap-2 shadow-md transition-colors"
-                  >
-                    Registrar Gasto Directamente
-                  </button>
-                </div>
-              )}
-
-              {scanMode === 'ai_inventory' && (
-                <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-sm border border-brand-100 dark:border-brand-800 mb-3 text-center">
-                  <p className="text-sm text-slate-500">Botellas estimadas en imagen</p>
-                  <p className="text-3xl font-black text-brand-600 dark:text-brand-400">{aiResult.botellasEstimadas}</p>
-                  <p className="text-xs text-emerald-600 mt-1">Confianza: {aiResult.confianza}</p>
-                </div>
-              )}
-
-              <p className="text-sm text-slate-600 dark:text-slate-400 italic">"{aiResult.rawText}"</p>
-            </div>
+          <div className="grid grid-cols-3 gap-2">
+            {([['pdf', 'Solo PDF'], ['ai_invoice', 'Factura IA'], ['ai_inventory', 'Stock IA']] as const).map(([mode, label]) => (
+              <button key={mode} disabled={isProcessing} aria-pressed={scanMode === mode} onClick={() => changeMode(mode)} className={`p-2 rounded-lg ${scanMode === mode ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}>{label}</button>
+            ))}
+          </div>
+          {scanMode !== 'pdf' && (
+            <label className="flex gap-2 text-sm">
+              <input type="checkbox" checked={consent} disabled={isProcessing} onChange={event => setConsent(event.target.checked)} />
+              Autorizo enviar esta imagen a Gemini para analizarla. No contiene datos sensibles. El servicio debe estar habilitado por la administración.
+            </label>
           )}
-
-          <div className="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-            <button 
-              onClick={() => setScanMode('pdf')}
-              className={`py-2 text-sm font-medium rounded-lg transition-colors ${scanMode === 'pdf' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-            >
-              Solo PDF
-            </button>
-            <button 
-              onClick={() => setScanMode('ai_invoice')}
-              className={`py-2 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-1 ${scanMode === 'ai_invoice' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-            >
-              <FileText size={14} /> Factura IA
-            </button>
-            <button 
-              onClick={() => setScanMode('ai_inventory')}
-              className={`py-2 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-1 ${scanMode === 'ai_inventory' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-            >
-              <Box size={14} /> Stock IA
-            </button>
-          </div>
-
-          <button 
-            onClick={scanMode === 'pdf' ? saveAsPdf : analyzeWithAI}
-            disabled={isProcessing}
-            className="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20 transition-colors disabled:opacity-50"
-          >
-            {isProcessing ? (
-              <span className="animate-pulse flex items-center gap-2">
-                <Sparkles size={20} className="animate-spin" /> Procesando...
-              </span>
-            ) : (
-              <>
-                {scanMode === 'pdf' ? <CheckCircle2 size={20} /> : <Sparkles size={20} />}
-                {scanMode === 'pdf' ? 'Guardar como PDF' : 'Analizar con Gemini'}
-              </>
-            )}
+          <button onClick={processImage} disabled={isProcessing || (scanMode !== 'pdf' && !consent) || aiResult !== null} className="w-full bg-brand-600 text-white p-3 rounded-xl disabled:opacity-50 flex justify-center gap-2">
+            {scanMode === 'pdf' ? <FileText size={20} /> : <Sparkles size={20} />}
+            {isProcessing ? 'Procesando...' : scanMode === 'pdf' ? 'Guardar como PDF' : 'Analizar con Gemini'}
           </button>
+          {aiResult?.kind === 'ai_invoice' && (
+            <form onSubmit={saveExpense} className="rounded-xl border border-brand-200 p-4 space-y-3">
+              <h3 className="font-semibold">Revisar factura</h3>
+              <p className="text-sm text-slate-500">El análisis puede contener errores. Revisa cada campo antes de registrar el gasto.</p>
+              <fieldset disabled={isProcessing} className="space-y-3">
+                <label className="block">Total Detectado (€)<input aria-label="Total Detectado (€)" type="number" required min="0" step="0.01" value={invoiceForm.total} onChange={e => setInvoiceForm({ ...invoiceForm, total: e.target.value })} className={inputClass} /></label>
+                <label className="block">Proveedor<input type="text" required maxLength={160} value={invoiceForm.proveedor_nombre} onChange={e => setInvoiceForm({ ...invoiceForm, proveedor_nombre: e.target.value })} className={inputClass} /></label>
+                <label className="block">Fecha<input type="date" required value={invoiceForm.fecha} onChange={e => setInvoiceForm({ ...invoiceForm, fecha: e.target.value })} className={inputClass} /></label>
+                <label className="block">Local<select value={invoiceForm.local} onChange={e => setInvoiceForm({ ...invoiceForm, local: e.target.value })} className={inputClass}><option>Principal</option><option>Segundo Local</option></select></label>
+                <label className="block">Concepto<input type="text" required maxLength={1000} value={invoiceForm.concepto} onChange={e => setInvoiceForm({ ...invoiceForm, concepto: e.target.value })} className={inputClass} /></label>
+                <button type="submit" className="w-full bg-emerald-600 text-white p-3 rounded-lg disabled:opacity-50">{isProcessing ? 'Registrando...' : 'Registrar Gasto Directamente'}</button>
+              </fieldset>
+            </form>
+          )}
+          {aiResult?.kind === 'ai_inventory' && (
+            <section className="rounded-xl border p-4 space-y-2">
+              <h3 className="font-semibold">Estimación de inventario</h3>
+              <p>Botellas estimadas: {aiResult.botellasEstimadas}. Confianza: {aiResult.confianza}%.</p>
+              <p>{aiResult.rawText}</p>
+              <p className="text-sm text-slate-500">Es una estimación visual: no modifica el inventario.</p>
+            </section>
+          )}
         </div>
+      )}
+      {documents.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="font-semibold">Documentos Recientes</h3>
+          {documents.map(doc => (
+            <div key={doc.id} className="bg-white dark:bg-slate-900 rounded-xl border p-4 flex items-center justify-between">
+              <div><p>{doc.name}.pdf</p><p className="text-sm text-slate-500">{doc.date}</p></div>
+              <a aria-label={`Descargar ${doc.name}.pdf`} href={doc.dataUrl} download={`${doc.name}.pdf`} className="p-2 text-brand-600"><Download size={20} /></a>
+            </div>
+          ))}
+        </section>
       )}
     </div>
   );

@@ -6,8 +6,14 @@ import { errorMessage, readList } from '../apiResponse';
 // GET-only loader: all required lists succeed together; older loads cannot replace newer filters.
 export function useApiLists<T extends unknown[]>(paths: { [K in keyof T]: string }) {
   type Lists = { [K in keyof T]: T[K][] };
+  return useApiRead<Lists>(paths, responses => Promise.all(responses.map(readList)) as Promise<Lists>);
+}
+
+export function useApiRead<T>(paths: string[], read: (responses: Response[]) => Promise<T>) {
   const { fetchWithAuth } = useAuth();
   const fetchRef = useRef(fetchWithAuth);
+  const reader = useRef(read);
+  useEffect(() => { reader.current = read; }, [read]);
   useEffect(() => { fetchRef.current = fetchWithAuth; }, [fetchWithAuth]);
   const key = JSON.stringify(paths);
   const activeKey = useRef(key);
@@ -15,7 +21,7 @@ export function useApiLists<T extends unknown[]>(paths: { [K in keyof T]: string
   useEffect(() => { activeKey.current = key; }, [key]);
   const sequence = useRef(0);
   const controller = useRef<AbortController | null>(null);
-  const [state, setState] = useState<{ key: string; data: Lists | null; loading: boolean; error: string }>({ key, data: null, loading: true, error: '' });
+  const [state, setState] = useState<{ key: string; data: T | null; loading: boolean; error: string }>({ key, data: null, loading: true, error: '' });
   const reload = useCallback(async () => {
     if (!mounted.current || activeKey.current !== key) return;
     const request = ++sequence.current;
@@ -24,9 +30,10 @@ export function useApiLists<T extends unknown[]>(paths: { [K in keyof T]: string
     controller.current = pending;
     setState({ key, data: null, loading: true, error: '' });
     try {
-      const data = await Promise.all((JSON.parse(key) as string[]).map(path =>
-        fetchRef.current(`${API_URL}${path}`, { signal: pending.signal }).then(readList)
-      )) as Lists;
+      const responses = await Promise.all((JSON.parse(key) as string[]).map(path =>
+        fetchRef.current(`${API_URL}${path}`, { signal: pending.signal })
+      ));
+      const data = await reader.current(responses);
       if (sequence.current === request) setState({ key, data, loading: false, error: '' });
     } catch (cause) {
       if (sequence.current === request) setState({ key, data: null, loading: false, error: errorMessage(cause) });
