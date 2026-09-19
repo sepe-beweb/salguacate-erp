@@ -4,21 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 import { readJson, errorMessage } from '../apiResponse';
-import { useApiLists } from '../hooks/useApiLists';
+import { useApiRead } from '../hooks/useApiLists';
+import { readStockWorkspace, type StockItem, type StockOrder as Pedido } from '../stockData';
+import { formatCivilDate } from '../financialValues';
 import RequestError from '../components/RequestError';
 import { localDate } from '../localDate';
-
-interface StockItem {
-  id: number;
-  producto: string;
-  stock_actual: number;
-  stock_minimo: number;
-  local: string;
-  categoria: string;
-  proveedor_id: number | null;
-  proveedor_nombre: string | null;
-  proveedor_telefono: string | null;
-}
 
 interface OrderLine {
   producto_id: number;
@@ -31,24 +21,14 @@ interface OrderLine {
   proveedor_telefono: string | null;
 }
 
-interface Pedido {
-  id: number;
-  fecha: string;
-  local: string;
-  proveedor_nombre: string;
-  proveedor_telefono: string | null;
-  productos: string;
-  estado: string;
-}
-
 const LOCALES = ['Principal', 'Segundo Local'];
 
 export default function StockControl() {
   const { fetchWithAuth } = useAuth();
   const [selectedLocal, setSelectedLocal] = useState(LOCALES[0]);
-  const { data, loading, error: loadError, reload: fetchData } = useApiLists<[StockItem, Pedido]>([
+  const { data, loading, error: loadError, reload: fetchData } = useApiRead([
     `/api/inventario?local=${encodeURIComponent(selectedLocal)}`, '/api/pedidos'
-  ]);
+  ], readStockWorkspace);
   const [items, pedidos] = data ?? [[], []];
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -206,7 +186,7 @@ export default function StockControl() {
       {/* Local selector */}
       <div className="flex gap-2">
         {LOCALES.map(l => (
-          <button key={l} onClick={() => setSelectedLocal(l)} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${selectedLocal === l ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}>
+          <button key={l} aria-pressed={selectedLocal === l} onClick={() => setSelectedLocal(l)} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${selectedLocal === l ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}>
             <MapPin size={14} /> {l}
           </button>
         ))}
@@ -215,23 +195,16 @@ export default function StockControl() {
       {/* History view */}
       {showHistory && !loading && !loadError && (
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pedidos recientes</h3>
+          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pedidos recientes · todos los locales</h3>
           {pedidos.length === 0 ? (
             <p className="text-slate-400 text-center py-4 text-sm">Sin pedidos registrados.</p>
           ) : pedidos.slice(0, 10).map(p => {
-            let prods = [];
-            try {
-              const parsed = JSON.parse(p.productos || '[]');
-              prods = Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-              console.error("Error parseando productos de pedido", e);
-            }
             return (
               <div key={p.id} className={`bg-white dark:bg-slate-900 p-3 rounded-xl border shadow-sm ${p.estado === 'recibido' ? 'border-emerald-200 dark:border-emerald-800 opacity-60' : 'border-slate-200 dark:border-slate-800'}`}>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-slate-900 dark:text-white text-sm">{p.proveedor_nombre}</p>
-                    <p className="text-xs text-slate-400">{p.local} · {new Date(p.fecha).toLocaleDateString('es-ES')}</p>
+                    <p className="text-xs text-slate-400">{p.local} · {formatCivilDate(p.fecha)}</p>
                   </div>
                   {p.estado === 'pendiente' ? (
                     <button disabled={busy} onClick={() => { setError(''); setReceiving(p); }} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full font-semibold hover:bg-emerald-200 transition-colors">
@@ -242,7 +215,7 @@ export default function StockControl() {
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {prods.map((pr: any, i: number) => (
+                  {p.productos.map((pr, i) => (
                     <span key={i} className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded">{pr.nombre} ×{pr.cantidad}</span>
                   ))}
                 </div>
@@ -274,6 +247,7 @@ export default function StockControl() {
                   return (
                     <button
                       key={item.id}
+                      aria-pressed={isChecked}
                       onClick={() => toggleItem(item.id)}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
                         isChecked 
@@ -287,7 +261,7 @@ export default function StockControl() {
                       <div className="flex-1 min-w-0">
                         <p className={`font-medium text-sm ${isLow ? 'text-red-700 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>{item.producto}</p>
                         <div className="flex gap-2 mt-0.5">
-                          <span className="text-xs text-slate-400">{item.categoria}</span>
+                          <span className="text-xs text-slate-400">{item.categoria || 'Sin categoría'}</span>
                           {item.proveedor_nombre && <span className="text-xs text-slate-400">· {item.proveedor_nombre}</span>}
                         </div>
                       </div>

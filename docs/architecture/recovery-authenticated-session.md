@@ -10,4 +10,6 @@ Las pruebas cubren respuesta incompleta, token/identidad/rol inválidos, renovac
 
 Validación local: `npm run check` supera 358 pruebas, lint, TypeScript y build; los 32 recorridos E2E de desarrollo y los 5 de producción pasan con API y bases desechables. JavaScript inicial: 230234 bytes, 74018 comprimidos, dentro del presupuesto existente. Esto no acredita despliegue ni comportamiento con datos reales.
 
+Publicado como `4d239e9bcf56175f116a2cf4a00d977fe30af6ca`; [CI completada correctamente](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35441009623).
+
 Siguiente bloque: lectura de pedidos y catálogo, fechas civiles del historial y rechazo explícito de líneas de pedido inválidas.

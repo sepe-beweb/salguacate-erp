@@ -15,8 +15,8 @@ import { localDate } from '../../apps/erp-web/src/localDate';
 const mocks = vi.hoisted(() => ({ fetchWithAuth: vi.fn(), user: { id: '1', name: 'Propietario', role: 'owner' } }));
 vi.mock('../../apps/erp-web/src/context/AuthContext', () => ({ useAuth: () => mocks }));
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-const product = { id: 1, producto: 'Agua', stock_actual: 2, stock_minimo: 5, local: 'Principal' };
-const order = { id: 1, fecha: '2026-09-19', local: 'Principal', proveedor_nombre: 'Distribuidor', productos: '[]', estado: 'pendiente' };
+const product = { id: 1, producto: 'Agua', stock_actual: 2, stock_minimo: 5, local: 'Principal', categoria: 'Bebida', proveedor_id: null, proveedor_nombre: null, proveedor_telefono: null };
+const order = { id: 1, fecha: '2026-09-19', local: 'Principal', proveedor_id: null, proveedor_nombre: 'Distribuidor', productos: JSON.stringify([{ producto_id: 1, nombre: 'Agua', cantidad: 3 }]), estado: 'pendiente' };
 const dialogMethods = Object.fromEntries(['showModal', 'close'].map(name => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]));
 beforeAll(() => {
   // jsdom has no native modal implementation. Real focus/cancel behavior is covered in browser tests.
