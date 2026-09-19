@@ -10,6 +10,7 @@ import { localDate } from '../localDate';
 
 import { eventHasPassed, formatCivilDate, isCivilTime, readEvents, type PlannedEvent as Evento } from '../planningData';
 import { isCivilDate } from '../financialValues';
+import ModalDialog from '../components/ModalDialog';
 
 const EMPTY_EVENT = { titulo: '', fecha: '', hora: '10:00', descripcion: '', tipo: 'General' };
 
@@ -33,6 +34,7 @@ export default function ManagerCalendar() {
   
   const today = localDate();
   const [formData, setFormData] = useState({ ...EMPTY_EVENT, fecha: today });
+  const [hasDraft, setHasDraft] = useState(false);
 
   useEffect(() => {
     const handleAiAction = () => fetchEventos();
@@ -42,15 +44,19 @@ export default function ManagerCalendar() {
 
   // Open modal for NEW event
   const openNewModal = () => {
+    if (hasDraft && editingId !== null && !window.confirm('¿Descartar el borrador del evento editado para crear uno nuevo?')) return;
     setError('');
+    if (!hasDraft || editingId !== null) { setFormData({ ...EMPTY_EVENT, fecha: localDate() }); setHasDraft(false); }
     setEditingId(null);
-    setFormData({ ...EMPTY_EVENT, fecha: today });
     setShowModal(true);
   };
 
   // Open modal for EDITING an existing event
   const openEditModal = (evento: Evento) => {
+    if (hasDraft && editingId === evento.id) { setShowModal(true); return; }
+    if (hasDraft && !window.confirm('¿Descartar el borrador actual para editar este evento?')) return;
     setError('');
+    setHasDraft(false);
     setEditingId(evento.id);
     setFormData({
       titulo: evento.titulo,
@@ -83,6 +89,7 @@ export default function ManagerCalendar() {
       await readJson(res);
       setShowModal(false);
       setEditingId(null);
+      setHasDraft(false);
       setFormData({ ...EMPTY_EVENT, fecha: today });
       fetchEventos();
     } catch (err) {
@@ -173,27 +180,28 @@ export default function ManagerCalendar() {
       </div>
 
       {!showModal && <RequestError message={error} />}
+      {!showModal && hasDraft && <button type="button" onClick={() => setShowModal(true)} className="text-brand-600 dark:text-brand-400 underline">Retomar borrador de evento</button>}
       {/* Modal: Crear / Editar Evento */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200">
+        <ModalDialog label={editingId ? 'Editar Evento' : 'Añadir a la Agenda'} busy={isSubmitting} onClose={() => setShowModal(false)}>
+          <div className="p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingId ? 'Editar Evento' : 'Añadir a la Agenda'}
               </h3>
-              <button aria-label="Cancelar evento" disabled={isSubmitting} onClick={() => { setShowModal(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <button aria-label="Cancelar evento" disabled={isSubmitting} onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X size={20} />
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} onChange={() => setHasDraft(true)} className="space-y-4">
               <RequestError message={error} />
               <fieldset disabled={isSubmitting} className="space-y-4">
               <div>
                 <label htmlFor="event-titulo" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Título</label>
                 <input 
                   type="text" required
-                  id="event-titulo" value={formData.titulo}
+                  id="event-titulo" data-autofocus value={formData.titulo}
                   onChange={e => setFormData({...formData, titulo: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
                   placeholder="Ej. Noche de Techno con DJ Marko"
@@ -255,9 +263,12 @@ export default function ManagerCalendar() {
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : (editingId ? "Guardar Cambios" : "Guardar Evento")}
               </button>
               </fieldset>
+              {hasDraft && <button type="button" disabled={isSubmitting} onClick={() => {
+                if (window.confirm('¿Descartar el borrador de este evento?')) { setHasDraft(false); setEditingId(null); setFormData({ ...EMPTY_EVENT, fecha: localDate() }); setError(''); setShowModal(false); }
+              }} className="text-sm text-slate-500 underline">Descartar borrador</button>}
             </form>
           </div>
-        </div>
+        </ModalDialog>
       )}
 
       {/* Modal: Poster Generator */}

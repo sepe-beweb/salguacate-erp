@@ -19,3 +19,9 @@ Object.defineProperty(window, 'matchMedia', {
 // Mock window.scrollTo
 window.scrollTo = vi.fn();
 Element.prototype.scrollIntoView = vi.fn();
+
+// jsdom does not implement native dialog focus/inert behavior; browser tests cover it.
+Object.defineProperties(HTMLDialogElement.prototype, {
+  showModal: { configurable: true, value: function () { this.setAttribute('open', ''); } },
+  close: { configurable: true, value: function () { this.removeAttribute('open'); } }
+});

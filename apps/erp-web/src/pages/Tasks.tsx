@@ -8,6 +8,7 @@ import { emptyTask, formatCivilDate, readTaskWorkspace, type PlannedTask as Tare
 import { localDate } from '../localDate';
 import { isCivilDate } from '../financialValues';
 import RequestError from '../components/RequestError';
+import ModalDialog from '../components/ModalDialog';
 
 export default function Tasks() {
   const { fetchWithAuth } = useAuth();
@@ -20,6 +21,7 @@ export default function Tasks() {
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('pending');
   const [form, setForm] = useState(emptyTask);
+  const [hasDraft, setHasDraft] = useState(false);
 
   useEffect(() => {
     const handleAiAction = () => fetchData();
@@ -44,8 +46,9 @@ export default function Tasks() {
       await readJson(res);
       setShowModal(false);
       setForm(emptyTask());
+      setHasDraft(false);
       fetchData();
-    } catch (err) { setError(errorMessage(err)); }
+    } catch (err) { setError(`${errorMessage(err)} Consulta la lista antes de repetir el alta si se perdió la conexión.`); }
     finally { setIsSubmitting(false); }
   };
 
@@ -102,7 +105,7 @@ export default function Tasks() {
         </h2>
         <button 
           disabled={loading || !!loadError || busy || isSubmitting}
-          onClick={() => { setError(''); setShowModal(true); }}
+          onClick={() => { setError(''); if (!hasDraft) setForm(emptyTask()); setShowModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-full transition-colors shadow-md flex items-center gap-1 px-4"
         >
           <Plus size={18} /> <span className="font-semibold text-sm">Nueva</span>
@@ -124,8 +127,8 @@ export default function Tasks() {
 
       {/* Modal: Nueva Tarea */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+        <ModalDialog label="Nueva Tarea" busy={isSubmitting} onClose={() => setShowModal(false)}>
+          <div className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nueva Tarea</h3>
               <button aria-label="Cerrar tarea" disabled={isSubmitting} onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -133,13 +136,13 @@ export default function Tasks() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} onChange={() => setHasDraft(true)} className="space-y-4">
               {error && <p role="alert" className="text-red-700">{error}</p>}
               <fieldset disabled={isSubmitting || loading || !!loadError} className="space-y-4">
               <div>
                 <label htmlFor="task-title" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tarea</label>
                 <input 
-                  id="task-title" type="text" required autoFocus
+                  id="task-title" type="text" required data-autofocus
                   value={form.titulo}
                   onChange={e => setForm({...form, titulo: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
@@ -211,9 +214,12 @@ export default function Tasks() {
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Crear Tarea"}
               </button>
               </fieldset>
+              {hasDraft && <button type="button" disabled={isSubmitting} onClick={() => {
+                if (window.confirm('¿Descartar el borrador de esta tarea?')) { setForm(emptyTask()); setHasDraft(false); setError(''); }
+              }} className="text-sm text-slate-500 underline">Descartar borrador</button>}
             </form>
           </div>
-        </div>
+        </ModalDialog>
       )}
 
       {/* Lista de tareas */}
