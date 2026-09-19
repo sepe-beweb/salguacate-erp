@@ -40,6 +40,7 @@ Entrada vigente: [estado de recuperación y puertas de salida](recovery-status.m
 - [23. Borrador de pedidos](recovery-order-dialogs.md): proveedor por ID y local conservado.
 - [24. Catálogo y alertas](recovery-catalog-values.md): inventario compartido y categorías.
 - [25. Altas de catálogo](recovery-catalog-dialogs.md): formularios e imágenes.
+- [29. Persistencia de fotos](recovery-catalog-images.md): PNG/JPEG reales en almacenamiento temporal de pruebas.
 
 ## Propuestas históricas: no acreditan implementación
 

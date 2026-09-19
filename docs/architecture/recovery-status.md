@@ -1,13 +1,13 @@
 # Estado de recuperación y puertas de salida
 
-Vigésimo octavo bloque: consolidación documental tras recuperar las lecturas y flujos web de los bloques 1–27. No añade funciones, modifica datos ni habilita despliegues. Rama de trabajo: `refactor/recovery-foundation`; `main` no se ha fusionado desde esta continuación.
+Consolidación documental del bloque 28, actualizada con la comprobación de fotos del [bloque 29](recovery-catalog-images.md). No modifica datos reales ni habilita despliegues. Rama de trabajo: `refactor/recovery-foundation`; `main` no se ha fusionado desde esta continuación.
 
 ## Evidencia de la base candidata
 
-Último bloque de código: `3f36cca46cc56baab072cf0fc2cfb49b0b7be45c` ([presencia y panel](recovery-presence-values.md)), publicado con [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35443710872). Validado localmente con Node 22.23.2 y Chrome instalado en Windows:
+Último cambio de aplicación: `3f36cca46cc56baab072cf0fc2cfb49b0b7be45c` ([presencia y panel](recovery-presence-values.md)), publicado con [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35443710872). La consolidación del bloque 28 tiene también [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35443995331). Ambas CI corresponden a 493/38/5 pruebas; el bloque 29 amplía el arnés y sus pruebas sin cambiar la aplicación. La validación local de esa ampliación se recoge en su informe. Base validada con Node 22.23.2 y Chrome instalado en Windows:
 
-- `npm run check`: lint, 493 pruebas de API/componentes, TypeScript y compilación correctos.
-- `npm run test:e2e`: 38 recorridos en 24 archivos, con una API y SQLite en memoria nuevas por archivo.
+- `npm run check`: lint, 496 pruebas de API/componentes, TypeScript y compilación correctos, incluida la ampliación del bloque 29.
+- `npm run test:e2e`: 39 recorridos en 25 archivos, con una API, SQLite en memoria y uploads temporales nuevos por archivo.
 - `npm run test:e2e:production`: 5 recorridos de archivos compilados servidos localmente, después de la batería anterior.
 - Arranque JavaScript: 230281 bytes, 74026 gzip, 3 archivos estáticos; 19 pantallas diferidas. Presupuesto: 250000/85000 bytes. No incluye CSS, imágenes, API ni todos los módulos descargables, ni mide tiempo de carga en un móvil físico.
 
@@ -44,7 +44,7 @@ No se puede dar por superada esta puerta con fixtures. La herramienta de recuper
 - **Históricos financieros:** columnas REAL heredadas, cálculos cliente/servidor protegidos en céntimos donde se han recuperado; esto no es contabilidad fiscal. No se corrigen totales históricos discrepantes para hacerlos cuadrar.
 - **Exposición del servicio:** el selector público revela nombres y roles. Hay que decidir si se mantiene antes de exponerlo en Internet. Las cuotas de login por IP no confían en proxies arbitrarios; revisar proxy/topología y usuarios compartiendo IP antes de producción.
 - **SQLite y runtime:** esquema actual 2, una instancia con volumen persistente; no es arquitectura distribuida. SQLite sigue siendo experimental en Node 22 y ESLint 8 requiere una actualización planificada. La consulta de dependencias del primer bloque fue puntual, no una auditoría permanente de seguridad.
-- **Fotos:** son públicas por URL; no almacenar documentos personales. El lector cliente y los rechazos de subida están cubiertos, pero la batería de navegador actual no persiste fotos: la API de pruebas no configura uploads. Falta aceptación de almacenamiento/servicio de imágenes con un destino aislado y después con la infraestructura aprobada.
+- **Fotos:** son públicas por URL; no almacenar documentos personales. El lector cliente, los rechazos y la subida/lectura real de PNG y JPEG sintéticos están cubiertos mediante almacenamiento temporal aislado. Sigue pendiente la aceptación con la copia real y con la infraestructura aprobada; no se ha validado el volumen remoto.
 - **IA, voz y comunicaciones externas:** siguen sin validación integrada activada. PDF local no prueba extracción IA. No se han enviado documentos reales, usado micrófono ni enviado pedidos por WhatsApp. Consentimiento y destinos requieren revisión específica.
 - **Ajustes, Android, TPV y fiscalidad:** varias filas de Ajustes son informativas sin editor. El wrapper antiguo y los planes TPV/TicketBAI no son producto recuperado ni cumplimiento certificado. Requieren definir alcance antes de continuar esas funciones.
 - **Accesibilidad y dispositivos:** hay pruebas de teclado, diálogos y anchura móvil en Chromium, no certificación integral ni prueba en dispositivos físicos o todos los motores.
@@ -57,4 +57,4 @@ La [CI](../../.github/workflows/ci.yml) ejecuta check, navegador y archivos comp
 
 ## Cómo mantener este estado
 
-Actualizar este documento al superar una puerta con evidencia nueva. Mantener los [informes por bloque](README.md) como historial sin reescribir sus resultados antiguos como si fueran actuales. Este bloque documental se valida mediante enlaces locales y contraste con scripts/configuración; no atribuirle nuevas pruebas de negocio ni una migración real.
+Actualizar este documento al superar una puerta con evidencia nueva. Mantener los [informes por bloque](README.md) como historial sin reescribir sus resultados antiguos como si fueran actuales. El bloque 28 comprobó 75 enlaces locales y la presencia de los 27 informes previos en el índice, además del contraste con scripts/configuración; no se le atribuyen nuevas pruebas de negocio ni una migración real.

@@ -29,7 +29,7 @@ El servidor solo escucha tras completar las migraciones. `GET /api/health` indic
 - `npm run check`: lint, pruebas de API/componentes y compilación web.
 - `npx --no-install playwright install chromium`, después `npm run test:e2e`.
 - En Windows se puede definir `E2E_CHROME_PATH` con la ruta del ejecutable Chrome instalado.
-- La batería funcional usa una API en memoria nueva por archivo, conservando los límites de acceso reales; los artefactos se separan bajo `test-results/e2e`. Para una selección concreta: `npm run test:e2e -- nombre.spec.ts`.
+- La batería funcional usa una API en memoria y un directorio temporal de fotos nuevos por archivo, conservando los límites de acceso reales; los artefactos se separan bajo `test-results/e2e`. El proceso principal elimina únicamente su directorio de fotos al finalizar el proceso de pruebas, también si este devuelve error. Para una selección concreta: `npm run test:e2e -- nombre.spec.ts`. Usar ese runner, no Playwright directo, para los recorridos que guardan imágenes.
 - `npm run test:e2e:production`: comprueba el tamaño del arranque y la carga/recuperación de rutas sobre archivos compilados servidos localmente. Ejecutar después de E2E, nunca a la vez: comparten los puertos de prueba. No despliega.
 - E2E reserva `127.0.0.1:5174` y `127.0.0.1:3101`, no reutiliza servidores y crea una base exclusivamente en memoria. Las credenciales bajo `tests/fixtures` no se cargan en el arranque normal.
 - `npm audit` consulta avisos actuales; no equivale a una auditoría completa de seguridad.

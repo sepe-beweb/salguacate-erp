@@ -43,7 +43,12 @@ test('mobile supplier and product dialogs retain drafts, reject decimal quantiti
   await page.getByRole('button', { name: 'Nuevo producto' }).click();
   await expect(productDialog.getByLabel('Local', { exact: true })).toHaveValue('Segundo Local');
   await expect(productDialog.getByAltText('Vista previa del producto')).toBeVisible();
-  // The disposable API deliberately has no upload directory. Its explicit rejection must preserve the complete draft.
+  // Inject a storage outage before forwarding a write. The separate photo journey tests real persistence.
+  await page.route('**/api/inventario', async route => {
+    if (route.request().method() === 'POST' && route.request().postDataJSON().imagen_base64) {
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Almacenamiento de imágenes no configurado.' }) });
+    } else await route.continue();
+  });
   await productDialog.getByRole('button', { name: 'Guardar Producto' }).click();
   await expect(productDialog.getByRole('alert')).toContainText('Almacenamiento de imágenes no configurado');
   await expect(productDialog.getByAltText('Vista previa del producto')).toBeVisible();
