@@ -36,6 +36,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Presencia registrada](docs/architecture/recovery-presence-values.md): resumen validado, fechas completas y actualización manual explícita.
 - [Fotos persistidas](docs/architecture/recovery-catalog-images.md): recorrido real con PNG/JPEG sintéticos y almacenamiento temporal aislado.
 - [Instalación nueva](docs/architecture/recovery-fresh-install.md): decisión de no migrar históricos, base nueva exclusiva y alta inicial privada.
+- [Alojamiento gratuito](docs/architecture/recovery-free-hosting.md): plan aprobado y ensayo Turso aislado; no activa el backend remoto.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.

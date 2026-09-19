@@ -14,6 +14,7 @@
     "dev:api": "npm run start --workspace apps/api",
     "bootstrap": "node apps/api/scripts/bootstrap-owner.js",
     "recovery": "node scripts/recovery.cjs",
+    "probe:turso": "node apps/api/scripts/turso-probe.js",
     "build": "npm run build:erp",
     "build:erp": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",

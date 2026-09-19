@@ -46,4 +46,9 @@ Los scripts `generate-user-guide.cjs` y `render-create-services.cjs` son histór
 
 ## Publicación
 
+El [plan gratuito aprobado](docs/architecture/recovery-free-hosting.md) comienza con
+`npm run probe:turso -- --help`: ensayo manual en una base Turso/libSQL nueva y
+desechable, separado del servidor. El backend activo sigue siendo SQLite local;
+el ensayo no constituye despliegue ni integración de la aplicación con Turso.
+
 CI comprueba los cambios; no publica. El workflow de Render es manual y exige validación. `render.yaml` declara despliegues automáticos desactivados, pero un cambio en este archivo **no demuestra** que esa configuración se haya aplicado al servicio remoto. No se han modificado servicios remotos desde esta rama.

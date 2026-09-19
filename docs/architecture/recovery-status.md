@@ -1,8 +1,15 @@
 # Estado de recuperación y puertas de salida
 
-Consolidación documental del bloque 28, actualizada con fotos y [alta de instalación nueva del bloque 30](recovery-fresh-install.md). Decisión vigente: no hay datos anteriores que conservar; no se realizará migración histórica. No se han borrado instalaciones ni habilitado despliegues. Rama de trabajo: `refactor/recovery-foundation`; `main` no se ha fusionado desde esta continuación.
+Consolidación documental del bloque 28, actualizada con fotos, [alta de instalación nueva del bloque 30](recovery-fresh-install.md) y [ensayo de alojamiento gratuito del bloque 31](recovery-free-hosting.md). Decisión vigente: no hay datos anteriores que conservar; no se realizará migración histórica. Se aprueba preparar el piloto Render + Turso/libSQL + Cloudinary, empezando por compatibilidad remota. No se han borrado instalaciones ni habilitado despliegues. Rama de trabajo: `refactor/recovery-foundation`; `main` no se ha fusionado desde esta continuación.
 
 ## Evidencia de la base candidata
+
+Ampliación local del bloque 31: lint y compilación correctos, batería final de
+537 pruebas en 33 archivos (27 nuevas del ensayo/adaptador), 39 recorridos E2E y
+5 de archivos compilados correctos. El SDK HTTP usa transporte simulado y las
+pruebas SQL usan un doble asíncrono local: **no hay validación Turso remota**.
+El navegador disponible requiere login. La evidencia histórica siguiente
+corresponde a los bloques anteriores y no sustituye la CI del nuevo commit.
 
 La base de panel/catálogo se publicó con el bloque 27 y la ampliación de fotos como `ccccf5c633fc42880928b50ed805388f246a00a8`, con [CI correcta del bloque 29](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35444372055), correspondiente a 496/39/5 pruebas. El bloque 30 añade el bootstrap explícito; su evidencia local no se atribuye a esa CI anterior. Base validada con Node 22.23.2 y Chrome instalado en Windows:
 
@@ -22,10 +29,19 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 | Backup/restauración | Herramientas y pruebas desechables disponibles | [Procedimiento](recovery-data.md), incluida revocación de sesiones y conservación de recibos |
 | Migración de datos existentes | No aplicable a la decisión vigente | No hay datos anteriores que conservar; no se han borrado instalaciones |
 | Instalación nueva | Comando y pruebas preparados; destino real no creado | Elegir entorno/rutas y dar de alta el propietario con PIN privado |
+| Compatibilidad Turso/libSQL | Adaptador y ensayo aislados preparados; ensayo remoto pendiente | Cuenta Free, base nueva desechable, token privado y tiempos/transacciones verificados; el ERP activo sigue usando SQLite local |
 | Aceptación operativa y seguridad de exposición | Pendiente | Reglas por local, acceso público, dispositivos y operación descritos abajo |
 | Merge, activación y despliegue | No realizados | Decisión específica, instalación aceptada y procedimiento de copia/vuelta |
 
-## Siguiente paso: instalación nueva vacía
+## Siguiente paso: compatibilidad remota antes de la instalación
+
+Seguir el [ensayo de alojamiento gratuito](recovery-free-hosting.md). El bloque 31
+no conecta las rutas del ERP con Turso: primero se debe ejecutar y aceptar el
+ensayo contra una base remota vacía exclusiva de pruebas. Las comprobaciones
+locales con doble de contrato no sustituyen esa puerta. La adaptación asíncrona,
+Cloudinary, bootstrap remoto, backup remoto y despliegue siguen pendientes.
+
+## Instalación nueva local disponible
 
 Seguir el [procedimiento de alta inicial](recovery-fresh-install.md), eligiendo destino y propietario. El modo explícito exige un archivo nuevo, no lee `.env`, recibe el PIN por stdin y no inserta muestras. No se ha creado una cuenta real ni elegido una ruta operativa por aproximación. El PIN se introduce en un prompt privado del equipo, no en el chat.
 
