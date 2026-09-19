@@ -18,7 +18,7 @@ export default function PendingCreatesNotice() {
     <p>Guardados de esta sesión. Puedes navegar; al recargar o cerrar sesión se pierde esta recuperación.</p>
     <div className="flex flex-wrap gap-x-4 gap-y-2">
       <AttemptLink path="/api/notas" to="/notas" label="Revisar nota" />
-      <AttemptLink path="/api/gastos" to="/escaner" label="Revisar gasto" />
+      <AttemptLink path="/api/gastos" to="/gastos" label="Revisar gasto" />
     </div>
   </aside>;
 }

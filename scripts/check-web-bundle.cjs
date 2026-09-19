@@ -26,4 +26,4 @@ if (bytes > 250_000 || gzipBytes > 85_000) {
   throw new Error('Initial JavaScript exceeds the 250 kB / 85 kB gzip budget. Check eager route imports.');
 }
 const routes = Object.values(manifest).filter(item => item.isDynamicEntry && item.src?.startsWith('src/pages/'));
-if (routes.length !== 18) throw new Error('Expected 18 deferred feature screens. Review the route split before changing this guard.');
+if (routes.length !== 19) throw new Error('Expected 19 deferred feature screens. Review the route split before changing this guard.');

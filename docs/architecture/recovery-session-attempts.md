@@ -2,7 +2,7 @@
 
 ## Estado y alcance
 
-Octavo bloque local sobre `refactor/recovery-foundation`. El séptimo está publicado como `45040cf` y pasó [CI](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35421203289). Este documento no acredita publicación del octavo ni despliegue.
+Octavo bloque publicado como `68adeb6` sobre `refactor/recovery-foundation`, con [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35422123480). Este documento no acredita despliegue.
 
 Se amplía la recuperación de `POST /api/notas` y `POST /api/gastos` al navegar entre rutas en la misma sesión y pestaña. No cambia el contrato de API, los permisos, el esquema 2 ni los recibos persistentes del servidor.
 
@@ -47,4 +47,4 @@ Los recorridos de navegador usan una API real con SQLite desechable: pérdida de
 
 Validación local: lint, 163 pruebas (84 de API y 79 de componentes/helpers), TypeScript y build correctos. Pasan 19 recorridos funcionales y 4 de archivos compilados. El arranque queda en 223.476 bytes de JavaScript y 70.912 comprimidos según el verificador, por debajo de 250.000/85.000. Captura de recuperación del gasto revisada a 390 px; no hay nuevas dependencias, cambios de API, datos reales, servicios externos de IA ni despliegue.
 
-Siguiente bloque propuesto: alta manual y consulta de gastos para conciliación, reutilizando esta protección y sin depender del análisis de imágenes.
+Continuación implementada localmente: [alta manual y consulta de gastos](recovery-manual-expenses.md), compartiendo esta protección con el escáner. El aviso global del gasto conduce ahora a `/gastos`.

@@ -13,6 +13,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const Sales = lazy(() => import('./pages/Sales'));
 const Scanner = lazy(() => import('./pages/Scanner'));
+const Expenses = lazy(() => import('./pages/Expenses'));
 const HRManagement = lazy(() => import('./pages/HRManagement'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 const Providers = lazy(() => import('./pages/Providers'));
@@ -192,6 +193,9 @@ function Sidebar({ role, isDarkMode, toggleTheme, logout }: SidebarProps) {
               <button onClick={() => navigate('/ventas')} className={linkClass('/ventas')}>
                 <CreditCard size={18} /> Cierres de Caja
               </button>
+              <button onClick={() => navigate('/gastos')} className={linkClass('/gastos')}>
+                <FileSpreadsheet size={18} /> Gastos
+              </button>
               <button onClick={() => navigate('/analiticas')} className={linkClass('/analiticas')}>
                 <BarChart3 size={18} /> Analíticas Visuales
               </button>
@@ -319,6 +323,7 @@ function MainLayout() {
                     <Route path="/inventario" element={<Inventory />} />
                     <Route path="/ventas" element={<Sales />} />
                     <Route path="/escaner" element={<Scanner />} />
+                    <Route path="/gastos" element={<Expenses />} />
                     <Route path="/correos" element={<Messages />} />
                     <Route path="/rrhh" element={<HRManagement />} />
                     <Route path="/proveedores" element={<Providers />} />

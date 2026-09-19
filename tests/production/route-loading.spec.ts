@@ -21,7 +21,7 @@ test('compiled login defers feature screens and loads each selected route on dem
   page.on('request', req => { if (req.resourceType() === 'script') assets.push(new URL(req.url()).pathname); });
   await page.goto('/');
   await expect(page.getByRole('button', { name: /Jefe Admin/ })).toBeVisible();
-  for (const name of ['Dashboard', 'Inventory', 'Analytics', 'Reports', 'employee/EmployeeDashboard']) expect(assets).not.toContain(routeAsset(name));
+  for (const name of ['Dashboard', 'Inventory', 'Analytics', 'Reports', 'Expenses', 'employee/EmployeeDashboard']) expect(assets).not.toContain(routeAsset(name));
   await page.getByRole('button', { name: /Jefe Admin/ }).click();
   await page.getByLabel('PIN de acceso').fill('246810');
   await page.getByRole('button', { name: 'Acceder' }).click();
@@ -41,6 +41,10 @@ test('compiled login defers feature screens and loads each selected route on dem
   await expect(page.getByRole('heading', { name: 'Analíticas Financieras' })).toBeVisible();
   await expect(page.locator('.recharts-surface').first()).toBeVisible();
   expect(assets.filter(url => url === routeAsset('Analytics'))).toHaveLength(1);
+  expect(assets).not.toContain(routeAsset('Expenses'));
+  await page.getByRole('button', { name: 'Gastos', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Gastos', exact: true })).toBeVisible();
+  expect(assets).toContain(routeAsset('Expenses'));
   await page.getByRole('button', { name: 'Panel de Control' }).click();
   await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
   expect(assets.filter(url => url === routeAsset('Dashboard'))).toHaveLength(1);
@@ -107,13 +111,13 @@ test('a delayed chunk shows loading while the user can leave and late completion
   } finally { release(); }
 });
 
-test('employee direct access to a management URL redirects without downloading management screens', async ({ page }) => {
+for (const path of ['/inventario', '/gastos']) test(`employee direct access to ${path} redirects without downloading management screens`, async ({ page }) => {
   const assets: string[] = [];
   page.on('request', req => { if (req.resourceType() === 'script') assets.push(new URL(req.url()).pathname); });
-  await enter(page, 'María García', '/inventario');
+  await enter(page, 'María García', path);
   await expect(page).toHaveURL('/');
   expect(assets).toContain(routeAsset('employee/EmployeeDashboard'));
-  for (const name of ['Inventory', 'Dashboard', 'Analytics', 'HRManagement']) expect(assets).not.toContain(routeAsset(name));
+  for (const name of ['Inventory', 'Dashboard', 'Analytics', 'HRManagement', 'Expenses']) expect(assets).not.toContain(routeAsset(name));
   await page.getByRole('button', { name: 'Turnos Asignados' }).click();
   await expect(page.getByRole('heading', { name: 'Mis Turnos' })).toBeVisible();
   expect(assets).toContain(routeAsset('employee/Calendar'));

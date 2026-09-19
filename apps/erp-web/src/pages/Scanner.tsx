@@ -7,10 +7,11 @@ import { localDate } from '../localDate';
 import { parseScanResult, type ScanMode, type ScanResult } from '../scannerResult';
 import RequestError from '../components/RequestError';
 import { useIdempotentCreate } from '../hooks/useIdempotentCreate';
+import ExpenseFields from '../components/ExpenseFields';
+import { emptyExpense } from '../expenses';
 
 interface ScannedDoc { id: string; name: string; date: string; dataUrl: string; }
-const emptyInvoice = () => ({ fecha: localDate(), local: 'Principal', proveedor_nombre: '', total: '', concepto: '' });
-const inputClass = 'w-full p-2 border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white';
+const emptyInvoice = emptyExpense;
 
 function loadImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -182,13 +183,7 @@ export default function Scanner() {
               <p className="text-sm text-slate-500">El análisis puede contener errores. Revisa cada campo antes de registrar el gasto.</p>
               {inFlight && <p role="status">Esperando la respuesta del guardado. Puedes volver a esta pantalla sin repetir el envío.</p>}
               {locked && !isProcessing && <p role="status" className="text-sm">Hay un guardado sin confirmar. Los datos quedan bloqueados. Puedes confirmar el mismo intento sin crear otro gasto. Se conserva al navegar en esta sesión, pero se pierde al recargar o cerrar sesión.</p>}
-              <fieldset disabled={isProcessing || locked} className="space-y-3">
-                <label className="block">Total Detectado (€)<input aria-label="Total Detectado (€)" type="number" required min="0" step="0.01" value={invoiceForm.total} onChange={e => setInvoiceForm({ ...invoiceForm, total: e.target.value })} className={inputClass} /></label>
-                <label className="block">Proveedor<input type="text" required maxLength={160} value={invoiceForm.proveedor_nombre} onChange={e => setInvoiceForm({ ...invoiceForm, proveedor_nombre: e.target.value })} className={inputClass} /></label>
-                <label className="block">Fecha<input type="date" required value={invoiceForm.fecha} onChange={e => setInvoiceForm({ ...invoiceForm, fecha: e.target.value })} className={inputClass} /></label>
-                <label className="block">Local<select value={invoiceForm.local} onChange={e => setInvoiceForm({ ...invoiceForm, local: e.target.value })} className={inputClass}><option>Principal</option><option>Segundo Local</option></select></label>
-                <label className="block">Concepto<input type="text" required maxLength={1000} value={invoiceForm.concepto} onChange={e => setInvoiceForm({ ...invoiceForm, concepto: e.target.value })} className={inputClass} /></label>
-              </fieldset>
+              <ExpenseFields value={invoiceForm} onChange={setInvoiceForm} disabled={isProcessing || locked} amountLabel="Total Detectado (€)" conceptRequired />
               <button type="submit" disabled={isProcessing} className="w-full bg-emerald-600 text-white p-3 rounded-lg disabled:opacity-50">{isProcessing ? 'Registrando...' : locked ? 'Confirmar guardado pendiente' : 'Registrar Gasto Directamente'}</button>
             </form>
           )}

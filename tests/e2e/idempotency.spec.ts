@@ -95,7 +95,7 @@ test('reviewed expense keeps image and fields after a lost response and confirms
   await page.getByRole('button', { name: 'Inicio', exact: true }).click();
   await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
   await page.getByRole('link', { name: 'Revisar gasto: por revisar' }).click();
-  await expect(page.getByText(/Gasto recuperado de esta sesión/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recuperar gasto de esta sesión' })).toBeVisible();
   await expect(page.getByAltText('Vista previa')).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: /Autorizo enviar/ })).toHaveCount(0);
   await expect(page.getByLabel('Proveedor', { exact: true })).toHaveValue(provider);
@@ -103,7 +103,7 @@ test('reviewed expense keeps image and fields after a lost response and confirms
   expect(writes).toHaveLength(1);
   await page.screenshot({ path: testInfo.outputPath('recovered-expense-mobile.png'), fullPage: true });
   await page.getByRole('button', { name: 'Confirmar guardado pendiente' }).click();
-  await expect(page.getByRole('status')).toHaveText('Gasto registrado correctamente.');
+  await expect(page.getByText(/Gasto registrado correctamente \(n.º/)).toBeVisible();
   await expect(page.getByAltText('Vista previa')).toHaveCount(0);
   expect(await matching()).toEqual(before);
   expect(writes).toHaveLength(2);

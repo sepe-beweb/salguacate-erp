@@ -161,6 +161,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-4 gap-3">
           {[
             { to: '/ventas', icon: <FileText size={22} />, label: 'Cierres', color: 'text-brand-500' },
+            { to: '/gastos', icon: <FileText size={22} />, label: 'Gastos', color: 'text-red-500' },
             { to: '/rrhh', icon: <Users size={22} />, label: 'RRHH', color: 'text-brand-500' },
             { to: '/agenda', icon: <CalendarIcon size={22} />, label: 'Agenda', color: 'text-brand-500' },
             { to: '/inventario', icon: <Package size={22} />, label: 'Stock', color: 'text-emerald-500' },
