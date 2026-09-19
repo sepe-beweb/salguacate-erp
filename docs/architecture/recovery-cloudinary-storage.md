@@ -1,5 +1,9 @@
 # Almacenamiento de fotos preparado para Cloudinary
 
+Estado posterior: el [bloque 35](recovery-cloudinary-probe.md) supera el ensayo
+remoto con imágenes sintéticas y deja la clave temporal desactivada. La evidencia
+descrita a continuación corresponde al alcance original del bloque 34.
+
 ## Alcance del bloque 34
 
 Se añade un almacén de imágenes intercambiable. El modo local conserva PNG/JPEG
