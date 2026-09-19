@@ -3,6 +3,11 @@ import { Calendar as CalendarIcon, Clock, Plus, Trash2, Loader2, X, AlertCircle,
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
+import { readJson, errorMessage } from '../apiResponse';
+import { useApiLists } from '../hooks/useApiLists';
+import RequestError from '../components/RequestError';
+import { localDate } from '../localDate';
+
 interface Evento {
   id: number;
   titulo: string;
@@ -16,8 +21,10 @@ const EMPTY_EVENT = { titulo: '', fecha: '', hora: '10:00', descripcion: '', tip
 
 export default function ManagerCalendar() {
   const { fetchWithAuth } = useAuth();
-  const [eventos, setEventos] = useState<Evento[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, reload: fetchEventos } = useApiLists<[Evento]>(['/api/eventos']);
+  const eventos = data?.[0] ?? [];
+  const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -30,32 +37,18 @@ export default function ManagerCalendar() {
   const [posterImage, setPosterImage] = useState<string | null>(null);
   const [posterError, setPosterError] = useState<string | null>(null);
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDate();
   const [formData, setFormData] = useState({ ...EMPTY_EVENT, fecha: today });
 
-  const fetchEventos = () => {
-    setLoading(true);
-    fetchWithAuth(`${API_URL}/api/eventos`)
-      .then(res => res.json())
-      .then(data => {
-        setEventos(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
-  };
-
   useEffect(() => {
-    fetchEventos();
     const handleAiAction = () => fetchEventos();
     window.addEventListener('ai_action_executed', handleAiAction);
     return () => window.removeEventListener('ai_action_executed', handleAiAction);
-  }, []);
+  }, [fetchEventos]);
 
   // Open modal for NEW event
   const openNewModal = () => {
+    setError('');
     setEditingId(null);
     setFormData({ ...EMPTY_EVENT, fecha: today });
     setShowModal(true);
@@ -63,6 +56,7 @@ export default function ManagerCalendar() {
 
   // Open modal for EDITING an existing event
   const openEditModal = (evento: Evento) => {
+    setError('');
     setEditingId(evento.id);
     setFormData({
       titulo: evento.titulo,
@@ -76,7 +70,8 @@ export default function ManagerCalendar() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.titulo || !formData.fecha || !formData.hora) return;
+    if (!formData.titulo || !formData.fecha || !formData.hora || isSubmitting) return;
+    setError('');
     
     setIsSubmitting(true);
     try {
@@ -90,27 +85,27 @@ export default function ManagerCalendar() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      if (res.ok) {
-        setShowModal(false);
-        setEditingId(null);
-        setFormData({ ...EMPTY_EVENT, fecha: today });
-        fetchEventos();
-      }
+      await readJson(res);
+      setShowModal(false);
+      setEditingId(null);
+      setFormData({ ...EMPTY_EVENT, fecha: today });
+      fetchEventos();
     } catch (err) {
-      console.error(err);
+      setError(`${errorMessage(err)} Revisa la agenda antes de repetir el guardado si se perdió la conexión.`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Seguro que quieres borrar este evento?')) return;
+  const handleDelete = async (evento: Evento) => {
+    if (deleting || !window.confirm(`¿Eliminar el evento «${evento.titulo}» del ${evento.fecha}? Esta acción no se puede deshacer.`)) return;
+    setDeleting(true); setError('');
     try {
-      const res = await fetchWithAuth(`${API_URL}/api/eventos/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchEventos();
+      await readJson(await fetchWithAuth(`${API_URL}/api/eventos/${evento.id}`, { method: 'DELETE' }));
+      await fetchEventos();
     } catch (err) {
-      console.error(err);
-    }
+      setError(`${errorMessage(err)} Comprueba la agenda antes de repetir la eliminación.`);
+    } finally { setDeleting(false); }
   };
 
   // Poster generation
@@ -132,14 +127,14 @@ export default function ManagerCalendar() {
           descripcion: evento.descripcion
         })
       });
-      const data = await res.json();
+      const data = await readJson<{ success: boolean; image?: string; error?: string }>(res);
       if (data.success && data.image) {
         setPosterImage(data.image);
       } else {
         setPosterError(data.error || 'No se pudo generar el cartel. Asegúrate de que la API de Imagen tiene facturación activa.');
       }
     } catch (err) {
-      setPosterError('Error de conexión con el servidor.');
+      setPosterError(errorMessage(err));
       console.error(err);
     } finally {
       setPosterLoading(false);
@@ -182,25 +177,28 @@ export default function ManagerCalendar() {
         </button>
       </div>
 
+      {!showModal && <RequestError message={error} />}
       {/* Modal: Crear / Editar Evento */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingId ? 'Editar Evento' : 'Añadir a la Agenda'}
               </h3>
-              <button onClick={() => { setShowModal(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <button aria-label="Cancelar evento" disabled={isSubmitting} onClick={() => { setShowModal(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X size={20} />
               </button>
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
+              <RequestError message={error} />
+              <fieldset disabled={isSubmitting} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Título</label>
+                <label htmlFor="event-titulo" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Título</label>
                 <input 
                   type="text" required
-                  value={formData.titulo}
+                  id="event-titulo" value={formData.titulo}
                   onChange={e => setFormData({...formData, titulo: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
                   placeholder="Ej. Noche de Techno con DJ Marko"
@@ -208,28 +206,28 @@ export default function ManagerCalendar() {
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha</label>
+                  <label htmlFor="event-fecha" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha</label>
                   <input 
                     type="date" required
-                    value={formData.fecha}
+                    id="event-fecha" value={formData.fecha}
                     onChange={e => setFormData({...formData, fecha: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Hora</label>
+                  <label htmlFor="event-hora" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Hora</label>
                   <input 
                     type="time" required
-                    value={formData.hora}
+                    id="event-hora" value={formData.hora}
                     onChange={e => setFormData({...formData, hora: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo de Evento</label>
+                <label htmlFor="event-tipo" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo de Evento</label>
                 <select 
-                  value={formData.tipo}
+                  id="event-tipo" value={formData.tipo}
                   onChange={e => setFormData({...formData, tipo: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                 >
@@ -246,10 +244,10 @@ export default function ManagerCalendar() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Notas (Opcional)</label>
+                <label htmlFor="event-descripcion" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Notas (Opcional)</label>
                 <textarea 
                   rows={2}
-                  value={formData.descripcion}
+                  id="event-descripcion" value={formData.descripcion}
                   onChange={e => setFormData({...formData, descripcion: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white resize-none"
                   placeholder="Detalles adicionales..."
@@ -261,6 +259,7 @@ export default function ManagerCalendar() {
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : (editingId ? "Guardar Cambios" : "Guardar Evento")}
               </button>
+              </fieldset>
             </form>
           </div>
         </div>
@@ -275,7 +274,7 @@ export default function ManagerCalendar() {
                 <Sparkles size={20} className="text-yellow-300" />
                 <h3 className="text-lg font-bold text-white">Generador de Carteles IA</h3>
               </div>
-              <button onClick={() => { setPosterEvento(null); setPosterImage(null); setPosterError(null); }} className="text-white/70 hover:text-white">
+              <button aria-label="Cerrar cartel" disabled={posterLoading} onClick={() => { setPosterEvento(null); setPosterImage(null); setPosterError(null); }} className="text-white/70 hover:text-white">
                 <X size={20} />
               </button>
             </div>
@@ -296,7 +295,7 @@ export default function ManagerCalendar() {
               )}
 
               {posterError && (
-                <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl text-sm text-center">
+                <div role="alert" className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl text-sm text-center">
                   {posterError}
                 </div>
               )}
@@ -325,7 +324,7 @@ export default function ManagerCalendar() {
         <div className="flex justify-center py-12 text-brand-500">
           <Loader2 className="animate-spin" size={32} />
         </div>
-      ) : eventos.length === 0 ? (
+      ) : loadError ? <RequestError message={loadError} onRetry={fetchEventos} /> : eventos.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-sm">
           <div className="bg-slate-100 dark:bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <CalendarIcon size={32} className="text-slate-400" />
@@ -354,7 +353,7 @@ export default function ManagerCalendar() {
                       <button onClick={() => openEditModal(evento)} className="text-slate-400 hover:text-brand-500 transition-colors p-1" title="Editar">
                         <Pencil size={15} />
                       </button>
-                      <button onClick={() => handleDelete(evento.id)} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Eliminar">
+                      <button disabled={deleting} onClick={() => handleDelete(evento)} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Eliminar">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -383,7 +382,7 @@ export default function ManagerCalendar() {
                   {/* Botón Crear Cartel — solo en eventos musicales y no pasados */}
                   {isMusicalEvent(evento.tipo) && !isPast && (
                     <button
-                      onClick={() => handleGeneratePoster(evento)}
+                      disabled={posterLoading} onClick={() => handleGeneratePoster(evento)}
                       className="mt-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white text-xs font-bold py-2 px-4 rounded-xl flex items-center gap-1.5 transition-all shadow-md hover:shadow-lg"
                     >
                       <Sparkles size={14} />

@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
-import { ClipboardCheck, Loader2, Send, Copy, CheckCircle2, Package, MapPin, ShoppingCart, History } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ClipboardCheck, Send, Copy, CheckCircle2, Package, MapPin, ShoppingCart, History } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+
+import { readJson, errorMessage } from '../apiResponse';
+import { useApiLists } from '../hooks/useApiLists';
+import RequestError from '../components/RequestError';
+import { localDate } from '../localDate';
 
 interface StockItem {
   id: number;
@@ -40,27 +45,28 @@ const LOCALES = ['Principal', 'Segundo Local'];
 
 export default function StockControl() {
   const { fetchWithAuth } = useAuth();
-  const [items, setItems] = useState<StockItem[]>([]);
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedLocal, setSelectedLocal] = useState(LOCALES[0]);
+  const { data, loading, error: loadError, reload: fetchData } = useApiLists<[StockItem, Pedido]>([
+    `/api/inventario?local=${encodeURIComponent(selectedLocal)}`, '/api/pedidos'
+  ]);
+  const [items, pedidos] = data ?? [[], []];
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [receiving, setReceiving] = useState<Pedido | null>(null);
+  const receiptDialog = useRef<HTMLDialogElement>(null);
+  const [registered, setRegistered] = useState<Set<string>>(new Set());
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [showOrder, setShowOrder] = useState(false);
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [copiedProv, setCopiedProv] = useState<string | null>(null);
 
-  const fetchData = () => {
-    setLoading(true);
-    Promise.all([
-      fetchWithAuth(`${API_URL}/api/inventario?local=${selectedLocal}`).then(r => r.json()),
-      fetchWithAuth(`${API_URL}/api/pedidos`).then(r => r.json()),
-    ])
-    .then(([inv, ped]) => { setItems(inv); setPedidos(ped); setLoading(false); })
-    .catch(() => setLoading(false));
-  };
-
-  useEffect(() => { fetchData(); setCheckedIds(new Set()); }, [selectedLocal]);
+  useEffect(() => { setCheckedIds(new Set()); }, [selectedLocal]);
+  useEffect(() => {
+    if (receiving) receiptDialog.current?.showModal();
+    else receiptDialog.current?.close();
+  }, [receiving]);
 
   const toggleItem = (id: number) => {
     setCheckedIds(prev => {
@@ -92,6 +98,7 @@ export default function StockControl() {
         proveedor_nombre: i.proveedor_nombre || 'Sin proveedor',
         proveedor_telefono: i.proveedor_telefono || null
       }));
+    setError(''); setSuccess(''); setRegistered(new Set());
     setOrderLines(lines);
     setShowOrder(true);
   };
@@ -114,70 +121,54 @@ export default function StockControl() {
     return header + body + '\n\n¡Gracias!';
   };
 
-  const registrarPedido = (provName: string, lines: OrderLine[]) => {
-    const provId = lines[0]?.proveedor_id;
-    fetchWithAuth(`${API_URL}/api/pedidos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fecha: new Date().toISOString().split('T')[0],
-        local: selectedLocal,
-        proveedor_id: provId,
-        proveedor_nombre: provName,
-        productos: lines.map(l => ({ 
-          producto_id: l.producto_id, 
-          nombre: l.nombre, 
-          cantidad: l.cantidad 
-        }))
-      })
-    }).then(async response => {
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'No se pudo registrar el pedido.');
-      fetchData();
-      alert(`Pedido de ${provName} registrado en historial.`);
-    }).catch(error => {
-      alert(error instanceof Error ? error.message : 'Error de conexión. Revisa el historial antes de repetir el registro.');
-    });
+  const registrarPedido = async (provName: string, lines: OrderLine[]) => {
+    if (busy || registered.has(provName)) return;
+    setBusy(true); setError(''); setSuccess('');
+    try {
+      await readJson(await fetchWithAuth(`${API_URL}/api/pedidos`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fecha: localDate(), local: selectedLocal,
+          proveedor_id: lines[0]?.proveedor_id, proveedor_nombre: provName,
+          productos: lines.map(l => ({ producto_id: l.producto_id, nombre: l.nombre, cantidad: l.cantidad })) })
+      }));
+      setRegistered(prev => new Set(prev).add(provName));
+      setSuccess(`Pedido de ${provName} registrado. El registro no envía mensajes al proveedor.`);
+      await fetchData();
+    } catch (cause) {
+      setError(`${errorMessage(cause)} Comprueba el historial antes de repetir el registro.`);
+    } finally { setBusy(false); }
   };
 
   const sendWhatsApp = (provName: string, lines: OrderLine[], phone?: string | null) => {
     const text = generateWhatsAppText(provName, lines);
     const cleanPhone = phone?.replace(/\s+/g, '').replace(/^\+/, '') || '';
-    const url = cleanPhone 
-      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-
-    setTimeout(() => {
-      if (window.confirm(`¿Has enviado correctamente el pedido a ${provName}?\n¿Deseas registrarlo en el historial de pedidos?`)) {
-        registrarPedido(provName, lines);
-      }
-    }, 1000);
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const copyText = (provName: string, lines: OrderLine[]) => {
-    navigator.clipboard.writeText(generateWhatsAppText(provName, lines));
-    setCopiedProv(provName);
-    setTimeout(() => setCopiedProv(null), 2000);
-  };
-
-  const markReceived = async (p: Pedido) => {
-    if (!window.confirm(`¿Marcar el pedido de ${p.proveedor_nombre} como recibido?`)) return;
-    const sumar_stock = window.confirm(`¿Sumar las cantidades recibidas al stock de ${p.local}?`);
+  const copyText = async (provName: string, lines: OrderLine[]) => {
     try {
-      const response = await fetchWithAuth(`${API_URL}/api/pedidos/${p.id}/recibido`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sumar_stock }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'No se pudo recibir el pedido.');
-      alert(result.mensaje);
-      fetchData();
+      await navigator.clipboard.writeText(generateWhatsAppText(provName, lines));
+      setCopiedProv(provName);
+      setTimeout(() => setCopiedProv(null), 2000);
+    } catch (cause) { setError(errorMessage(cause)); }
+  };
+
+  const markReceived = async (sumar_stock: boolean) => {
+    if (!receiving || busy) return;
+    setBusy(true); setError(''); setSuccess('');
+    try {
+      await readJson(await fetchWithAuth(`${API_URL}/api/pedidos/${receiving.id}/recibido`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sumar_stock })
+      }));
+      setSuccess(sumar_stock ? 'Pedido recibido y stock actualizado.' : 'Pedido recibido sin modificar el stock.');
+      setReceiving(null);
+      await fetchData();
       window.dispatchEvent(new Event('ai_action_executed'));
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error de conexión. Comprueba el estado del pedido antes de reintentar.');
-    }
+    } catch (cause) {
+      setError(`${errorMessage(cause)} Comprueba el historial antes de repetir la recepción.`);
+    } finally { setBusy(false); }
   };
 
   const getStockColor = (item: StockItem) => {
@@ -198,6 +189,20 @@ export default function StockControl() {
         </button>
       </div>
 
+      {!showOrder && !receiving && <RequestError message={error} />}
+      {!showOrder && success && <p role="status" className="text-emerald-700 dark:text-emerald-400">{success}</p>}
+      {loadError && <RequestError message={loadError} onRetry={fetchData} />}
+      {loading && <p role="status">Cargando stock y pedidos...</p>}
+      <dialog ref={receiptDialog} aria-labelledby="receipt-title" onCancel={event => { if (busy) event.preventDefault(); else { setReceiving(null); setError(''); } }} className="m-auto w-11/12 max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl p-6 bg-white text-slate-900 dark:bg-slate-900 dark:text-white backdrop:bg-black/50">
+        {receiving && <div className="space-y-4">
+          <h3 id="receipt-title" className="text-lg font-bold">Recibir pedido de {receiving.proveedor_nombre}</h3>
+          <p>Local: {receiving.local}. Elige si esta recepción debe modificar el inventario. Solo se puede recibir una vez.</p>
+          <RequestError message={error} />
+          <button autoFocus disabled={busy} onClick={() => { setReceiving(null); setError(''); }} className="block w-full rounded-lg border p-3">Cancelar</button>
+          <button disabled={busy} onClick={() => markReceived(true)} className="block w-full rounded-lg bg-brand-600 p-3 text-white">Recibir y sumar stock</button>
+          <button disabled={busy} onClick={() => markReceived(false)} className="block w-full rounded-lg border p-3">Recibir sin cambiar stock</button>
+        </div>}
+      </dialog>
       {/* Local selector */}
       <div className="flex gap-2">
         {LOCALES.map(l => (
@@ -208,7 +213,7 @@ export default function StockControl() {
       </div>
 
       {/* History view */}
-      {showHistory && (
+      {showHistory && !loading && !loadError && (
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pedidos recientes</h3>
           {pedidos.length === 0 ? (
@@ -216,7 +221,8 @@ export default function StockControl() {
           ) : pedidos.slice(0, 10).map(p => {
             let prods = [];
             try {
-              prods = JSON.parse(p.productos || '[]');
+              const parsed = JSON.parse(p.productos || '[]');
+              prods = Array.isArray(parsed) ? parsed : [];
             } catch (e) {
               console.error("Error parseando productos de pedido", e);
             }
@@ -228,7 +234,7 @@ export default function StockControl() {
                     <p className="text-xs text-slate-400">{p.local} · {new Date(p.fecha).toLocaleDateString('es-ES')}</p>
                   </div>
                   {p.estado === 'pendiente' ? (
-                    <button onClick={() => markReceived(p)} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full font-semibold hover:bg-emerald-200 transition-colors">
+                    <button disabled={busy} onClick={() => { setError(''); setReceiving(p); }} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full font-semibold hover:bg-emerald-200 transition-colors">
                       ✓ Recibir
                     </button>
                   ) : (
@@ -247,11 +253,9 @@ export default function StockControl() {
       )}
 
       {/* Stock review list */}
-      {!showHistory && (
+      {!showHistory && !loading && !loadError && (
         <>
-          {loading ? (
-            <div className="flex justify-center py-12 text-brand-500"><Loader2 className="animate-spin" size={32} /></div>
-          ) : items.length === 0 ? (
+          {items.length === 0 ? (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-sm">
               <Package size={32} className="text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500">No hay productos en <strong>{selectedLocal}</strong></p>
@@ -315,9 +319,12 @@ export default function StockControl() {
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">📦 Pedido — {selectedLocal}</h3>
-              <button onClick={() => setShowOrder(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button aria-label="Cerrar pedido" disabled={busy} onClick={() => setShowOrder(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
 
+            <RequestError message={error} />
+            {success && <p role="status" className="my-3 text-emerald-700 dark:text-emerald-400">{success}</p>}
+            <p className="mb-4 text-sm text-slate-500">Abrir WhatsApp o copiar el texto no registra ni confirma el envío. Registra el pedido cuando corresponda.</p>
             {Object.entries(grouped).map(([provName, lines]) => {
               return (
                 <div key={provName} className="mb-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
@@ -327,13 +334,16 @@ export default function StockControl() {
                       <div key={idx} className="flex items-center justify-between gap-2">
                         <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{line.nombre}</span>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => updateQty(orderLines.indexOf(line), line.cantidad - 1)} className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">-</button>
+                          <button disabled={busy || registered.has(provName)} onClick={() => updateQty(orderLines.indexOf(line), line.cantidad - 1)} className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">-</button>
                           <span className="w-8 text-center font-bold text-sm text-slate-900 dark:text-white">{line.cantidad}</span>
-                          <button onClick={() => updateQty(orderLines.indexOf(line), line.cantidad + 1)} className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">+</button>
+                          <button disabled={busy || registered.has(provName)} onClick={() => updateQty(orderLines.indexOf(line), line.cantidad + 1)} className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">+</button>
                         </div>
                       </div>
                     ))}
                   </div>
+                  <button disabled={busy || registered.has(provName)} onClick={() => registrarPedido(provName, lines)} className="mt-3 w-full rounded-lg bg-brand-600 p-3 text-white disabled:opacity-50">
+                    {registered.has(provName) ? 'Pedido registrado' : 'Registrar pedido en historial'}
+                  </button>
                   <div className="flex gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                     <button 
                       onClick={() => sendWhatsApp(provName, lines, lines[0]?.proveedor_telefono)}
@@ -352,7 +362,7 @@ export default function StockControl() {
               );
             })}
 
-            <button onClick={() => setShowOrder(false)} className="w-full mt-2 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <button disabled={busy} onClick={() => setShowOrder(false)} className="w-full mt-2 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
               Cerrar
             </button>
           </div>

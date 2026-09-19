@@ -1,0 +1,128 @@
+import { test, expect, type Page } from '@playwright/test';
+
+async function enter(page: Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Jefe Admin/ }).click();
+  await page.getByLabel('PIN de acceso').fill('246810');
+  const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
+  await page.getByRole('button', { name: 'Acceder' }).click();
+  const { token } = await (await login).json();
+  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  return { Authorization: `Bearer ${token}` };
+}
+
+test('catalogue and provider creation, stock adjustment, explicit order registration and mobile cancellation', async ({ page, request }, testInfo) => {
+  const headers = await enter(page);
+  const externalRequests: string[] = [];
+  page.on('request', req => { if (/wa\.me|whatsapp/.test(req.url())) externalRequests.push(req.url()); });
+  await page.getByRole('button', { name: 'Proveedores', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Nuevo proveedor' }).click();
+  await page.getByLabel('Nombre / Empresa').fill('Distribuidor recorrido');
+  await page.getByLabel('Teléfono').fill('600123456');
+  await page.getByLabel('Email (Opcional)').fill('prueba@example.invalid');
+  await page.getByRole('button', { name: 'Guardar Proveedor' }).click();
+  await expect(page.getByRole('heading', { name: 'Distribuidor recorrido' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Almacén y Stock' }).click();
+  await page.getByRole('button', { name: 'Nuevo producto' }).click();
+  await page.getByLabel('Nombre del Producto').fill('Zumo recorrido');
+  await page.getByLabel('Stock Actual').fill('2');
+  await page.getByLabel('Stock Mínimo').fill('5');
+  await page.getByLabel('Proveedor (Opcional)').selectOption({ label: 'Distribuidor recorrido' });
+  const productResponse = page.waitForResponse(r => r.url().endsWith('/api/inventario') && r.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Guardar Producto' }).click();
+  const productId = (await (await productResponse).json()).id;
+  await expect(page.getByRole('heading', { name: 'Zumo recorrido' })).toBeVisible();
+  await page.getByRole('button', { name: 'Sumar stock de Zumo recorrido' }).click();
+  await expect(page.getByRole('button', { name: 'Sumar stock de Zumo recorrido' })).toBeEnabled();
+  const inventory = async () => (await (await request.get('http://127.0.0.1:3101/api/inventario', { headers })).json()).find((p: { id: number }) => p.id === productId);
+  await expect.poll(async () => (await inventory()).stock_actual).toBe(3);
+
+  await page.getByRole('button', { name: 'Pedidos de Reposición' }).click();
+  await page.getByRole('button', { name: /Zumo recorrido/ }).click();
+  await page.getByRole('button', { name: /Generar Pedido/ }).click();
+  const orderResponse = page.waitForResponse(r => r.url().endsWith('/api/pedidos') && r.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Registrar pedido en historial' }).click();
+  const orderId = (await (await orderResponse).json()).id;
+  await expect(page.getByRole('button', { name: 'Pedido registrado', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
+  await page.getByRole('button', { name: 'Historial', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: '✓ Recibir', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Cancelar', exact: true })).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath('receipt-mobile.png'), fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await page.getByRole('button', { name: '✓ Recibir', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  const orders = await (await request.get('http://127.0.0.1:3101/api/pedidos', { headers })).json();
+  expect(orders.find((o: { id: number }) => o.id === orderId).estado).toBe('pendiente');
+  expect((await inventory()).stock_actual).toBe(3);
+  await page.getByRole('button', { name: '✓ Recibir', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Recibir sin cambiar stock' }).click();
+  await expect(page.getByText('Pedido recibido sin modificar el stock.', { exact: true })).toBeVisible();
+  expect((await inventory()).stock_actual).toBe(3);
+  expect((await (await request.get('http://127.0.0.1:3101/api/pedidos', { headers })).json()).find((o: { id: number }) => o.id === orderId).estado).toBe('recibido');
+  expect(externalRequests).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('cash closing accepts blank optional amounts, rejects a duplicate without losing draft, and feeds financial views', async ({ page }) => {
+  await enter(page);
+  await page.getByRole('button', { name: 'Cierres de Caja', exact: true }).click();
+  const date = await page.getByLabel('Fecha del Cierre').inputValue();
+  await page.getByLabel('Local', { exact: true }).selectOption('Segundo Local');
+  await page.getByLabel('Total Efectivo').fill('31.25');
+  await page.getByLabel('Total Tarjeta').fill('20.50');
+  await page.getByRole('button', { name: 'Guardar Cierre' }).click();
+  await expect(page.getByText('Cierre registrado correctamente.', { exact: true })).toBeVisible();
+  await expect(page.getByText('€51.75', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Nuevo Cierre (Z)' }).click();
+  await page.getByLabel('Fecha del Cierre').fill(date);
+  await page.getByLabel('Local', { exact: true }).selectOption('Segundo Local');
+  await page.getByLabel('Total Efectivo').fill('99.25');
+  await page.getByLabel('Total Tarjeta').fill('12.50');
+  await page.getByRole('button', { name: 'Guardar Cierre' }).click();
+  await expect(page.getByRole('alert')).toContainText('Ya existe un cierre');
+  await expect(page.getByLabel('Total Efectivo')).toHaveValue('99.25');
+  await expect(page.getByLabel('Total Tarjeta')).toHaveValue('12.50');
+  await expect(page.getByLabel('Local', { exact: true })).toHaveValue('Segundo Local');
+  await expect(page.getByLabel('Fecha del Cierre')).toHaveValue(date);
+
+  await page.getByRole('button', { name: 'Informes Mensuales' }).click();
+  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
+  await expect(page.getByText('€51.75', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Exportar Informe PDF/ })).toBeEnabled();
+  await page.getByRole('button', { name: 'Analíticas Visuales' }).click();
+  await expect(page.getByRole('heading', { name: 'Analíticas Financieras' })).toBeVisible();
+  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
+  await expect(page.getByText('Saldo ingresos − gastos', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Panel de Control' }).click();
+  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('agenda creates and edits an event, cancelling deletion preserves it', async ({ page }) => {
+  await enter(page);
+  await page.getByRole('button', { name: 'Agenda de Eventos' }).click();
+  await page.getByRole('button', { name: 'Nuevo', exact: true }).click();
+  await page.getByLabel('Título', { exact: true }).fill('Reunión recorrido');
+  await page.getByLabel('Fecha', { exact: true }).fill('2026-12-15');
+  await page.getByLabel('Hora', { exact: true }).fill('16:30');
+  await page.getByLabel('Notas (Opcional)').fill('Detalle inicial');
+  await page.getByRole('button', { name: 'Guardar Evento' }).click();
+  await expect(page.getByRole('heading', { name: 'Reunión recorrido' })).toBeVisible();
+  await page.getByRole('button', { name: 'Editar', exact: true }).click();
+  await page.getByLabel('Título', { exact: true }).fill('Reunión editada');
+  await page.getByLabel('Notas (Opcional)').fill('Detalle revisado');
+  await page.getByRole('button', { name: 'Guardar Cambios' }).click();
+  await expect(page.getByText('Detalle revisado', { exact: true })).toBeVisible();
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Reunión editada' })).toBeVisible();
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Reunión editada' })).toHaveCount(0);
+});

@@ -7,6 +7,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [README](README.md): requisitos, configuración y comandos.
 - [Recuperación](docs/architecture/recovery-foundation.md): decisiones, migración y límites.
 - [Módulos y flujos](docs/architecture/recovery-modules.md): organización vigente y contratos reforzados del segundo bloque.
+- [Pantallas de gestión](docs/architecture/recovery-screens.md): carga, errores, borradores y confirmaciones del tercer bloque.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -23,6 +24,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - Mantener separados los permisos de cambio local y publicación.
 - No asumir implementados TPV, TicketBAI o el wrapper Android por existir sus directorios.
 - Las nuevas pantallas deben conservar soporte móvil/tablet, accesibilidad y permisos por rol.
+- Para cargas de listas relacionadas, usar `useApiLists`: no sustituir un fallo por una lista vacía ni publicar métricas parciales. Las escrituras comprueban HTTP/JSON, conservan el borrador si fallan y no se reintentan automáticamente.
 
 ## Arquitectura vigente
 

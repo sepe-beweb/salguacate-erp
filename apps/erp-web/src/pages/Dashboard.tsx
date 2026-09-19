@@ -1,8 +1,10 @@
 import { TrendingUp, Users, FileText, Calendar as CalendarIcon, StickyNote, FileBarChart, ClipboardList, ClipboardCheck, Package, ArrowUpRight, ArrowDownRight, AlertTriangle, Music } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+
 import { useAuth } from '../context/AuthContext';
-import { API_URL } from '../config';
+import { useApiLists } from '../hooks/useApiLists';
+import RequestError from '../components/RequestError';
+import { localDate } from '../localDate';
 
 interface KPIs {
   // Sales
@@ -24,61 +26,40 @@ interface KPIs {
   totalEmpleados: number;
 }
 
-const today = new Date().toISOString().split('T')[0];
-const thisMonth = today.substring(0, 7); // 'YYYY-MM'
-const lastMonth = (() => {
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-})();
-
 export default function Dashboard() {
-  const { user, fetchWithAuth } = useAuth();
-  const [kpis, setKpis] = useState<KPIs>({
-    ventasMes: 0, ventasMesAnterior: 0, ultimoCierre: 0, totalCierres: 0,
-    gastosMes: 0, tareasPendientes: 0, tareasHoy: 0,
-    proximoEvento: null, productosStock: 0, stockBajo: 0, totalEmpleados: 0
-  });
-  const [, setLoading] = useState(true);
-  const [presencia, setPresencia] = useState<any[]>([]);
+  const { user } = useAuth();
+  const { data, loading, error, reload } = useApiLists<[any, any, any, any, any, any, any]>([
+    '/api/cierres', '/api/gastos', '/api/tareas', '/api/eventos', '/api/inventario', '/api/usuarios', '/api/fichajes/presencia'
+  ]);
+  if (loading) return <p role="status" className="p-8 text-center">Cargando resumen...</p>;
+  if (error || !data) return <RequestError message={error || 'No se pudo cargar el resumen.'} onRetry={reload} />;
+  const [cierres, gastos, tareas, eventos, productos, usuarios, presencia] = data;
+  const now = new Date();
+  const today = localDate(now);
+  const thisMonth = today.slice(0, 7);
+  const lastMonth = localDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)).slice(0, 7);
 
-  useEffect(() => {
-    Promise.all([
-      fetchWithAuth(`${API_URL}/api/cierres`).then(r => r.json()).catch(() => []),
-      fetchWithAuth(`${API_URL}/api/gastos`).then(r => r.json()).catch(() => []),
-      fetchWithAuth(`${API_URL}/api/tareas`).then(r => r.json()).catch(() => []),
-      fetchWithAuth(`${API_URL}/api/eventos`).then(r => r.json()).catch(() => []),
-      fetchWithAuth(`${API_URL}/api/inventario`).then(r => r.json()).catch(() => []),
-      fetchWithAuth(`${API_URL}/api/usuarios`).then(r => r.json()).catch(() => []),
-      fetchWithAuth(`${API_URL}/api/fichajes/presencia`).then(r => r.json()).catch(() => []),
-    ]).then(([cierres, gastos, tareas, eventos, productos, usuarios, presenciaData]) => {
-      setPresencia(presenciaData || []);
+  const ventasMes = cierres.filter((c: any) => c.fecha?.startsWith(thisMonth)).reduce((s: number, c: any) => s + (c.total || 0), 0);
+  const ventasMesAnterior = cierres.filter((c: any) => c.fecha?.startsWith(lastMonth)).reduce((s: number, c: any) => s + (c.total || 0), 0);
+  const ultimoCierre = cierres.length > 0 ? cierres[0].total : 0;
 
-      const ventasMes = cierres.filter((c: any) => c.fecha?.startsWith(thisMonth)).reduce((s: number, c: any) => s + (c.total || 0), 0);
-      const ventasMesAnterior = cierres.filter((c: any) => c.fecha?.startsWith(lastMonth)).reduce((s: number, c: any) => s + (c.total || 0), 0);
-      const ultimoCierre = cierres.length > 0 ? cierres[0].total : 0;
+  const gastosMes = gastos.filter((g: any) => g.fecha?.startsWith(thisMonth)).reduce((s: number, g: any) => s + (g.total || 0), 0);
 
-      const gastosMes = gastos.filter((g: any) => g.fecha?.startsWith(thisMonth)).reduce((s: number, g: any) => s + (g.total || 0), 0);
+  const tareasPendientes = tareas.filter((t: any) => !t.completada).length;
+  const tareasHoy = tareas.filter((t: any) => !t.completada && t.fecha === today).length;
 
-      const tareasPendientes = tareas.filter((t: any) => !t.completada).length;
-      const tareasHoy = tareas.filter((t: any) => !t.completada && t.fecha === today).length;
+  const futureEvents = eventos.filter((e: any) => e.fecha >= today).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
+  const proximoEvento = futureEvents.length > 0 ? futureEvents[0] : null;
 
-      const futureEvents = eventos.filter((e: any) => e.fecha >= today).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
-      const proximoEvento = futureEvents.length > 0 ? futureEvents[0] : null;
+  const stockBajo = productos.filter((p: any) => p.stock_actual !== undefined && p.stock_minimo !== undefined && p.stock_actual <= p.stock_minimo).length;
 
-      const stockBajo = productos.filter((p: any) => p.stock_actual !== undefined && p.stock_minimo !== undefined && p.stock_actual <= p.stock_minimo).length;
-
-      setKpis({
-        ventasMes, ventasMesAnterior, ultimoCierre,
-        totalCierres: cierres.filter((c: any) => c.fecha?.startsWith(thisMonth)).length,
-        gastosMes, tareasPendientes, tareasHoy, proximoEvento,
-        productosStock: productos.length, stockBajo,
-        totalEmpleados: usuarios.length
-      });
-      setPresencia(presenciaData);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+  const kpis: KPIs = {
+    ventasMes, ventasMesAnterior, ultimoCierre,
+    totalCierres: cierres.filter((c: any) => c.fecha?.startsWith(thisMonth)).length,
+    gastosMes, tareasPendientes, tareasHoy, proximoEvento,
+    productosStock: productos.length, stockBajo,
+    totalEmpleados: usuarios.length
+  };
 
   const beneficio = kpis.ventasMes - kpis.gastosMes;
   const tendencia = kpis.ventasMesAnterior > 0
@@ -113,7 +94,7 @@ export default function Dashboard() {
             )}
           </div>
           <div className="text-right">
-            <p className="text-brand-200 text-xs">Beneficio neto</p>
+            <p className="text-brand-200 text-xs">Saldo ingresos − gastos</p>
             <p className={`text-xl font-bold ${beneficio >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>€{beneficio.toFixed(2)}</p>
           </div>
         </div>
@@ -254,11 +235,11 @@ export default function Dashboard() {
         <div className="space-y-2.5">
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
             <span className="text-slate-700 dark:text-slate-200 font-medium">Local Principal</span>
-            <span className="text-brand-700 dark:text-brand-400 text-xs font-semibold bg-brand-100 dark:bg-brand-400/10 px-2.5 py-1 rounded-full">Abierto</span>
+            <span className="text-brand-700 dark:text-brand-400 text-xs font-semibold bg-brand-100 dark:bg-brand-400/10 px-2.5 py-1 rounded-full">Local configurado</span>
           </div>
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-            <span className="text-slate-700 dark:text-slate-200 font-medium">Nuevo Local (Junio)</span>
-            <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold bg-slate-200 dark:bg-slate-700/50 px-2.5 py-1 rounded-full">Preparación</span>
+            <span className="text-slate-700 dark:text-slate-200 font-medium">Segundo Local</span>
+            <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold bg-slate-200 dark:bg-slate-700/50 px-2.5 py-1 rounded-full">Local configurado</span>
           </div>
         </div>
       </div>

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FileBarChart, Download, Loader2, CalendarDays, TrendingUp, TrendingDown, Wallet, MapPin } from 'lucide-react';
-import { API_URL } from '../config';
-import { useAuth } from '../context/AuthContext';
+import { useApiLists } from '../hooks/useApiLists';
+import RequestError from '../components/RequestError';
+
 
 interface Cierre {
   id: number;
@@ -36,22 +37,12 @@ const escapeHTML = (str: string) => {
 };
 
 export default function Reports() {
-  const { fetchWithAuth } = useAuth();
-  const [cierres, setCierres] = useState<Cierre[]>([]);
-  const [gastos, setGastos] = useState<Gasto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, reload } = useApiLists<[Cierre, Gasto]>(['/api/cierres', '/api/gastos']);
+  const [cierres, gastos] = data ?? [[], []];
+  const [exportError, setExportError] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedLocal, setSelectedLocal] = useState('Todos');
-
-  useEffect(() => {
-    Promise.all([
-      fetchWithAuth(`${API_URL}/api/cierres`).then(r => r.json()),
-      fetchWithAuth(`${API_URL}/api/gastos`).then(r => r.json()),
-    ])
-    .then(([c, g]) => { setCierres(c || []); setGastos(g || []); setLoading(false); })
-    .catch(() => setLoading(false));
-  }, []);
 
   // Filter by selected month and local
   const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
@@ -69,7 +60,8 @@ export default function Reports() {
 
   const handleExportPDF = () => {
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    setExportError('');
+    if (!printWindow) { setExportError('El navegador bloqueó la ventana del informe. Permite ventanas emergentes e inténtalo de nuevo.'); return; }
 
     const cierresRows = filteredCierres.map(c => `
       <tr>
@@ -146,7 +138,7 @@ export default function Reports() {
       <div class="value negative">€${totalGastos.toFixed(2)}</div>
     </div>
     <div class="summary-card">
-      <div class="label">Beneficio Neto</div>
+      <div class="label">Saldo ingresos − gastos</div>
       <div class="value ${beneficioNeto >= 0 ? 'positive' : 'negative'}">€${beneficioNeto.toFixed(2)}</div>
     </div>
     <div class="summary-card">
@@ -239,6 +231,7 @@ export default function Reports() {
         </h2>
       </div>
 
+      <RequestError message={exportError} />
       {/* Selector de mes */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
@@ -258,7 +251,7 @@ export default function Reports() {
             onChange={e => setSelectedYear(parseInt(e.target.value))}
             className="w-28 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
           >
-            {[2024,2025,2026].map(y => <option key={y} value={y}>{y}</option>)}
+            {[...new Set([new Date().getFullYear(), ...cierres.map(c => Number(c.fecha.slice(0, 4))), ...gastos.map(g => Number(g.fecha.slice(0, 4)))])].sort((a, b) => a - b).map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div className="mt-3">
@@ -278,7 +271,7 @@ export default function Reports() {
         <div className="flex justify-center py-12 text-brand-500">
           <Loader2 className="animate-spin" size={32} />
         </div>
-      ) : (
+      ) : error ? <RequestError message={error} onRetry={reload} /> : (
         <>
           {/* Resumen Visual */}
           <div className="grid grid-cols-2 gap-3">
@@ -301,7 +294,7 @@ export default function Reports() {
             <div className="col-span-2 bg-gradient-to-r from-brand-50 to-emerald-50 dark:from-brand-900/20 dark:to-emerald-900/20 p-4 rounded-2xl border border-brand-200 dark:border-brand-800 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <Wallet size={16} className="text-brand-600" />
-                <span className="text-xs text-slate-500 font-medium">Beneficio Neto</span>
+                <span className="text-xs text-slate-500 font-medium">Saldo ingresos − gastos</span>
               </div>
               <p className={`text-3xl font-bold ${beneficioNeto >= 0 ? 'text-brand-600 dark:text-brand-400' : 'text-red-600 dark:text-red-400'}`}>
                 €{beneficioNeto.toFixed(2)}

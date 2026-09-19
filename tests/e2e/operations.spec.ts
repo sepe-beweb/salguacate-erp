@@ -26,9 +26,9 @@ test('receiving from the screen updates stock once on the API', async ({ page, r
   const orderId = (await order.json()).id;
   await page.getByRole('button', { name: 'Pedidos de Reposición' }).click();
   await page.getByRole('button', { name: 'Historial' }).click();
-  page.on('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '✓ Recibir', exact: true }).click();
-  await expect(page.getByText('✓ Recibido', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Recibir y sumar stock', exact: true }).click();
+  await expect(page.getByText('Pedido recibido y stock actualizado.', { exact: true })).toBeVisible();
   const inventory = await (await request.get('http://127.0.0.1:3101/api/inventario', { headers })).json();
   expect(inventory.find((item: { id: number }) => item.id === id).stock_actual).toBe(6);
   const retry = await request.patch(`http://127.0.0.1:3101/api/pedidos/${orderId}/recibido`, { headers, data: { sumar_stock: true } });

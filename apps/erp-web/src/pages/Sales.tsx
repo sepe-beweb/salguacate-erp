@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Calendar, Euro, CreditCard, Gift, AlertCircle, Save, TrendingUp, Loader2, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+
+import { readJson, errorMessage } from '../apiResponse';
+import { useApiLists } from '../hooks/useApiLists';
+import RequestError from '../components/RequestError';
+import { localDate } from '../localDate';
 
 interface Cierre {
   id: number;
@@ -17,18 +22,15 @@ interface Cierre {
 export default function Sales() {
   const { fetchWithAuth } = useAuth();
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
-  const [cierres, setCierres] = useState<Cierre[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error: loadError, reload: fetchCierres } = useApiLists<[Cierre]>(['/api/cierres']);
+  const cierres = data?.[0] ?? [];
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [filterLocal, setFilterLocal] = useState('Todos');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const getLocalDateString = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
-
   const [newCierre, setNewCierre] = useState({
-    fecha: getLocalDateString(),
+    fecha: localDate(),
     local: 'Principal',
     efectivo: '',
     tarjeta: '',
@@ -36,52 +38,31 @@ export default function Sales() {
     descuadre: ''
   });
 
-  const fetchCierres = () => {
-    setLoading(true);
-    fetchWithAuth(`${API_URL}/api/cierres`)
-      .then(res => res.json())
-      .then(data => {
-        setCierres(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error fetching cierres", err);
-        setLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    if (activeTab === 'history') {
-      fetchCierres();
-    }
-  }, [activeTab]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setError(''); setSuccess('');
     setIsSubmitting(true);
     try {
       const res = await fetchWithAuth(`${API_URL}/api/cierres`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newCierre)
+        body: JSON.stringify({ ...newCierre, invitaciones: newCierre.invitaciones || '0', descuadre: newCierre.descuadre || '0' })
       });
-      if (res.ok) {
-        setNewCierre({
-          fecha: getLocalDateString(),
-          local: 'Principal',
-          efectivo: '',
-          tarjeta: '',
-          invitaciones: '',
-          descuadre: ''
-        });
-        alert('Cierre registrado correctamente');
-        setActiveTab('history');
-      } else {
-        const errData = await res.json();
-        alert(errData.error || 'Error al registrar el cierre');
-      }
+      await readJson(res);
+      setNewCierre({
+        fecha: localDate(),
+        local: 'Principal',
+        efectivo: '',
+        tarjeta: '',
+        invitaciones: '',
+        descuadre: ''
+      });
+      setSuccess('Cierre registrado correctamente.');
+      void fetchCierres();
+      setActiveTab('history');
     } catch (err) {
-      console.error(err);
+      setError(`${errorMessage(err)} Si se perdió la conexión, consulta el historial antes de repetir el cierre.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -93,6 +74,8 @@ export default function Sales() {
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Ventas y Cierre</h2>
       </div>
 
+      <RequestError message={error} />
+      {success && <p role="status" className="text-emerald-700 dark:text-emerald-400">{success}</p>}
       {/* Tabs */}
       <div className="flex p-1 bg-slate-200 dark:bg-slate-800 rounded-lg">
         <button 
@@ -111,10 +94,11 @@ export default function Sales() {
 
       {activeTab === 'form' ? (
         <form className="space-y-4" onSubmit={handleSubmit}>
+          <fieldset disabled={isSubmitting} className="space-y-4">
           <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors duration-200">
             
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Fecha del Cierre</label>
+              <label htmlFor="closing-fecha" className="text-sm font-medium text-slate-700 dark:text-slate-300">Fecha del Cierre</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Calendar size={18} className="text-slate-400" />
@@ -122,7 +106,7 @@ export default function Sales() {
                 <input 
                   type="date" 
                   required
-                  value={newCierre.fecha}
+                  id="closing-fecha" value={newCierre.fecha}
                   onChange={e => setNewCierre({...newCierre, fecha: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-brand-500 transition-colors" 
                 />
@@ -130,9 +114,9 @@ export default function Sales() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Local</label>
+              <label htmlFor="closing-local" className="text-sm font-medium text-slate-700 dark:text-slate-300">Local</label>
               <select 
-                value={newCierre.local}
+                id="closing-local" value={newCierre.local}
                 onChange={e => setNewCierre({...newCierre, local: e.target.value})}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-4 py-2 focus:outline-none focus:border-brand-500 transition-colors"
               >
@@ -143,7 +127,7 @@ export default function Sales() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Efectivo</label>
+                <label htmlFor="closing-efectivo" className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Efectivo</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Euro size={18} className="text-slate-400" />
@@ -153,7 +137,7 @@ export default function Sales() {
                     step="0.01" 
                     min="0"
                     required
-                    value={newCierre.efectivo}
+                    id="closing-efectivo" value={newCierre.efectivo}
                     onChange={e => setNewCierre({...newCierre, efectivo: e.target.value})}
                     placeholder="0.00" 
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-brand-500 transition-colors" 
@@ -162,7 +146,7 @@ export default function Sales() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Tarjeta</label>
+                <label htmlFor="closing-tarjeta" className="text-sm font-medium text-slate-700 dark:text-slate-300">Total Tarjeta</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <CreditCard size={18} className="text-slate-400" />
@@ -172,7 +156,7 @@ export default function Sales() {
                     step="0.01" 
                     min="0"
                     required
-                    value={newCierre.tarjeta}
+                    id="closing-tarjeta" value={newCierre.tarjeta}
                     onChange={e => setNewCierre({...newCierre, tarjeta: e.target.value})}
                     placeholder="0.00" 
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-brand-500 transition-colors" 
@@ -182,7 +166,7 @@ export default function Sales() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Invitaciones (Valor)</label>
+              <label htmlFor="closing-invitaciones" className="text-sm font-medium text-slate-700 dark:text-slate-300">Invitaciones (Valor)</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Gift size={18} className="text-slate-400" />
@@ -191,7 +175,7 @@ export default function Sales() {
                   type="number" 
                   step="0.01" 
                   min="0"
-                  value={newCierre.invitaciones}
+                  id="closing-invitaciones" value={newCierre.invitaciones}
                   onChange={e => setNewCierre({...newCierre, invitaciones: e.target.value})}
                   placeholder="0.00" 
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-brand-500 transition-colors" 
@@ -200,7 +184,7 @@ export default function Sales() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Descuadre de Caja</label>
+              <label htmlFor="closing-descuadre" className="text-sm font-medium text-slate-700 dark:text-slate-300">Descuadre de Caja</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <AlertCircle size={18} className="text-slate-400" />
@@ -208,7 +192,7 @@ export default function Sales() {
                 <input 
                   type="number" 
                   step="0.01" 
-                  value={newCierre.descuadre}
+                  id="closing-descuadre" value={newCierre.descuadre}
                   onChange={e => setNewCierre({...newCierre, descuadre: e.target.value})}
                   placeholder="0.00" 
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-brand-500 transition-colors" 
@@ -226,6 +210,7 @@ export default function Sales() {
           >
             {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> Guardar Cierre</>}
           </button>
+          </fieldset>
         </form>
       ) : (
         <div className="space-y-4">
@@ -243,8 +228,8 @@ export default function Sales() {
             <div className="flex justify-center p-8 text-brand-500">
               <Loader2 className="animate-spin" size={32} />
             </div>
-          ) : cierres.length === 0 ? (
-            <div className="text-center py-10 text-slate-500">No hay cierres registrados aún.</div>
+          ) : loadError ? <RequestError message={loadError} onRetry={fetchCierres} /> : cierres.filter(c => filterLocal === 'Todos' || c.local === filterLocal).length === 0 ? (
+            <div className="text-center py-10 text-slate-500">No hay cierres registrados para este filtro.</div>
           ) : (
             cierres.filter(c => filterLocal === 'Todos' || c.local === filterLocal).map(item => (
               <div key={item.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors duration-200">

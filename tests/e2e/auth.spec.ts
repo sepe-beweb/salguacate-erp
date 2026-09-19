@@ -74,7 +74,7 @@ test.describe('Salguacate ERP - Integración local con datos desechables', () =>
     await page.click('text=Acceder');
 
     // Debería iniciar sesión y ver elementos exclusivos del Dashboard de Administrador
-    await expect(page.locator('text=Beneficio neto')).toBeVisible();
+    await expect(page.getByText('Saldo ingresos − gastos', { exact: true })).toBeVisible();
     await expect(page.locator('text=Módulos')).toBeVisible();
 
     // Debería mostrar la sección premium del Dashboard: "Presencia en Tiempo Real"

@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { BarChart3, TrendingUp, AlertCircle, Euro, MapPin } from 'lucide-react';
-import { API_URL } from '../config';
-import { useAuth } from '../context/AuthContext';
+import { useApiLists } from '../hooks/useApiLists';
+import RequestError from '../components/RequestError';
+
 
 interface Cierre {
   id: number;
@@ -28,37 +29,21 @@ interface Gasto {
 }
 
 export default function Analytics() {
-  const { fetchWithAuth } = useAuth();
-  const [data, setData] = useState<Cierre[]>([]);
-  const [gastos, setGastos] = useState<Gasto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: lists, loading, error, reload } = useApiLists<[Cierre, Gasto]>(['/api/cierres', '/api/gastos']);
+  const data = [...(lists?.[0] ?? [])].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const gastos = lists?.[1] ?? [];
   const [filterLocal, setFilterLocal] = useState('Todos');
-
-  useEffect(() => {
-    Promise.all([
-      fetchWithAuth(`${API_URL}/api/cierres`).then(res => res.json()),
-      fetchWithAuth(`${API_URL}/api/gastos`).then(res => res.json())
-    ])
-      .then(([resCierres, resGastos]) => {
-        const sortedData = (resCierres || []).sort((a: Cierre, b: Cierre) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-        setData(sortedData);
-        setGastos(resGastos || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error cargando analíticas", err);
-        setLoading(false);
-      });
-  }, []);
 
   if (loading) {
     return <div className="p-8 text-center text-slate-500">Cargando analíticas...</div>;
   }
 
+  if (error) return <RequestError message={error} onRetry={reload} />;
+
   const filteredData = filterLocal === 'Todos' ? data : data.filter(c => c.local === filterLocal);
   const filteredGastosForLocal = gastos.filter(g => filterLocal === 'Todos' || g.local === filterLocal);
 
-  if (filteredData.length === 0 && filteredGastosForLocal.length === 0) {
+  if (data.length === 0 && gastos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500">
         <BarChart3 size={48} className="mb-4 text-slate-300 dark:text-slate-700" />
@@ -172,7 +157,7 @@ export default function Analytics() {
           </p>
         </div>
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/50 shadow-sm">
-          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Beneficio Neto</p>
+          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Saldo ingresos − gastos</p>
           <p className={`text-2xl font-black mt-1 flex items-center ${beneficioNeto >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
             <Euro size={20} className="mr-1" />
             {beneficioNeto.toLocaleString('es-ES', { maximumFractionDigits: 0 })}

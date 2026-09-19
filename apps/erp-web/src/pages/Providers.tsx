@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Truck, Plus, Phone, Mail, Loader2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+
+import { readJson, errorMessage } from '../apiResponse';
+import { useApiLists } from '../hooks/useApiLists';
+import RequestError from '../components/RequestError';
 
 interface Provider {
   id: number;
@@ -13,32 +17,17 @@ interface Provider {
 
 export default function Providers() {
   const { fetchWithAuth } = useAuth();
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, reload: fetchProviders } = useApiLists<[Provider]>(['/api/proveedores']);
+  const providers = data?.[0] ?? [];
+  const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newProvider, setNewProvider] = useState({ nombre: '', telefono: '', email: '', categoria: 'General' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchProviders = () => {
-    fetchWithAuth(`${API_URL}/api/proveedores`)
-      .then(res => res.json())
-      .then(data => {
-        setProviders(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error cargando proveedores", err);
-        setLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    fetchProviders();
-  }, []);
-
   const handleAddProvider = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProvider.nombre) return;
+    if (!newProvider.nombre || isSubmitting) return;
+    setError('');
     setIsSubmitting(true);
     
     try {
@@ -47,13 +36,12 @@ export default function Providers() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProvider)
       });
-      if (res.ok) {
-        setShowAddModal(false);
-        setNewProvider({ nombre: '', telefono: '', email: '', categoria: 'General' });
-        fetchProviders();
-      }
+      await readJson(res);
+      setShowAddModal(false);
+      setNewProvider({ nombre: '', telefono: '', email: '', categoria: 'General' });
+      fetchProviders();
     } catch (err) {
-      console.error(err);
+      setError(`${errorMessage(err)} Revisa la lista antes de repetir el alta si se perdió la conexión.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -76,7 +64,7 @@ export default function Providers() {
           Proveedores
         </h2>
         <button 
-          onClick={() => setShowAddModal(true)}
+          aria-label="Nuevo proveedor" onClick={() => { setError(''); setShowAddModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 dark:hover:bg-brand-500 text-white p-2 rounded-full transition-colors shadow-md dark:shadow-brand-500/20"
         >
           <Plus size={20} />
@@ -85,21 +73,23 @@ export default function Providers() {
 
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nuevo Proveedor</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <button aria-label="Cancelar proveedor" disabled={isSubmitting} onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X size={20} />
               </button>
             </div>
             
             <form onSubmit={handleAddProvider} className="space-y-4">
+              <RequestError message={error} />
+              <fieldset disabled={isSubmitting} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre / Empresa</label>
+                <label htmlFor="provider-nombre" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre / Empresa</label>
                 <input 
                   type="text" 
                   required
-                  value={newProvider.nombre}
+                  id="provider-nombre" value={newProvider.nombre}
                   onChange={e => setNewProvider({...newProvider, nombre: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
                   placeholder="Ej. Distribuciones Norte"
@@ -107,18 +97,18 @@ export default function Providers() {
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
+                  <label htmlFor="provider-telefono" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
                   <input 
                     type="tel" 
-                    value={newProvider.telefono}
+                    id="provider-telefono" value={newProvider.telefono}
                     onChange={e => setNewProvider({...newProvider, telefono: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Categoría</label>
+                  <label htmlFor="provider-categoria" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Categoría</label>
                   <select 
-                    value={newProvider.categoria}
+                    id="provider-categoria" value={newProvider.categoria}
                     onChange={e => setNewProvider({...newProvider, categoria: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   >
@@ -130,10 +120,10 @@ export default function Providers() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email (Opcional)</label>
+                <label htmlFor="provider-email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email (Opcional)</label>
                 <input 
                   type="email" 
-                  value={newProvider.email}
+                  id="provider-email" value={newProvider.email}
                   onChange={e => setNewProvider({...newProvider, email: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                 />
@@ -146,6 +136,7 @@ export default function Providers() {
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Guardar Proveedor"}
               </button>
+              </fieldset>
             </form>
           </div>
         </div>
@@ -153,7 +144,7 @@ export default function Providers() {
 
       {/* Lista de Proveedores */}
       <div className="grid gap-4 sm:grid-cols-2">
-        {providers.length === 0 ? (
+        {loadError ? <RequestError message={loadError} onRetry={fetchProviders} /> : providers.length === 0 ? (
           <p className="text-slate-500 text-center py-8 col-span-full">No hay proveedores registrados.</p>
         ) : (
           providers.map(provider => (
