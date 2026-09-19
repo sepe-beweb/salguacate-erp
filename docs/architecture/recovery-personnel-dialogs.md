@@ -16,4 +16,4 @@ Las pruebas de componentes cubren PIN inválido, limpieza del secreto, descarte 
 
 Validación local final: `npm run check` correcto, 297 pruebas, lint, TypeScript y compilación; 27 recorridos funcionales con aislamiento por archivo y 5 de producción. Captura móvil del turno revisada. Presupuesto inicial: 224.713 bytes de JavaScript, 72.026 comprimidos. No acredita despliegue ni datos reales.
 
-Siguiente bloque: buzón interno, validación de lecturas y fechas de registro, conservación del mensaje y bloqueo del formulario durante el envío.
+Publicado en `bfa2b4f12e3da5f185f4fe0361d1046d4914f6a3`; [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35439112185). Continuación: [buzón interno](recovery-messages.md).

@@ -22,7 +22,7 @@ describe('Visible operational failures', () => {
     await expect(readJson(new Response('<html>error</html>', { status: 502 }))).rejects.toThrow('Respuesta inválida');
   });
   it('shows inbox load failure and allows an explicit retry', async () => {
-    mocks.fetchWithAuth.mockResolvedValueOnce(response({ error: 'Buzón no disponible' }, 503)).mockResolvedValueOnce(response([]));
+    mocks.fetchWithAuth.mockResolvedValueOnce(response({ error: 'Buzón no disponible' }, 503)).mockImplementation(async () => response([]));
     render(<Messages />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Buzón no disponible');
     expect(screen.queryByText('No tienes mensajes nuevos.')).not.toBeInTheDocument();
@@ -30,9 +30,11 @@ describe('Visible operational failures', () => {
     expect(await screen.findByText('No tienes mensajes nuevos.')).toBeInTheDocument();
   });
   it('keeps the recipient, subject and message draft when sending fails', async () => {
-    mocks.fetchWithAuth.mockImplementation(async (_url, options) => options?.method === 'POST' ? response({ error: 'Destinatario desactivado' }, 404) : response([]));
+    mocks.fetchWithAuth.mockImplementation(async (url, options) => options?.method === 'POST' ? response({ error: 'Destinatario desactivado' }, 404) : response(url.endsWith('/usuarios/public') ? [{ id: 1, nombre: 'Propietario', rol: 'owner' }] : []));
     render(<Messages />);
+    await screen.findByText('No tienes mensajes nuevos.');
     fireEvent.click(await screen.findByRole('button', { name: 'Nuevo mensaje' }));
+    fireEvent.change(screen.getByLabelText('Destinatario'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Asunto'), { target: { value: 'Mi asunto' } });
     fireEvent.change(screen.getByLabelText('Mensaje'), { target: { value: 'Mi borrador' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enviar Mensaje' }));

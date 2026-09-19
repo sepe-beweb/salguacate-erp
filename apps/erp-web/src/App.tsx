@@ -82,6 +82,10 @@ function BottomNav({ role }: { role: Role }) {
           <Camera size={20} />
           <span className="text-[10px] font-medium">Escáner</span>
         </button>
+        <button onClick={() => navigate('/correos')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentPath === '/correos' ? 'text-brand-600 dark:text-brand-400 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}>
+          <Mail size={20} />
+          <span className="text-[10px] font-medium">Buzón</span>
+        </button>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { readList } from './apiResponse';
 import { isCivilDate } from './financialValues';
-import { isCivilTime } from './planningData';
+import { storedUtcTimestamp } from './storedTimestamp';
 import { readShifts, type PlannedShift } from './shiftData';
 
 export interface StaffMember { id: number; nombre: string; rol: string; local: string | null; telefono: string | null; has_pin: number; }
@@ -10,14 +10,7 @@ const textOrNull = (value: unknown) => typeof value === 'string' || value === nu
 
 // The API writes creado_en using SQLite CURRENT_TIMESTAMP (UTC, space separator).
 // Also accept explicit UTC ISO timestamps; do not guess offsets for arbitrary strings.
-export function requestCreatedAt(value: string) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z?$/.test(value) ||
-    !isCivilDate(value.slice(0, 10)) || !isCivilTime(value.slice(11, 16)) || Number(value.slice(17, 19)) > 59) throw new Error('Fecha de registro de petición inválida.');
-  if (value[10] === 'T' && !value.endsWith('Z')) throw new Error('La fecha de registro no indica zona horaria.');
-  const date = new Date(value.replace(' ', 'T').replace(/Z?$/, 'Z'));
-  if (!Number.isFinite(date.getTime())) throw new Error('Fecha de registro inválida.');
-  return date;
-}
+export const requestCreatedAt = storedUtcTimestamp;
 export async function readPersonnelRequests(responses: Response[]): Promise<PersonnelRequest[]> {
   const rows = await readList<PersonnelRequest>(responses[0]); const ids = new Set<number>();
   for (const row of rows) {
