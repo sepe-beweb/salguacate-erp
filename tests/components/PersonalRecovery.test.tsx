@@ -8,9 +8,11 @@ import Calendar from '../../apps/erp-web/src/pages/employee/Calendar';
 import EmployeeDashboard from '../../apps/erp-web/src/pages/employee/EmployeeDashboard';
 import { parseScanResult } from '../../apps/erp-web/src/scannerResult';
 import { localDate } from '../../apps/erp-web/src/localDate';
+import { createPendingCreates } from '../../apps/erp-web/src/pendingCreates';
 
 const mocks = vi.hoisted(() => ({ fetchWithAuth: vi.fn(), user: { id: '3', name: 'María García', role: 'employee', location: 'Principal' } }));
-vi.mock('../../apps/erp-web/src/context/AuthContext', () => ({ useAuth: () => mocks }));
+let pendingCreates: ReturnType<typeof createPendingCreates>;
+vi.mock('../../apps/erp-web/src/context/AuthContext', () => ({ useAuth: () => ({ ...mocks, pendingCreates }) }));
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const writes = () => mocks.fetchWithAuth.mock.calls.filter(([, options]) => options?.method && options.method !== 'GET');
 const note = { id: 1, contenido: 'Nota existente', color: 'yellow', fijada: false, creado_en: '2026-09-19T12:00:00', usuario_id: 3, autor: 'María' };
@@ -28,7 +30,7 @@ afterAll(() => {
     else Reflect.deleteProperty(HTMLDialogElement.prototype, name);
   }
 });
-beforeEach(() => { mocks.fetchWithAuth.mockReset(); });
+beforeEach(() => { mocks.fetchWithAuth.mockReset(); pendingCreates = createPendingCreates(); });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('Employee recovery', () => {
@@ -263,7 +265,7 @@ describe('Scanner recovery with simulated image decoding and AI', () => {
     await analyze();
     await screen.findByLabelText('Proveedor');
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Gasto Directamente' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Gasto registrado correctamente.');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Gasto registrado correctamente.'));
     expect(screen.queryByAltText('Vista previa')).not.toBeInTheDocument();
     const expenses = writes().filter(([url]) => url.endsWith('/api/gastos'));
     expect(expenses).toHaveLength(1);

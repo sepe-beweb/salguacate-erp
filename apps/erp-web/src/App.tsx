@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import ChangePin from './pages/ChangePin';
 import AIChatbot from './components/AIChatbot';
 import ScreenBoundary from './components/ScreenBoundary';
+import PendingCreatesNotice from './components/PendingCreatesNotice';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inventory = lazy(() => import('./pages/Inventory'));
@@ -299,6 +300,7 @@ function MainLayout() {
 
         {/* Content View */}
         <main className="p-4 lg:p-8 flex-1 max-w-[1600px] w-full mx-auto pb-24 lg:pb-8">
+          {user.role !== 'employee' && <PendingCreatesNotice />}
           <ScreenBoundary key={`${user.id}:${user.role}:${location.pathname}`} onHome={() => navigate('/')}>
             <Suspense fallback={<p role="status" className="p-8 text-center text-slate-600 dark:text-slate-300">Cargando pantalla...</p>}>
               <Routes>

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { API_URL } from '../config';
+import { createPendingCreates } from '../pendingCreates';
 
 export type Role = 'owner' | 'manager' | 'employee';
 
@@ -14,6 +15,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  pendingCreates: ReturnType<typeof createPendingCreates>;
   login: (userId: number, pin: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<Response>;
@@ -25,6 +27,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const currentToken = useRef<string | null>(null);
+  const [pendingCreates, setPendingCreates] = useState(createPendingCreates);
+  const currentCreates = useRef(pendingCreates);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (currentCreates.current.hasPending()) { event.preventDefault(); event.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => { window.removeEventListener('beforeunload', warn); currentCreates.current.close(); };
+  }, []);
 
   // Real login against the database
   const login = async (userId: number, pin: string): Promise<{ success: boolean; error?: string }> => {
@@ -46,6 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const data = await res.json();
       if (data.success && data.user && data.token) {
+        currentCreates.current.close();
+        const creates = createPendingCreates();
+        currentCreates.current = creates; setPendingCreates(creates);
         currentToken.current = data.token;
         setToken(data.token);
         setUser({
@@ -64,10 +78,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    if (currentCreates.current.hasPending() && !window.confirm('Hay guardados sin confirmar. Cerrar sesión perderá sus borradores y claves en este dispositivo. El servidor puede haberlos guardado: comprueba las listas antes de repetirlos. ¿Cerrar sesión?')) return;
     if (token) void fetch(`${API_URL}/api/logout`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }
     }).catch(() => { /* Local session cleared even offline; server expiry remains. */ });
     currentToken.current = null;
+    currentCreates.current.close();
     setToken(null);
     setUser(null);
   };
@@ -78,13 +94,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     headers.set('Authorization', `Bearer ${token || ''}`);
     const response = await fetch(url, { ...options, headers });
     if (response.status === 401 && currentToken.current === token) {
+      currentCreates.current.close();
       currentToken.current = null; setToken(null); setUser(null);
     }
     return response;
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, fetchWithAuth }}>
+    <AuthContext.Provider value={{ user, token, login, logout, fetchWithAuth, pendingCreates }}>
       {children}
     </AuthContext.Provider>
   );

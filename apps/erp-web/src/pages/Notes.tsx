@@ -28,18 +28,26 @@ const COLORS = [
 
 export default function Notes() {
   const { user, fetchWithAuth } = useAuth();
-  const { submit: createNote, locked, discard } = useIdempotentCreate('/api/notas');
+  const { submit: createNote, locked, discard, payload, inFlight: isSubmitting, confirmedId, recoveryError } = useIdempotentCreate<{ contenido: string; color: string }>('/api/notas');
   const { data, loading, error: loadError, reload: fetchNotas } = useApiLists<[Nota]>(['/api/notas']);
   const notas = data?.[0] ?? [];
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
   const modalRef = useRef<HTMLDialogElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const [voiceConsent, setVoiceConsent] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newNote, setNewNote] = useState('');
-  const [selectedColor, setSelectedColor] = useState('yellow');
+  const [newNote, setNewNote] = useState(() => payload?.contenido ?? '');
+  const [selectedColor, setSelectedColor] = useState(() => payload?.color ?? 'yellow');
+
+  useEffect(() => {
+    if (!confirmedId) return;
+    modalRef.current?.close(); setShowModal(false); setVoiceConsent(false);
+    setNewNote(''); setSelectedColor('yellow'); setError('');
+    setSuccess(`Nota guardada correctamente (n.º ${confirmedId}).`);
+    discard(); void fetchNotas();
+  }, [confirmedId, discard, fetchNotas]);
 
   // Voice dictation
   const [isListening, setIsListening] = useState(false);
@@ -104,20 +112,11 @@ export default function Notes() {
   const handleSaveNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNote.trim() || isSubmitting || isListening) return;
-    setError('');
+    setError(''); setSuccess('');
     
-    setIsSubmitting(true);
     try {
       await createNote({ contenido: newNote.trim(), color: selectedColor });
-      modalRef.current?.close(); setShowModal(false); setVoiceConsent(false);
-      setNewNote('');
-      setSelectedColor('yellow');
-      await fetchNotas();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch { /* The session owns the error, including after route unmount. */ }
   };
 
   const handleDelete = async (id: number) => {
@@ -163,14 +162,16 @@ export default function Notes() {
           Notas
         </h2>
         <button 
-          disabled={busy} onClick={() => { setError(''); setShowModal(true); }}
+          disabled={busy} onClick={() => { setError(''); setSuccess(''); setShowModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-full transition-colors shadow-md flex items-center gap-1 px-4"
         >
           <Plus size={18} /> <span className="font-semibold text-sm">Nueva</span>
         </button>
       </div>
 
-      {!showModal && <RequestError message={error} onRetry={fetchNotas} />}
+      {success && <p role="status">{success}</p>}
+      {!showModal && <RequestError message={error || recoveryError} onRetry={fetchNotas} />}
+      {!showModal && payload && <button className="rounded-lg border p-3 text-brand-700" onClick={() => setShowModal(true)}>Recuperar nota pendiente</button>}
       {/* Modal: Nueva Nota */}
       {showModal && (
         <dialog ref={modalRef} aria-labelledby="note-title" onCancel={event => { event.preventDefault(); closeModal(); }} className="m-auto w-11/12 max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl p-0 bg-white dark:bg-slate-900 backdrop:bg-black/50">
@@ -183,8 +184,9 @@ export default function Notes() {
             </div>
             
             <form onSubmit={handleSaveNote} className="space-y-4">
-              <RequestError message={error} onRetry={fetchNotas} />
-              {locked && !isSubmitting && <p role="status" className="text-sm">Hay un guardado sin confirmar. Los datos quedan bloqueados. Puedes confirmar el mismo intento sin crear otra nota. Resuélvelo antes de salir de esta pantalla o recargar: la protección de este borrador no se conserva fuera de ella.</p>}
+              <RequestError message={error || recoveryError} onRetry={fetchNotas} />
+              {isSubmitting && <p role="status">Esperando la respuesta del guardado. Puedes volver a esta pantalla sin repetir el envío.</p>}
+              {locked && !isSubmitting && <p role="status" className="text-sm">Hay un guardado sin confirmar. Los datos quedan bloqueados. Puedes confirmar el mismo intento sin crear otra nota. Se conserva al navegar en esta sesión, pero se pierde al recargar o cerrar sesión.</p>}
               <fieldset disabled={isSubmitting || locked} className="space-y-4">
               {/* Voice indicator */}
               {isListening && (

@@ -23,29 +23,36 @@ function loadImage(source: string): Promise<HTMLImageElement> {
 
 export default function Scanner() {
   const { fetchWithAuth } = useAuth();
-  const { submit: createExpense, locked, discard } = useIdempotentCreate('/api/gastos');
+  const { submit: createExpense, locked, discard, payload, inFlight, confirmedId, recoveryError } = useIdempotentCreate<ReturnType<typeof emptyInvoice>>('/api/gastos');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingImage, setIsProcessing] = useState(false);
+  const isProcessing = processingImage || inFlight;
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [consent, setConsent] = useState(false);
   const [documents, setDocuments] = useState<ScannedDoc[]>([]);
   const [aiResult, setAiResult] = useState<ScanResult | null>(null);
   const [scanMode, setScanMode] = useState<ScanMode>('pdf');
-  const [invoiceForm, setInvoiceForm] = useState(emptyInvoice);
+  const [invoiceForm, setInvoiceForm] = useState(() => payload ?? emptyInvoice());
+  const [recovered, setRecovered] = useState(Boolean(payload));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const operation = useRef(0);
   const pending = useRef(false);
   useEffect(() => () => { operation.current++; }, []);
   useEffect(() => () => { if (imageSrc) URL.revokeObjectURL(imageSrc); }, [imageSrc]);
+  useEffect(() => {
+    if (!confirmedId) return;
+    setImageSrc(null); setAiResult(null); setConsent(false); setInvoiceForm(emptyInvoice());
+    setRecovered(false); setError(''); setSuccess('Gasto registrado correctamente.'); discard();
+  }, [confirmedId, discard]);
 
   const clearImage = () => {
-    setImageSrc(null); setAiResult(null); setConsent(false); setInvoiceForm(emptyInvoice());
+    setImageSrc(null); setAiResult(null); setConsent(false); setInvoiceForm(emptyInvoice()); setRecovered(false);
   };
   const handleCapture = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || pending.current || locked) return;
+    if (!file || pending.current || locked || recovered) return;
     setError(''); setSuccess('');
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
       setError('Selecciona una imagen JPEG, PNG o WebP de hasta 10 MB.'); return;
@@ -105,34 +112,34 @@ export default function Scanner() {
   };
   const saveExpense = async (event: FormEvent) => {
     event.preventDefault();
-    if (pending.current || aiResult?.kind !== 'ai_invoice') return;
-    pending.current = true;
-    const request = ++operation.current;
-    setIsProcessing(true); setError(''); setSuccess('');
+    if (pending.current || inFlight || (!recovered && aiResult?.kind !== 'ai_invoice')) return;
+    setError(''); setSuccess('');
     try {
       await createExpense(invoiceForm);
-      if (request === operation.current) { clearImage(); setSuccess('Gasto registrado correctamente.'); }
-    } catch (cause) {
-      if (request === operation.current) setError(`${errorMessage(cause)} Se conserva el borrador.`);
-    } finally {
-      if (request === operation.current) { pending.current = false; setIsProcessing(false); }
-    }
+    } catch { /* The session owns the outcome even while this route is absent. */ }
   };
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Escáner</h2>
-      <RequestError message={error} />
+      <RequestError message={error || (recoveryError ? `${recoveryError} Se conserva el borrador.` : '')} />
       {success && <p role="status" className="rounded-lg bg-emerald-50 text-emerald-800 p-3">{success}</p>}
       <p className="text-sm text-slate-500">El PDF se genera en este dispositivo. Los documentos solo permanecen en esta pantalla: descárgalos antes de salir o recargar.</p>
       <input aria-label="Seleccionar imagen" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" ref={fileInputRef} onChange={handleCapture} disabled={isProcessing} className="hidden" />
-      {!imageSrc ? (
+      {recovered && !imageSrc && <section className="rounded-xl border p-4 space-y-3">
+        <p>Gasto recuperado de esta sesión. Se conserva el formulario enviado, no la imagen ni el consentimiento para analizarla.</p>
+        <button disabled={inFlight} className="underline" onClick={() => {
+          if (locked && !window.confirm('El servidor puede haber registrado el gasto. Descartar elimina el intento y su protección. Comprueba los gastos antes de crear otro. ¿Continuar?')) return;
+          discard(); clearImage(); setError('');
+        }}>Descartar intento pendiente</button>
+      </section>}
+      {!imageSrc && !recovered ? (
         <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 flex flex-col items-center gap-4 min-h-[220px] bg-white dark:bg-slate-900">
           <Camera size={48} className="text-brand-600" />
           <span className="text-lg font-semibold">Escanear Documento</span>
           <span className="text-sm text-slate-500">Selecciona una foto o abre la cámara. JPEG, PNG o WebP, hasta 10 MB.</span>
         </button>
-      ) : (
+      ) : imageSrc ? (
         <div className="space-y-4">
           <div className="bg-white dark:bg-slate-900 rounded-xl border p-3">
             <div className="flex justify-between items-center mb-2">
@@ -159,11 +166,22 @@ export default function Scanner() {
             {scanMode === 'pdf' ? <FileText size={20} /> : <Sparkles size={20} />}
             {isProcessing ? 'Procesando...' : scanMode === 'pdf' ? 'Guardar como PDF' : 'Analizar con Gemini'}
           </button>
-          {aiResult?.kind === 'ai_invoice' && (
+          {aiResult?.kind === 'ai_inventory' && (
+            <section className="rounded-xl border p-4 space-y-2">
+              <h3 className="font-semibold">Estimación de inventario</h3>
+              <p>Botellas estimadas: {aiResult.botellasEstimadas}. Confianza: {aiResult.confianza}%.</p>
+              <p>{aiResult.rawText}</p>
+              <p className="text-sm text-slate-500">Es una estimación visual: no modifica el inventario.</p>
+            </section>
+          )}
+        </div>
+      ) : null}
+          {(aiResult?.kind === 'ai_invoice' || recovered) && (
             <form onSubmit={saveExpense} className="rounded-xl border border-brand-200 p-4 space-y-3">
               <h3 className="font-semibold">Revisar factura</h3>
               <p className="text-sm text-slate-500">El análisis puede contener errores. Revisa cada campo antes de registrar el gasto.</p>
-              {locked && !isProcessing && <p role="status" className="text-sm">Hay un guardado sin confirmar. Los datos quedan bloqueados. Puedes confirmar el mismo intento sin crear otro gasto. Resuélvelo antes de salir de esta pantalla o recargar: la protección de este borrador no se conserva fuera de ella.</p>}
+              {inFlight && <p role="status">Esperando la respuesta del guardado. Puedes volver a esta pantalla sin repetir el envío.</p>}
+              {locked && !isProcessing && <p role="status" className="text-sm">Hay un guardado sin confirmar. Los datos quedan bloqueados. Puedes confirmar el mismo intento sin crear otro gasto. Se conserva al navegar en esta sesión, pero se pierde al recargar o cerrar sesión.</p>}
               <fieldset disabled={isProcessing || locked} className="space-y-3">
                 <label className="block">Total Detectado (€)<input aria-label="Total Detectado (€)" type="number" required min="0" step="0.01" value={invoiceForm.total} onChange={e => setInvoiceForm({ ...invoiceForm, total: e.target.value })} className={inputClass} /></label>
                 <label className="block">Proveedor<input type="text" required maxLength={160} value={invoiceForm.proveedor_nombre} onChange={e => setInvoiceForm({ ...invoiceForm, proveedor_nombre: e.target.value })} className={inputClass} /></label>
@@ -174,16 +192,6 @@ export default function Scanner() {
               <button type="submit" disabled={isProcessing} className="w-full bg-emerald-600 text-white p-3 rounded-lg disabled:opacity-50">{isProcessing ? 'Registrando...' : locked ? 'Confirmar guardado pendiente' : 'Registrar Gasto Directamente'}</button>
             </form>
           )}
-          {aiResult?.kind === 'ai_inventory' && (
-            <section className="rounded-xl border p-4 space-y-2">
-              <h3 className="font-semibold">Estimación de inventario</h3>
-              <p>Botellas estimadas: {aiResult.botellasEstimadas}. Confianza: {aiResult.confianza}%.</p>
-              <p>{aiResult.rawText}</p>
-              <p className="text-sm text-slate-500">Es una estimación visual: no modifica el inventario.</p>
-            </section>
-          )}
-        </div>
-      )}
       {documents.length > 0 && (
         <section className="space-y-3">
           <h3 className="font-semibold">Documentos Recientes</h3>

@@ -2,7 +2,7 @@
 
 ## Estado y alcance
 
-Séptimo bloque local sobre `refactor/recovery-foundation`. El sexto se publicó como `8ab7ea5` y pasó [CI](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35420289698). Este documento no acredita publicación del séptimo, migración de datos reales ni despliegue.
+Séptimo bloque publicado como `45040cf` sobre `refactor/recovery-foundation`, con [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35421203289). Este documento no acredita migración de datos reales ni despliegue. La retención de intentos entre rutas se amplía en el [octavo bloque local](recovery-session-attempts.md).
 
 La protección cubre `POST /api/notas` y `POST /api/gastos` cuando reciben `Idempotency-Key`. Las pantallas de notas y escáner envían esa cabecera. No se cambia automáticamente el comportamiento de otros endpoints ni se reenvía ninguna escritura en segundo plano.
 
@@ -28,7 +28,7 @@ Tras un fallo de red, un 5xx, un conflicto o una confirmación incompleta, el bo
 
 Notas conserva el intento al cerrar y reabrir su diálogo. El escáner conserva imagen y formulario, impide cambiar de modo y exige confirmación antes de descartarlos. Abandonar explícitamente el intento advierte que el servidor pudo haberlo guardado y que hay que conciliar antes de crear otro.
 
-Las claves y los borradores siguen en memoria de la pantalla: **salir de la ruta, recargar o terminar la sesión pierde ese identificador en la interfaz**. El aviso pide resolver el intento antes de hacerlo. No se añade almacenamiento de tokens, notas, imágenes o gastos en disco. La API sí conserva los recibos entre sesiones y reinicios para cualquier cliente que conserve la misma clave.
+En el séptimo bloque las claves y los borradores vivían en memoria de la pantalla: salir de ruta perdía el intento. El [octavo bloque](recovery-session-attempts.md) sustituye esa limitación por un almacén en memoria de la sesión; recargar o terminar la sesión sigue perdiendo el identificador en la interfaz. No se añade almacenamiento de tokens, notas, imágenes o gastos en disco. La API sí conserva los recibos entre sesiones y reinicios para cualquier cliente que conserve la misma clave.
 
 La garantía requiere desplegar conjuntamente la API con este contrato y el cliente que lo utiliza. Una API antigua que ignore la cabecera no ofrece esta protección.
 
@@ -56,4 +56,4 @@ No es deduplicación por similitud de facturas ni detección de dos personas reg
 
 El modelo usa transacciones síncronas `BEGIN IMMEDIATE` de una misma base, coherente con el [control de transacciones de SQLite](https://www.sqlite.org/lang_transaction.html); no promete garantías de un sistema distribuido.
 
-Siguiente bloque propuesto: conservar y recuperar intentos pendientes al cambiar de pantalla durante la misma sesión, sin guardar datos sensibles en disco.
+Continuación implementada localmente: [recuperación de intentos durante la sesión](recovery-session-attempts.md), sin guardar datos sensibles en disco.
