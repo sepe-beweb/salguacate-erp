@@ -9,8 +9,10 @@ Ampliación local del bloque 31: lint y compilación correctos, batería final d
 5 de archivos compilados correctos. El SDK HTTP usa transporte simulado y las
 pruebas SQL usan un doble asíncrono local: **no hay validación Turso remota**.
 El [bloque 32](recovery-turso-compatibility.md) añade siete comprobaciones reales
-correctas contra Turso/libSQL en una base desechable; el ERP todavía no se ha
-adaptado al acceso remoto. La evidencia histórica siguiente
+correctas contra Turso/libSQL en una base desechable. El [bloque 33](recovery-async-api.md)
+adapta las rutas al acceso asíncrono y supera seis grupos HTTP contra Turso real,
+con sesiones sintéticas ya revocadas; el arranque ordinario sigue siendo local.
+La evidencia histórica siguiente
 corresponde a los bloques anteriores y no sustituye la CI del nuevo commit.
 
 La base de panel/catálogo se publicó con el bloque 27 y la ampliación de fotos como `ccccf5c633fc42880928b50ed805388f246a00a8`, con [CI correcta del bloque 29](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35444372055), correspondiente a 496/39/5 pruebas. El bloque 30 añade el bootstrap explícito; su evidencia local no se atribuye a esa CI anterior. Base validada con Node 22.23.2 y Chrome instalado en Windows:
@@ -31,16 +33,16 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 | Backup/restauración | Herramientas y pruebas desechables disponibles | [Procedimiento](recovery-data.md), incluida revocación de sesiones y conservación de recibos |
 | Migración de datos existentes | No aplicable a la decisión vigente | No hay datos anteriores que conservar; no se han borrado instalaciones |
 | Instalación nueva | Comando y pruebas preparados; destino real no creado | Elegir entorno/rutas y dar de alta el propietario con PIN privado |
-| Compatibilidad Turso/libSQL | Ensayo remoto correcto en Irlanda | [Siete comprobaciones](recovery-turso-compatibility.md), cuenta Free sin método de pago; no acredita las rutas del ERP, que aún usa SQLite local |
+| Compatibilidad Turso/libSQL | Base y rutas HTTP ensayadas en Irlanda | [Compatibilidad](recovery-turso-compatibility.md) y [API asíncrona](recovery-async-api.md), cuenta Free; no son despliegue ni navegador contra Turso |
 | Aceptación operativa y seguridad de exposición | Pendiente | Reglas por local, acceso público, dispositivos y operación descritos abajo |
 | Merge, activación y despliegue | No realizados | Decisión específica, instalación aceptada y procedimiento de copia/vuelta |
 
-## Siguiente paso: acceso asíncrono del ERP
+## Siguiente paso: fotos y arranque remoto explícito
 
-El [ensayo remoto real](recovery-turso-compatibility.md) permite avanzar al acceso
-asíncrono de seguridad y operaciones, conservando transacciones, autorización y
-recibos. Aún faltan la validación de las rutas sobre Turso, Cloudinary, bootstrap
-remoto, backup remoto y despliegue. No activar el blueprint antiguo como gratuito.
+La [API asíncrona](recovery-async-api.md) conserva transacciones, autorización y
+recibos y ya tiene evidencia HTTP con Turso. Aún faltan Cloudinary, configuración
+de arranque y bootstrap remoto, backup remoto y despliegue. No activar el blueprint
+antiguo como gratuito. El acceso personal a Cloudinary se ha solicitado al titular.
 
 ## Instalación nueva local disponible
 

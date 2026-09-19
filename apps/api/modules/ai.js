@@ -4,13 +4,7 @@ app.use('/api/ai', requireAuth, requireRole(['owner', 'manager']), (req, res, ne
     next();
   });
 
-  // Promisify SQLite helpers for async/await inside AI logic
-  const dbAllAsync = (query, params) => new Promise((resolve, reject) => {
-    db.all(query, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
+  const dbAllAsync = (query, params) => db.all(query, params);
 
   const AI_CHAT_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
 

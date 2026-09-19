@@ -15,6 +15,7 @@ Entrada vigente: [estado de recuperación y puertas de salida](recovery-status.m
 - [30. Instalación nueva](recovery-fresh-install.md): alta inicial explícita, sin migrar históricos ni sobrescribir bases.
 - [31. Alojamiento gratuito](recovery-free-hosting.md): ensayo Turso desechable, adaptador asíncrono aislado y puertas de integración.
 - [32. Compatibilidad remota](recovery-turso-compatibility.md): resultado real en Turso/libSQL, URL regional, tiempos y límites de la evidencia.
+- [33. API asíncrona](recovery-async-api.md): aislamiento, autorización transaccional y rutas reales ensayadas con Turso.
 
 ## Finanzas, planificación y personal
 

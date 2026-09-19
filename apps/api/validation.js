@@ -9,9 +9,9 @@ const boolean = value => [true, false, 0, 1].includes(value);
 function requireValid(condition, message) {
   if (!condition) throw new HttpError(400, message);
 }
-function activeUser(db, id) {
+async function activeUser(db, id) {
   requireValid(validId(id), 'Identificador de usuario inválido.');
-  const user = db.connection.prepare('SELECT id, local, rol FROM usuarios WHERE id = ? AND active = 1').get(Number(id));
+  const user = (await db.connection.prepare('SELECT id, local, rol FROM usuarios WHERE id = ? AND active = 1').get(Number(id)));
   if (!user) throw new HttpError(404, 'Usuario activo no encontrado.');
   return user;
 }

@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 const { createLibsqlDatabase, readProbeConfig, connectProbe, normalizeResult } = require('../libsql');
 const { runTursoProbe, freshSchemaStatements } = require('../turso-probe');
 const { main } = require('../scripts/turso-probe');
+const { runTursoApiProbe } = require('../turso-api-probe');
 
 // Local SQL implementation of the SDK contract, deliberately asynchronous.
 // This verifies adapter/probe logic, NOT Turso's remote engine or latency.
@@ -40,6 +41,44 @@ function localClient() {
     close() { sql.close(); },
   };
 }
+
+describe('Disposable API probe boundary', () => {
+  it('exercises real HTTP routes locally and revokes its synthetic sessions', async () => {
+    const client = localClient(); const db = createLibsqlDatabase(client);
+    try {
+      await runTursoProbe(db);
+      const report = await runTursoApiProbe(db);
+      expect(report.status).toBe('passed'); expect(report.timings).toHaveLength(6);
+      expect((await db.get('SELECT count(*) n FROM usuarios WHERE active = 1')).n).toBe(0);
+      expect(await db.all('SELECT * FROM sessions')).toEqual([]);
+      expect((await db.get('SELECT count(*) n FROM usuarios WHERE pin IS NOT NULL')).n).toBe(0);
+    } finally { await db.close(); }
+  });
+  it('refuses a database with a real or active user before creating probe sessions', async () => {
+    const client = localClient(); const db = createLibsqlDatabase(client);
+    try {
+      await runTursoProbe(db);
+      await db.run("INSERT INTO usuarios (nombre, rol, active) VALUES ('Real user', 'owner', 0)");
+      await expect(runTursoApiProbe(db)).rejects.toThrow(/inactive synthetic/);
+      expect(await db.all('SELECT * FROM sessions')).toEqual([]);
+      expect((await db.get('SELECT count(*) n FROM usuarios')).n).toBe(2);
+    } finally { await db.close(); }
+  });
+  it('revokes and deactivates run-owned fixtures after an HTTP failure', async () => {
+    const client = localClient(); const db = createLibsqlDatabase(client);
+    try {
+      await runTursoProbe(db);
+      const execute = client.execute;
+      client.execute = statement => {
+        if (statement.sql.startsWith('SELECT n.*')) throw new Error('Injected read failure');
+        return execute(statement);
+      };
+      await expect(runTursoApiProbe(db)).rejects.toThrow(/Unexpected HTTP status/);
+      expect(await db.all('SELECT * FROM sessions')).toEqual([]);
+      expect((await db.get('SELECT count(*) n FROM usuarios WHERE active = 1')).n).toBe(0);
+    } finally { await db.close(); }
+  });
+});
 
 describe('Explicit Turso probe boundary', () => {
   const env = { SALGUACATE_TURSO_PROBE_URL: 'libsql://probe-example.turso.io', SALGUACATE_TURSO_PROBE_TOKEN: 'synthetic-token' };

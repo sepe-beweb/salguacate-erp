@@ -1,4 +1,5 @@
 function sendDatabaseError(res, error) {
+  if (error instanceof HttpError) return res.status(error.status).json({ error: error.message, ...(error.code ? { code: error.code } : {}) });
   const conflict = /constraint|UNIQUE/i.test(error.message);
   return res.status(conflict ? 409 : 500).json({ error: conflict ? 'La operación entra en conflicto con los datos existentes.' : 'No se pudo completar la operación.' });
 }

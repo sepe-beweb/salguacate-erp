@@ -49,6 +49,7 @@ function createLibsqlDatabase(client) {
     };
   }
   const db = {
+    driver: 'libsql',
     ...access(client),
     transaction(work) {
       // One instance serializes its write transactions. Each callback receives only

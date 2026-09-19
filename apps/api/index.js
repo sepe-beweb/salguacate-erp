@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const fs = require('node:fs');
-const { createSecurity } = require('./security');
+const { createSecurity, asyncRoute } = require('./security');
+const { createAsyncStore } = require('./async-store');
 const { HttpError } = require('./http');
 const { validId } = require('./validation');
 const { registerOperations } = require('./operations');
@@ -14,6 +15,7 @@ const { registerTasks } = require('./modules/tasks');
 const { registerAi } = require('./modules/ai');
 
 function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5173'], uploadsDir, aiEnabled = false }) {
+  db = createAsyncStore(db);
   const app = express();
   const { requireAuth, requireRole, register } = createSecurity(db);
   const logger = (level, message) => { if (level === 'error') console.error(message); };
@@ -38,10 +40,10 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
   app.use((req, res, next) => {
     db.ready.then(() => next(), () => res.status(503).json({ error: 'Base de datos no disponible.' }));
   });
-  app.get('/api/health', (req, res) => {
-    db.connection.prepare('SELECT 1').get();
+  app.get('/api/health', asyncRoute(async (req, res) => {
+    (await db.connection.prepare('SELECT 1').get());
     res.json({ status: 'ready' });
-  });
+  }));
   register(app);
   registerOperations(app, db, { requireAuth, requireRole });
   if (uploadsDir) {

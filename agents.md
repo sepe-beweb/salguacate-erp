@@ -37,7 +37,8 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Fotos persistidas](docs/architecture/recovery-catalog-images.md): recorrido real con PNG/JPEG sintéticos y almacenamiento temporal aislado.
 - [Instalación nueva](docs/architecture/recovery-fresh-install.md): decisión de no migrar históricos, base nueva exclusiva y alta inicial privada.
 - [Alojamiento gratuito](docs/architecture/recovery-free-hosting.md): plan aprobado y ensayo Turso aislado; no activa el backend remoto.
-- [Compatibilidad remota](docs/architecture/recovery-turso-compatibility.md): ensayo real superado; las rutas del ERP aún necesitan adaptación asíncrona.
+- [Compatibilidad remota](docs/architecture/recovery-turso-compatibility.md): ensayo inicial de esquema y transacciones en una base Turso desechable.
+- [API asíncrona](docs/architecture/recovery-async-api.md): interfaz de aplicación, permisos transaccionales y ensayo HTTP sobre Turso; arranque ordinario aún local.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -50,6 +51,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - Preservar identificadores e historial; probar migraciones sobre copias. No resolver inconsistencias borrando datos.
 - La inicialización completa se ejecuta en una transacción. Rechazar esquemas futuros y comprobar claves foráneas antes del commit. Las herramientas de recuperación no sobrescriben destinos ni activan instalaciones; una restauración revoca las sesiones copiadas.
 - Las operaciones multi-escritura deben ser transaccionales. No confirmar éxito HTTP antes del commit.
+- Las rutas usan exclusivamente `async-store.js`, esperan consultas/callbacks y reciben el manejador de transacción explícito. No usar la conexión SQLite original durante peticiones, ni consultas raíz desde una transacción. Revalidar sesión y condiciones de escritura dentro de la transacción con `writeAsActor`; nunca hacer hashing o subir fotos mientras esté abierta. Un COMMIT no confirmado no equivale a rollback ni autoriza repetir una escritura.
 - Las pruebas usan bases temporales y nunca endpoints ni datos de producción.
 - Una respuesta HTTP 200 o una compilación correcta no acredita despliegue ni validación funcional completa.
 - Mantener separados los permisos de cambio local y publicación.
