@@ -120,9 +120,9 @@ export default function HRManagement() {
       const method = editingEmpId ? 'PUT' : 'POST';
       
       const payload = { ...empForm };
-      // Al añadir empleado nuevo, si el PIN está vacío asignamos '0000'
       if (!editingEmpId && !payload.pin) {
-        payload.pin = '0000';
+        alert('Indica un PIN de 6 a 8 dígitos para el nuevo empleado.');
+        return;
       }
 
       const res = await fetchWithAuth(url, {
@@ -149,7 +149,7 @@ export default function HRManagement() {
   };
 
   const handleEmpDelete = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este empleado? Esta acción borrará permanentemente sus turnos y fichajes.')) return;
+    if (!confirm('¿Desactivar este empleado? Perderá acceso; sus turnos y fichajes se conservarán.')) return;
     setCrudError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/usuarios/${id}`, { method: 'DELETE' });
@@ -482,7 +482,7 @@ export default function HRManagement() {
                   value={empForm.pin}
                   onChange={e => setEmpForm({...empForm, pin: e.target.value.replace(/\D/g, '')})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white font-mono tracking-widest text-center"
-                  placeholder={editingEmpId ? "Dejar vacío para mantener PIN actual" : "0000"}
+                  placeholder={editingEmpId ? "Vacío para mantener el PIN actual" : "PIN de 6 a 8 dígitos"}
                 />
                 <p className="text-xs text-slate-400 mt-1">Mínimo 4 dígitos. Se usa para entrar a la app.</p>
               </div>

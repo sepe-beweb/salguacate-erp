@@ -2,19 +2,24 @@ services:
   - type: web
     name: salguacate-backend
     env: node
-    rootDir: apps/api
-    buildCommand: npm ci
-    startCommand: npm start
+    autoDeployTrigger: off
+    buildCommand: npm ci --ignore-scripts --omit=dev --workspace apps/api
+    startCommand: npm run start --workspace apps/api
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 22.23.2
+      - key: CORS_ORIGINS
+        value: https://salguacate-frontend.onrender.com
+      - key: AI_ENABLED
+        value: "false"
       - key: SQLITE_DATABASE_PATH
         value: /opt/render/project/src/apps/api/persistent/database.sqlite
       - key: UPLOADS_DIR
         value: /opt/render/project/src/apps/api/persistent/uploads
       - key: GEMINI_API_KEY
-        sync: false
-      - key: JWT_SECRET
         sync: false
     disk:
       name: data
@@ -24,12 +29,15 @@ services:
   - type: web
     name: salguacate-frontend
     env: static
-    buildCommand: npm ci && npm run build:erp
+    autoDeployTrigger: off
+    buildCommand: npm ci --ignore-scripts && npm run build:erp
     staticPublishPath: ./dist/erp
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
+      - key: NODE_VERSION
+        value: 22.23.2
       - key: VITE_API_URL
         value: "https://salguacate-backend.onrender.com"

@@ -1,7 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, FileText, CheckCircle2, Download, Trash2, Image as ImageIcon, Sparkles, Box } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { jsPDF } from 'jspdf';
 import { API_URL } from '../config';
 
 interface ScannedDoc {
@@ -11,10 +10,21 @@ interface ScannedDoc {
   dataUrl: string;
 }
 
+function loadImage(source: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('No se pudo leer la imagen. Selecciona otra.'));
+    image.src = source;
+  });
+}
+
 export default function Scanner() {
   const { fetchWithAuth } = useAuth();
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => () => { if (imageSrc) URL.revokeObjectURL(imageSrc); }, [imageSrc]);
   const [documents, setDocuments] = useState<ScannedDoc[]>([]);
   const [aiResult, setAiResult] = useState<any | null>(null);
   const [scanMode, setScanMode] = useState<'pdf' | 'ai_invoice' | 'ai_inventory'>('pdf');
@@ -30,6 +40,7 @@ export default function Scanner() {
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setError('');
       const imageUrl = URL.createObjectURL(file);
       setImageSrc(imageUrl);
     }
@@ -38,8 +49,10 @@ export default function Scanner() {
   const saveAsPdf = async () => {
     if (!imageSrc) return;
     setIsProcessing(true);
+    setError('');
     
     try {
+      const { jsPDF } = await import('jspdf');
       // Create a new jsPDF instance (A4 size)
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -48,12 +61,7 @@ export default function Scanner() {
       });
 
       // Load image to get dimensions
-      const img = new Image();
-      img.src = imageSrc;
-      
-      await new Promise((resolve) => {
-        img.onload = resolve;
-      });
+      const img = await loadImage(imageSrc);
 
       // Calculate dimensions to fit A4 (210 x 297 mm)
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -98,6 +106,7 @@ export default function Scanner() {
       setImageSrc(null);
     } catch (error) {
       console.error("Error generating PDF", error);
+      setError('No se pudo generar el PDF. Revisa la imagen e inténtalo de nuevo.');
     } finally {
       setIsProcessing(false);
     }
@@ -106,14 +115,13 @@ export default function Scanner() {
   const analyzeWithAI = async () => {
     if (!imageSrc) return;
     setIsProcessing(true);
+    setError('');
     setAiResult(null);
 
     try {
       // Extraer base64 (quitando el prefijo de data uri)
       const canvas = document.createElement('canvas');
-      const img = new Image();
-      img.src = imageSrc;
-      await new Promise(resolve => img.onload = resolve);
+      const img = await loadImage(imageSrc);
       
       canvas.width = img.width;
       canvas.height = img.height;
@@ -133,6 +141,7 @@ export default function Scanner() {
       });
 
       const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo analizar la imagen.');
       if (data.success) {
         const result = data.result || data;
         setAiResult(result);
@@ -148,6 +157,7 @@ export default function Scanner() {
       }
     } catch (error) {
       console.error("Error con la IA", error);
+      setError(error instanceof Error ? error.message : 'No se pudo analizar la imagen.');
     } finally {
       setIsProcessing(false);
     }
@@ -155,6 +165,7 @@ export default function Scanner() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {error && <p role="alert" className="rounded-lg bg-red-50 text-red-700 p-3">{error}</p>}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Escáner</h2>
       </div>
@@ -200,6 +211,7 @@ export default function Scanner() {
                     </div>
                     <div className="flex gap-2">
                       <a 
+                        aria-label={`Descargar ${doc.name}.pdf`}
                         href={doc.dataUrl} 
                         download={`${doc.name}.pdf`}
                         className="p-2 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"

@@ -151,8 +151,9 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">PIN de acceso</label>
+              <label htmlFor="login-pin" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">PIN de acceso</label>
               <input 
+                id="login-pin"
                 type="password"
                 inputMode="numeric"
                 maxLength={8}
@@ -180,7 +181,7 @@ export default function Login() {
               {isLogging ? <Loader2 size={20} className="animate-spin" /> : 'Acceder'}
             </button>
 
-            <p className="text-xs text-center text-slate-400">PIN por defecto: 0000</p>
+            <p className="text-xs text-center text-slate-400">Usa el PIN configurado para tu cuenta.</p>
           </div>
         )}
 

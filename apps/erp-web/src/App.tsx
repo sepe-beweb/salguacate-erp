@@ -9,6 +9,7 @@ import Inventory from './pages/Inventory';
 import Sales from './pages/Sales';
 import Scanner from './pages/Scanner';
 import Login from './pages/Login';
+import ChangePin from './pages/ChangePin';
 import HRManagement from './pages/HRManagement';
 import SettingsPage from './pages/Settings';
 import Providers from './pages/Providers';
@@ -256,6 +257,7 @@ function MainLayout() {
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   if (!user) return <Login />;
+  if (user.mustChangePin) return <ChangePin />;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 lg:flex">

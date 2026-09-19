@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('🔑 Salguacate ERP - Suite de Pruebas E2E Exhaustivas', () => {
+test.describe('Salguacate ERP - Integración local con datos desechables', () => {
 
   test('Casuística 1: Login de Empleado Exitoso y Dashboard', async ({ page }) => {
     // 1. Navegar a la página de login
@@ -10,7 +10,7 @@ test.describe('🔑 Salguacate ERP - Suite de Pruebas E2E Exhaustivas', () => {
     await page.click('text=María García');
 
     // 3. Rellenar PIN correcto
-    await page.locator('input[type="password"]').fill('0000');
+    await page.locator('input[type="password"]').fill('246810');
     await page.click('text=Acceder');
 
     // 4. Debería iniciar sesión y ver su panel personal
@@ -42,7 +42,7 @@ test.describe('🔑 Salguacate ERP - Suite de Pruebas E2E Exhaustivas', () => {
 
     // Login
     await page.click('text=María García');
-    await page.locator('input[type="password"]').fill('0000');
+    await page.locator('input[type="password"]').fill('246810');
     await page.click('text=Acceder');
 
     // Navegar a la pantalla de Fichar
@@ -70,7 +70,7 @@ test.describe('🔑 Salguacate ERP - Suite de Pruebas E2E Exhaustivas', () => {
     await page.click('text=Jefe Admin');
 
     // Rellenar PIN correcto
-    await page.locator('input[type="password"]').fill('0000');
+    await page.locator('input[type="password"]').fill('246810');
     await page.click('text=Acceder');
 
     // Debería iniciar sesión y ver elementos exclusivos del Dashboard de Administrador

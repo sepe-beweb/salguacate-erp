@@ -3,15 +3,15 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js",
+    "bootstrap": "node scripts/bootstrap-owner.js"
   },
+  "engines": { "node": ">=22.23.2 <23" },
   "dependencies": {
-    "@google/genai": "latest",
-    "@libsql/client": "^0.17.3",
+    "@google/genai": "2.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "sqlite3": "^5.1.7"
+    "express": "^4.22.2"
   },
   "devDependencies": {
     "supertest": "^7.2.2"

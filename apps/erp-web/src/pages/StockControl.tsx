@@ -130,9 +130,13 @@ export default function StockControl() {
           cantidad: l.cantidad 
         }))
       })
-    }).then(() => {
+    }).then(async response => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo registrar el pedido.');
       fetchData();
       alert(`Pedido de ${provName} registrado en historial.`);
+    }).catch(error => {
+      alert(error instanceof Error ? error.message : 'Error de conexión. Revisa el historial antes de repetir el registro.');
     });
   };
 
@@ -158,31 +162,21 @@ export default function StockControl() {
   };
 
   const markReceived = async (p: Pedido) => {
-    if (window.confirm(`¿Marcar el pedido de ${p.proveedor_nombre} como recibido?`)) {
-      const sumToInventory = window.confirm(`¿Deseas sumar automáticamente las cantidades recibidas al stock de ${p.local}?\n\nNota: Solo se sumarán aquellos productos que sigan existiendo en el catálogo.`);
-      
-      await fetchWithAuth(`${API_URL}/api/pedidos/${p.id}/recibido`, { method: 'PATCH' });
-      
-      if (sumToInventory) {
-        let prods = [];
-        try { 
-          prods = JSON.parse(p.productos || '[]'); 
-        } catch(e) {
-          console.error("Error parseando", e);
-        }
-        for (const prod of prods) {
-          if (prod.producto_id) {
-            await fetchWithAuth(`${API_URL}/api/inventario/${prod.producto_id}/stock`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ increment: prod.cantidad })
-            }).catch(console.error);
-          }
-        }
-        alert("Cantidades sumadas al stock.");
-        window.dispatchEvent(new Event('ai_action_executed'));
-      }
+    if (!window.confirm(`¿Marcar el pedido de ${p.proveedor_nombre} como recibido?`)) return;
+    const sumar_stock = window.confirm(`¿Sumar las cantidades recibidas al stock de ${p.local}?`);
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/pedidos/${p.id}/recibido`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sumar_stock }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'No se pudo recibir el pedido.');
+      alert(result.mensaje);
       fetchData();
+      window.dispatchEvent(new Event('ai_action_executed'));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error de conexión. Comprueba el estado del pedido antes de reintentar.');
     }
   };
 

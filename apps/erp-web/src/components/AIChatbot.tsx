@@ -13,7 +13,7 @@ export default function AIChatbot() {
   const { user, fetchWithAuth } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', sender: 'ai', text: '¡Hola! Soy tu asistente de IA. He analizado la base de datos de Salguacate. ¿Qué necesitas saber hoy sobre tu plantilla o stock?' }
+    { id: '1', sender: 'ai', text: 'Asistente de consulta de stock. Requiere activación del servicio por el administrador. No modifica datos. No incluyas información personal o confidencial.' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +57,7 @@ export default function AIChatbot() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage.text,
-          history: messages.map(msg => ({ sender: msg.sender, text: msg.text }))
+          history: messages.slice(-24).map(msg => ({ sender: msg.sender, text: msg.text.slice(0, 2000) }))
         })
       });
 
@@ -112,7 +112,7 @@ export default function AIChatbot() {
               <Bot size={24} />
               <div>
                 <h3 className="font-bold">Asistente ERP</h3>
-                <p className="text-brand-100 text-xs">Conectado a la Base de Datos</p>
+                <p className="text-brand-100 text-xs">Solo consulta · activación opcional</p>
               </div>
             </div>
             <button 
@@ -161,10 +161,11 @@ export default function AIChatbot() {
             <div className="relative flex items-center">
               <input
                 type="text"
+                maxLength={2000}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Pregúntame por stock, agenda o proveedores..."
+                placeholder="Consulta de stock…"
                 className="w-full pl-4 pr-12 py-3 bg-slate-100 dark:bg-slate-800 border-none rounded-full text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 transition-all outline-none"
               />
               <button

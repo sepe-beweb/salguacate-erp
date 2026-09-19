@@ -1,50 +1,55 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
+const { DatabaseSync } = require('node:sqlite');
 
-let db;
+function createDatabase(filename) {
+  if (!filename) throw new Error('Database path is required');
+  if (filename !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(filename)), { recursive: true });
+  const connection = new DatabaseSync(filename, { enableDoubleQuotedStringLiterals: true });
+  connection.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+  if (filename !== ':memory:') connection.exec('PRAGMA journal_mode = WAL;');
+  // Compatibility boundary for existing routes. New modules use prepared statements.
+  const db = { connection, close: () => connection.close() };
+  for (const method of ['run', 'get', 'all']) {
+    db[method] = (sql, params, callback) => {
+      if (typeof params === 'function') { callback = params; params = []; }
+      let result;
+      try {
+        result = connection.prepare(sql)[method](...(params || []).map(value => value === undefined ? null : value));
+      } catch (error) {
+        if (callback) return callback(error);
+        throw error;
+      }
+      if (method === 'run') callback?.call({ lastID: Number(result.lastInsertRowid), changes: Number(result.changes) }, null);
+      else callback?.(null, result);
+    };
+  }
+  db.transaction = (work) => {
+    connection.exec('BEGIN IMMEDIATE');
+    try {
+      const result = work(connection);
+      if (result && typeof result.then === 'function') throw new Error('Transaction callbacks must be synchronous');
+      connection.exec('COMMIT');
+      return result;
+    } catch (error) {
+      connection.exec('ROLLBACK');
+      throw error;
+    }
+  };
+  db.ready = initializeDatabase(db).catch(error => { connection.close(); throw error; });
+  return db;
+}
 
-// Helper to run query returning a promise, ignoring duplicate column errors
 function runQuery(database, sql, params = []) {
   return new Promise((resolve, reject) => {
-    database.run(sql, params, function(err) {
-      if (err) {
-        const msg = err.message || '';
-        if (msg.includes('duplicate column') || msg.includes('already exists') || msg.includes('Duplicate column')) {
-          resolve({ lastID: 0, changes: 0 });
-        } else {
-          reject(err);
-        }
-      } else {
-        // En sqlite3 de node, "this" contiene lastID y changes.
-        // En Turso proxy, devolvemos un objeto plano.
-        resolve(this || { lastID: 0, changes: 0 });
-      }
-    });
-  });
-}
-
-function allQuery(database, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    database.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
-}
-
-function getQuery(database, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    database.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
+    database.run(sql, params, function(error) {
+      if (error && !/duplicate column name/i.test(error.message)) reject(error);
+      else resolve(this);
     });
   });
 }
 
 async function initializeDatabase(database) {
-  try {
-    console.log("Inicializando base de datos de forma secuencial...");
-
     // 1. Crear tabla usuarios
     await runQuery(database, `CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,12 +57,12 @@ async function initializeDatabase(database) {
       rol TEXT NOT NULL,
       local TEXT,
       telefono TEXT,
-      pin TEXT DEFAULT '0000'
+      pin TEXT
     )`);
 
     // Migraciones usuarios
     await runQuery(database, `ALTER TABLE usuarios ADD COLUMN telefono TEXT`);
-    await runQuery(database, `ALTER TABLE usuarios ADD COLUMN pin TEXT DEFAULT '0000'`);
+    await runQuery(database, `ALTER TABLE usuarios ADD COLUMN pin TEXT`);
 
     // 2. Fichajes
     await runQuery(database, `CREATE TABLE IF NOT EXISTS fichajes (
@@ -210,109 +215,28 @@ async function initializeDatabase(database) {
       FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     )`);
 
-    // 14. Seed de datos de prueba
-    const row = await getQuery(database, "SELECT count(*) as count FROM usuarios");
-    if (row && row.count === 0) {
-      console.log("Insertando datos de prueba (Seed)...");
-      await runQuery(database, `INSERT INTO usuarios (nombre, rol, local) VALUES ('Jefe Admin', 'owner', 'Todos')`);
-      await runQuery(database, `INSERT INTO usuarios (nombre, rol, local) VALUES ('Encargado Principal', 'manager', 'Principal')`);
-      await runQuery(database, `INSERT INTO usuarios (nombre, rol, local) VALUES ('María García', 'employee', 'Principal')`);
-      await runQuery(database, `INSERT INTO usuarios (nombre, rol, local) VALUES ('Juan Pérez', 'employee', 'Principal')`);
 
-      const hoy = new Date().toISOString().split('T')[0];
-      
-      await runQuery(database, `INSERT INTO turnos (usuario_id, fecha, hora_inicio, hora_fin, local, compañeros) VALUES 
-        (3, '${hoy}', '18:00', '02:00', 'Principal', 'Juan Pérez'),
-        (4, '${hoy}', '18:00', '02:00', 'Principal', 'María García')
-      `);
-
-      await runQuery(database, `INSERT INTO mensajes (remitente_id, destinatario_id, asunto, cuerpo, fecha, leido) VALUES 
-        (1, 3, 'Reunión mañana', 'Hola María, mañana necesitamos revisar la caja antes de abrir.', '${new Date().toISOString()}', 0),
-        (4, 3, 'Cambio de turno', 'Hola, ¿te importa si te cambio el turno del viernes?', '${new Date().toISOString()}', 0)
-      `);
-    }
-
-    console.log("Base de datos inicializada correctamente de forma secuencial.");
-  } catch (err) {
-    console.error("Error crítico durante la inicialización de la base de datos:", err);
-  }
-}
-
-if (process.env.NODE_ENV !== 'test' && process.env.TURSO_DATABASE_URL) {
-  const { createClient } = require('@libsql/client');
-  const client = createClient({
-    url: process.env.TURSO_DATABASE_URL,
-    authToken: process.env.TURSO_AUTH_TOKEN
-  });
-  
-  console.log('Conectado a la base de datos Turso (libSQL).');
-  
-  db = {
-    serialize: function(cb) { if (cb) cb(); },
-    run: function(query, params, callback) {
-      if (typeof params === 'function') {
-        callback = params;
-        params = [];
-      }
-      client.execute({ sql: query, args: params || [] }).then(res => {
-        if (callback) callback.call({ lastID: Number(res.lastInsertRowid), changes: res.rowsAffected }, null);
-      }).catch(err => {
-        if (err.message && (err.message.includes('duplicate column') || err.message.includes('already exists'))) {
-          if (callback) callback.call({ lastID: 0, changes: 0 }, null);
-          return;
-        }
-        if (callback) callback(err);
-        else console.error('Turso run error:', err.message);
-      });
-    },
-    all: function(query, params, callback) {
-      if (typeof params === 'function') {
-        callback = params;
-        params = [];
-      }
-      client.execute({ sql: query, args: params || [] }).then(res => {
-        if (callback) callback(null, res.rows);
-      }).catch(err => {
-        if (callback) callback(err);
-      });
-    },
-    get: function(query, params, callback) {
-      if (typeof params === 'function') {
-        callback = params;
-        params = [];
-      }
-      client.execute({ sql: query, args: params || [] }).then(res => {
-        if (callback) callback(null, res.rows[0]);
-      }).catch(err => {
-        if (callback) callback(err);
-      });
-    }
-  };
-  
-  // Inicialización asíncrona segura
-  setTimeout(() => initializeDatabase(db), 0);
-  
-} else {
-  const sqlite3 = require('sqlite3').verbose();
-  const dbPath = process.env.NODE_ENV === 'test'
-    ? ':memory:'
-    : path.resolve(process.env.SQLITE_DATABASE_PATH || path.join(__dirname, 'database.sqlite'));
-
-  if (dbPath !== ':memory:') {
-    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  }
-
-  db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-      console.error('Error abriendo la base de datos', err.message);
-    } else {
-      console.log(`Conectado a la base de datos SQLite local: ${dbPath}`);
-      db.run("PRAGMA foreign_keys = ON", (err) => {
-        if (err) console.error("Error al habilitar PRAGMA foreign_keys = ON:", err.message);
-      });
-      initializeDatabase(db);
-    }
+  await runQuery(database, 'CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
+  database.transaction(connection => {
+    if (connection.prepare('SELECT 1 FROM schema_migrations WHERE version = 1').get()) return;
+    connection.exec(`
+      ALTER TABLE usuarios ADD COLUMN active INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE usuarios ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE usuarios ADD COLUMN must_change_pin INTEGER NOT NULL DEFAULT 1;
+      CREATE TABLE sessions (
+        token_hash TEXT PRIMARY KEY, usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+        auth_version INTEGER NOT NULL, expires_at INTEGER NOT NULL
+      );
+      CREATE TABLE login_limits (bucket TEXT PRIMARY KEY, attempts INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+      CREATE TABLE audit_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, actor_id INTEGER REFERENCES usuarios(id),
+        action TEXT NOT NULL, entity_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE UNIQUE INDEX one_active_shift ON fichajes(usuario_id) WHERE estado IN ('trabajando', 'descanso');
+      CREATE UNIQUE INDEX one_daily_close ON cierres(fecha, local);
+      INSERT INTO schema_migrations VALUES (1, CURRENT_TIMESTAMP);
+    `);
   });
 }
 
-module.exports = db;
+module.exports = { createDatabase };
