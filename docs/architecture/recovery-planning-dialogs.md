@@ -12,4 +12,6 @@ Validación local: `npm run check` correcto con 270 pruebas, lint, TypeScript y 
 
 La batería completa pasó: 25 pruebas funcionales de navegador y 5 sobre archivos compilados. Se revisaron capturas móviles de ambos editores. Presupuesto inicial: 224.263 bytes de JavaScript, 71.964 comprimidos. No es un despliegue ni una prueba con datos reales.
 
-Siguiente bloque: peticiones de personal y gestión de RRHH, con fechas civiles y validación conjunta de sus lecturas, conservando borradores y decisiones explícitas de aprobación/rechazo.
+Publicado en `0099ade63d5689992ead84a7116f67823164d1df`; [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35438178427).
+
+Continuación: [peticiones de personal y gestión de RRHH](recovery-personnel-requests.md).

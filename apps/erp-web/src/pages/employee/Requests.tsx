@@ -1,18 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Send, FileQuestion, Loader2, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
-import { readJson, readList, errorMessage } from '../../apiResponse';
-
-interface Peticion {
-  id: number;
-  tipo: string;
-  fecha_inicio: string;
-  fecha_fin?: string;
-  comentarios?: string;
-  estado: 'pendiente' | 'aprobado' | 'rechazado';
-  creado_en: string;
-}
+import { readJson, errorMessage } from '../../apiResponse';
+import { useApiRead } from '../../hooks/useApiLists';
+import { readPersonnelRequests } from '../../personnelData';
+import { formatCivilDate, isCivilDate } from '../../financialValues';
 
 export default function Requests() {
   const { fetchWithAuth } = useAuth();
@@ -22,33 +15,17 @@ export default function Requests() {
   const [fechaFin, setFechaFin] = useState('');
   const [comentarios, setComentarios] = useState('');
   
-  const [peticiones, setPeticiones] = useState<Peticion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, reload: loadPeticiones } = useApiRead(['/api/peticiones'], readPersonnelRequests);
+  const peticiones = data ?? [];
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [loadError, setLoadError] = useState('');
-
-  const loadPeticiones = async () => {
-    setLoading(true); setLoadError('');
-    try {
-      const res = await fetchWithAuth(`${API_URL}/api/peticiones`);
-      setPeticiones(await readList<Peticion>(res));
-    } catch (err) {
-      setLoadError(errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadPeticiones();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fechaInicio) {
-      setErrorMsg('Debes especificar al menos la fecha de inicio.');
+    if (submitting) return;
+    if (!isCivilDate(fechaInicio) || (type === 'vacaciones' && (!isCivilDate(fechaFin) || fechaFin < fechaInicio))) {
+      setErrorMsg('Revisa las fechas de la petición: el fin no puede ser anterior al inicio.');
       return;
     }
     
@@ -68,19 +45,14 @@ export default function Requests() {
         })
       });
       
-      const data = await readJson<{ error?: string }>(res);
-      if (res.ok) {
+      await readJson(res);
         setSuccessMsg('Petición enviada correctamente. El encargado la revisará.');
         setFechaInicio('');
         setFechaFin('');
         setComentarios('');
         loadPeticiones();
-      } else {
-        setErrorMsg(data.error || 'Error al enviar la petición.');
-      }
     } catch (err) {
-      console.error(err);
-      setErrorMsg(errorMessage(err));
+      setErrorMsg(`${errorMessage(err)} Consulta el historial antes de repetir el envío si se perdió la conexión.`);
     } finally {
       setSubmitting(false);
     }
@@ -111,7 +83,7 @@ export default function Requests() {
       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Nueva Petición</h2>
       
       {successMsg && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-xl text-emerald-700 dark:text-emerald-400 text-sm">
+        <div role="status" className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 rounded-xl text-emerald-700 dark:text-emerald-400 text-sm">
           {successMsg}
         </div>
       )}
@@ -123,6 +95,7 @@ export default function Requests() {
       )}
 
       <form className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors animate-in zoom-in-95 duration-200" onSubmit={handleSubmit}>
+        <fieldset disabled={submitting} className="space-y-4">
         <div className="space-y-1">
           <label htmlFor="request-type" className="text-sm font-medium text-slate-700 dark:text-slate-300">Tipo de Petición</label>
           <div className="relative">
@@ -195,6 +168,7 @@ export default function Requests() {
           {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           Enviar Petición
         </button>
+        </fieldset>
       </form>
 
       <div className="space-y-3">
@@ -214,8 +188,8 @@ export default function Requests() {
                   <p className="font-semibold text-slate-900 dark:text-white">{getRequestTypeLabel(p.tipo)}</p>
                   <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                     <Calendar size={12} />
-                    {new Date(p.fecha_inicio).toLocaleDateString('es-ES')}
-                    {p.fecha_fin && ` al ${new Date(p.fecha_fin).toLocaleDateString('es-ES')}`}
+                    {formatCivilDate(p.fecha_inicio)}
+                    {p.fecha_fin && ` al ${formatCivilDate(p.fecha_fin)}`}
                   </p>
                   {p.comentarios && (
                     <p className="text-xs text-slate-400 mt-1 italic">"{p.comentarios}"</p>

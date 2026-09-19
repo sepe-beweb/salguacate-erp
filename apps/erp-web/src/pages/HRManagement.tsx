@@ -1,38 +1,12 @@
 import { useState, useEffect } from 'react';
 import { UserCheck, Loader2, X, Plus, Pencil, Trash2, CalendarClock, Phone, MapPin, Lock, Check } from 'lucide-react';
 import { API_URL } from '../config';
-import { readJson, readList, errorMessage } from '../apiResponse';
+import { readJson, errorMessage } from '../apiResponse';
 import { useAuth } from '../context/AuthContext';
-
-interface Employee {
-  id: number;
-  nombre: string;
-  rol: string;
-  local: string;
-  telefono?: string;
-  has_pin?: number;
-  status?: string;
-}
-
-interface Turno {
-  id: number;
-  fecha: string;
-  empleado_nombre?: string;
-}
-
-interface Peticion {
-  id: number;
-  usuario_id: number;
-  tipo: string;
-  fecha_inicio: string;
-  fecha_fin?: string;
-  comentarios?: string;
-  estado: 'pendiente' | 'aprobado' | 'rechazado';
-  empleado_nombre: string;
-  empleado_rol: string;
-  empleado_local: string;
-  creado_en: string;
-}
+import { useApiRead } from '../hooks/useApiLists';
+import { readPersonnelWorkspace, requestCreatedAt, type StaffMember as Employee } from '../personnelData';
+import { formatCivilDate } from '../financialValues';
+import RequestError from '../components/RequestError';
 
 const EMPTY_EMP = { nombre: '', rol: 'employee', local: 'Principal', telefono: '', pin: '' };
 
@@ -40,10 +14,10 @@ export default function HRManagement() {
   const { fetchWithAuth, user } = useAuth();
   const [activeSection, setActiveSection] = useState<'employees' | 'requests'>('employees');
   
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [, setTurnos] = useState<Turno[]>([]);
-  const [peticiones, setPeticiones] = useState<Peticion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, reload: fetchData } = useApiRead(['/api/usuarios', '/api/turnos', '/api/peticiones'], readPersonnelWorkspace);
+  const employees = data?.[0] ?? [];
+  const peticiones = data?.[2] ?? [];
+  const [busy, setBusy] = useState(false);
 
   // Employee CRUD modal
   const [showEmpModal, setShowEmpModal] = useState(false);
@@ -57,33 +31,11 @@ export default function HRManagement() {
   const [newShift, setNewShift] = useState({ usuario_id: '', fecha: '', hora_inicio: '18:00', hora_fin: '02:00', local: 'Principal', compañeros: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchData = () => {
-    setLoading(true);
-    setCrudError('');
-    Promise.all([
-      fetchWithAuth(`${API_URL}/api/usuarios`).then(readList<Employee>),
-      fetchWithAuth(`${API_URL}/api/turnos`).then(readList<Turno>),
-      fetchWithAuth(`${API_URL}/api/peticiones`).then(readList<Peticion>)
-    ])
-    .then(([empData, turnosData, peticionesData]) => {
-      setEmployees(empData.map((emp: Employee) => ({...emp, status: 'out'})));
-      setTurnos(turnosData.sort((a: any, b: any) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()));
-      setPeticiones(peticionesData || []);
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error("Error fetching data", err);
-      setCrudError(err.message || 'Error de red o conexión al servidor');
-      setLoading(false);
-    });
-  };
-
   useEffect(() => {
-    fetchData();
     const handleAiAction = () => fetchData();
     window.addEventListener('ai_action_executed', handleAiAction);
     return () => window.removeEventListener('ai_action_executed', handleAiAction);
-  }, []);
+  }, [fetchData]);
 
   // --- Employee CRUD ---
   const openNewEmp = () => {
@@ -108,7 +60,7 @@ export default function HRManagement() {
 
   const handleEmpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!empForm.nombre) return;
+    if (!empForm.nombre || isEmpSubmitting || isSubmitting || busy || loading || loadError) return;
     setIsEmpSubmitting(true);
     setCrudError('');
     try {
@@ -129,59 +81,45 @@ export default function HRManagement() {
         body: JSON.stringify(payload)
       });
       
-      const data = await res.json();
-      if (res.ok) {
+      await readJson(res);
         setShowEmpModal(false);
         setEditingEmpId(null);
         setEmpForm(EMPTY_EMP);
         fetchData();
-      } else {
-        setCrudError(data.error || 'Error al guardar los datos');
-      }
     } catch (err) {
-      console.error("Error submitting employee", err);
-      setCrudError('Error de conexión con la API');
+      setCrudError(errorMessage(err));
     } finally {
       setIsEmpSubmitting(false);
     }
   };
 
   const handleEmpDelete = async (id: number) => {
+    if (busy || isSubmitting || isEmpSubmitting || loading || loadError) return;
     if (!confirm('¿Desactivar este empleado? Perderá acceso; sus turnos y fichajes se conservarán.')) return;
-    setCrudError('');
+    setCrudError(''); setBusy(true);
     try {
       const res = await fetchWithAuth(`${API_URL}/api/usuarios/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok) {
-        fetchData();
-      } else {
-        alert(data.error || 'Error al eliminar el empleado');
-      }
+      await readJson(res); await fetchData();
     } catch (err) {
-      console.error(err);
-      alert('Error de red al eliminar');
-    }
+      setCrudError(`${errorMessage(err)} Revisa la plantilla antes de repetir la desactivación.`); await fetchData();
+    } finally { setBusy(false); }
   };
 
   // --- Shift assignment ---
   const handleAssignShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newShift.usuario_id || !newShift.fecha) return;
-    setIsSubmitting(true);
+    if (!newShift.usuario_id || !newShift.fecha || isSubmitting || isEmpSubmitting || busy || loading || loadError) return;
+    setIsSubmitting(true); setCrudError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/turnos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newShift)
       });
-      const data = await readJson<{ error?: string }>(res);
-      if (res.ok) {
+      await readJson(res);
         setShowShiftModal(false);
         setNewShift({ usuario_id: '', fecha: '', hora_inicio: '18:00', hora_fin: '02:00', local: 'Principal', compañeros: '' });
         fetchData();
-      } else {
-        setCrudError(data.error || 'Error al asignar el turno');
-      }
     } catch (err) {
       console.error(err);
       setCrudError(errorMessage(err));
@@ -192,22 +130,18 @@ export default function HRManagement() {
 
   // --- [NUEVO P0] Aprobación/Rechazo de Peticiones ---
   const handleRequestStatus = async (id: number, estado: 'aprobado' | 'rechazado') => {
+    if (busy || isSubmitting || isEmpSubmitting || loading || loadError) return;
+    setBusy(true); setCrudError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/peticiones/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado })
       });
-      if (res.ok) {
-        fetchData();
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Error al actualizar el estado de la petición');
-      }
+      await readJson(res); await fetchData();
     } catch (err) {
-      console.error(err);
-      alert('Error de conexión');
-    }
+      setCrudError(`${errorMessage(err)} Comprueba la petición antes de repetir la decisión.`); await fetchData();
+    } finally { setBusy(false); }
   };
 
   const getRolLabel = (rol: string) => {
@@ -229,12 +163,15 @@ export default function HRManagement() {
 
   const canEditEmployee = (emp: Employee) => user?.role === 'owner' || emp.rol === 'employee';
 
+  if (loading) return <p role="status" className="p-8 text-center">Cargando plantilla, turnos y peticiones...</p>;
+  if (loadError || !data) return <RequestError message={loadError || 'No se pudo cargar Recursos Humanos.'} onRetry={fetchData} />;
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Recursos Humanos</h2>
         <button 
-          onClick={openNewEmp}
+          disabled={busy || isSubmitting || isEmpSubmitting} onClick={openNewEmp}
           className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-full transition-colors shadow-md flex items-center gap-1 px-4"
         >
           <Plus size={18} /> <span className="font-semibold text-sm">Empleado</span>
@@ -242,14 +179,14 @@ export default function HRManagement() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div 
-          onClick={() => setShowShiftModal(true)}
+        <button type="button" disabled={busy || isSubmitting || isEmpSubmitting}
+          onClick={() => { setCrudError(''); setShowShiftModal(true); }}
           className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center transition-colors hover:border-brand-500 cursor-pointer"
         >
           <CalendarClock size={32} className="text-brand-500 mb-2" />
           <p className="text-sm font-medium text-slate-900 dark:text-white">Crear Cuadrante</p>
           <p className="text-xs text-slate-500 mt-1">Asignar turno</p>
-        </div>
+        </button>
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center transition-colors">
           <UserCheck size={32} className="text-brand-500 mb-2" />
           <p className="text-sm font-medium text-slate-900 dark:text-white">Plantilla</p>
@@ -290,7 +227,7 @@ export default function HRManagement() {
         <div className="space-y-4">
           <div className="space-y-3">
             {employees.length === 0 ? (
-              <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-4">No se pudo cargar la plantilla.</p>
+              <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-4">No hay personas activas en la plantilla.</p>
             ) : (
               employees.map(emp => {
                 const label = getRolLabel(emp.rol);
@@ -306,10 +243,10 @@ export default function HRManagement() {
                         {emp.telefono && (
                           <span className="flex items-center gap-1"><Phone size={12} /> {emp.telefono}</span>
                         )}
-                        <span className="flex items-center gap-1"><MapPin size={12} /> {emp.local || 'Principal'}</span>
+                        <span className="flex items-center gap-1"><MapPin size={12} /> {emp.local || 'Local no indicado'}</span>
                         <span className="flex items-center gap-0.5 text-slate-400">
                           <Lock size={11} className={emp.has_pin ? "text-emerald-500" : "text-amber-500"} />
-                          {emp.has_pin ? 'PIN configurado' : 'PIN por defecto'}
+                          {emp.has_pin ? 'PIN configurado' : 'PIN no configurado'}
                         </span>
                       </div>
                     </div>
@@ -317,7 +254,7 @@ export default function HRManagement() {
                     <div className="flex items-center gap-2">
                       {canEditEmployee(emp) && (
                         <button
-                          onClick={() => openEditEmp(emp)}
+                          disabled={busy || isSubmitting || isEmpSubmitting} onClick={() => openEditEmp(emp)}
                           className="p-2 text-slate-500 hover:text-brand-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                           title="Editar empleado"
                         >
@@ -326,7 +263,7 @@ export default function HRManagement() {
                       )}
                       {user?.role === 'owner' && (
                         <button
-                          onClick={() => handleEmpDelete(emp.id)}
+                          disabled={busy || isSubmitting || isEmpSubmitting} onClick={() => handleEmpDelete(emp.id)}
                           className="p-2 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                           title="Desactivar empleado"
                         >
@@ -362,9 +299,9 @@ export default function HRManagement() {
                   </div>
 
                   <div className="text-sm bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl space-y-1 text-slate-700 dark:text-slate-300">
-                    <p><strong className="text-xs text-slate-400">Fecha Inicio:</strong> {new Date(p.fecha_inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p><strong className="text-xs text-slate-400">Fecha Inicio:</strong> {formatCivilDate(p.fecha_inicio)}</p>
                     {p.fecha_fin && (
-                      <p><strong className="text-xs text-slate-400">Fecha Fin:</strong> {new Date(p.fecha_fin).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                      <p><strong className="text-xs text-slate-400">Fecha Fin:</strong> {formatCivilDate(p.fecha_fin)}</p>
                     )}
                     {p.comentarios && (
                       <p className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/50 text-xs italic text-slate-500 dark:text-slate-400">"{p.comentarios}"</p>
@@ -372,19 +309,19 @@ export default function HRManagement() {
                   </div>
 
                   <div className="flex justify-between items-center pt-1">
-                    <span className="text-[10px] text-slate-400">Solicitado el {new Date(p.creado_en).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="text-[10px] text-slate-400">Solicitado el {requestCreatedAt(p.creado_en).toLocaleString('es-ES', { year: 'numeric', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                     
                     <div className="flex items-center gap-2">
                       {p.estado === 'pendiente' ? (
                         <>
                           <button
-                            onClick={() => handleRequestStatus(p.id, 'rechazado')}
+                            disabled={busy} onClick={() => handleRequestStatus(p.id, 'rechazado')}
                             className="flex items-center gap-1 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 text-red-700 dark:text-red-400 text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors"
                           >
                             <X size={14} /> Rechazar
                           </button>
                           <button
-                            onClick={() => handleRequestStatus(p.id, 'aprobado')}
+                            disabled={busy} onClick={() => handleRequestStatus(p.id, 'aprobado')}
                             className="flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors shadow-sm"
                           >
                             <Check size={14} /> Aprobar
@@ -417,7 +354,7 @@ export default function HRManagement() {
                 {editingEmpId ? "Editar Empleado" : "Añadir Empleado"}
               </h3>
               <button 
-                onClick={() => setShowEmpModal(false)}
+                aria-label="Cerrar empleado" disabled={isEmpSubmitting} onClick={() => setShowEmpModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
               >
                 <X size={20} />
@@ -425,6 +362,7 @@ export default function HRManagement() {
             </div>
 
             <form onSubmit={handleEmpSubmit} className="space-y-4">
+              <fieldset disabled={isEmpSubmitting} className="space-y-4">
               {crudError && <p role="alert" className="text-red-700">{crudError}</p>}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre Completo</label>
@@ -491,6 +429,7 @@ export default function HRManagement() {
               >
                 {isEmpSubmitting ? <Loader2 size={20} className="animate-spin" /> : (editingEmpId ? "Guardar Cambios" : "Añadir Empleado")}
               </button>
+              </fieldset>
             </form>
           </div>
         </div>
@@ -503,7 +442,7 @@ export default function HRManagement() {
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Asignar Turno</h3>
               <button 
-                onClick={() => setShowShiftModal(false)}
+                aria-label="Cerrar turno" disabled={isSubmitting} onClick={() => setShowShiftModal(false)}
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
               >
                 <X size={20} />
@@ -511,6 +450,7 @@ export default function HRManagement() {
             </div>
 
             <form onSubmit={handleAssignShift} className="space-y-4">
+              <fieldset disabled={isSubmitting} className="space-y-4">
               {crudError && <p role="alert" className="text-red-700">{crudError}</p>}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Empleado</label>
@@ -582,6 +522,7 @@ export default function HRManagement() {
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Guardar Turno"}
               </button>
+              </fieldset>
             </form>
           </div>
         </div>
