@@ -10,4 +10,6 @@ Las pruebas cubren filas y líneas malformadas, cantidades inseguras, duplicados
 
 Validación local: `npm run check` supera 395 pruebas, lint, TypeScript y build. Pasan 33 recorridos E2E de desarrollo y 5 sobre la compilación de producción. El arranque ocupa 230175 bytes de JavaScript y 73968 comprimidos, dentro del presupuesto vigente.
 
+Publicado como `621aad179d956b4c787b00876ffb5afe90f2bc94`; [CI completada correctamente](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35441349673).
+
 La validación se aplica a Control de Stock. La pantalla Almacén conserva su lector anterior y queda pendiente de una recuperación específica. Siguiente bloque: agrupar pedidos por identidad del proveedor y proteger su diálogo, cantidades y borrador frente a cambios de local.

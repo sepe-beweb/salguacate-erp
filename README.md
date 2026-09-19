@@ -26,6 +26,8 @@ La [sesión autenticada](docs/architecture/recovery-authenticated-session.md) va
 
 La [lectura de stock y pedidos](docs/architecture/recovery-stock-values.md) valida cantidades e historial y conserva sus fechas civiles.
 
+El [editor de pedidos](docs/architecture/recovery-order-dialogs.md) separa proveedores homónimos y conserva el borrador en un diálogo nativo.
+
 - Node 22.23.2 (ver `.node-version`).
 - Un único `package-lock.json` en la raíz; instalar siempre desde la raíz.
 - npm 10/11 para `ci`; si npm 10 falla al actualizar dependencias con `edgesOut`, regenerar con npm 11.19.1 sin ignorar las dependencias peer. No es necesario cambiar la instalación global.

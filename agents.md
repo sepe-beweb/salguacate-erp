@@ -27,6 +27,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Pantalla de acceso](docs/architecture/recovery-login.md): perfiles validados, recuperación anónima y envío único del PIN.
 - [Sesión autenticada](docs/architecture/recovery-authenticated-session.md): identidad validada, cancelación y respuestas tardías aisladas.
 - [Stock y pedidos](docs/architecture/recovery-stock-values.md): cantidades y líneas validadas, historial civil y recuperación sin listas parciales.
+- [Borrador de pedidos](docs/architecture/recovery-order-dialogs.md): proveedores por ID, local conservado, cantidades y modales nativos.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.

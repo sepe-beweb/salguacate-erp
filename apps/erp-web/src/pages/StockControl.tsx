@@ -9,17 +9,8 @@ import { readStockWorkspace, type StockItem, type StockOrder as Pedido } from '.
 import { formatCivilDate } from '../financialValues';
 import RequestError from '../components/RequestError';
 import { localDate } from '../localDate';
-
-interface OrderLine {
-  producto_id: number;
-  nombre: string;
-  stock_actual: number;
-  stock_minimo: number;
-  cantidad: number;
-  proveedor_id: number | null;
-  proveedor_nombre: string | null;
-  proveedor_telefono: string | null;
-}
+import ModalDialog from '../components/ModalDialog';
+import { createOrderDraft, groupOrderLines, providerKey, validOrderQuantity, type OrderDraft, type OrderLine } from '../orderDraft';
 
 const LOCALES = ['Principal', 'Segundo Local'];
 
@@ -34,19 +25,17 @@ export default function StockControl() {
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
   const [receiving, setReceiving] = useState<Pedido | null>(null);
-  const receiptDialog = useRef<HTMLDialogElement>(null);
+  const inFlight = useRef(false);
+  const clipboardGeneration = useRef(0);
   const [registered, setRegistered] = useState<Set<string>>(new Set());
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [showOrder, setShowOrder] = useState(false);
-  const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
+  const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [copiedProv, setCopiedProv] = useState<string | null>(null);
 
   useEffect(() => { setCheckedIds(new Set()); }, [selectedLocal]);
-  useEffect(() => {
-    if (receiving) receiptDialog.current?.showModal();
-    else receiptDialog.current?.close();
-  }, [receiving]);
+  useEffect(() => () => { clipboardGeneration.current++; }, []);
 
   const toggleItem = (id: number) => {
     setCheckedIds(prev => {
@@ -66,57 +55,53 @@ export default function StockControl() {
   };
 
   const generateOrder = () => {
-    const lines: OrderLine[] = items
-      .filter(i => checkedIds.has(i.id))
-      .map(i => ({
-        producto_id: i.id,
-        nombre: i.producto,
-        stock_actual: i.stock_actual,
-        stock_minimo: i.stock_minimo,
-        cantidad: Math.max(1, i.stock_minimo - i.stock_actual),
-        proveedor_id: i.proveedor_id,
-        proveedor_nombre: i.proveedor_nombre || 'Sin proveedor',
-        proveedor_telefono: i.proveedor_telefono || null
-      }));
-    setError(''); setSuccess(''); setRegistered(new Set());
-    setOrderLines(lines);
-    setShowOrder(true);
+    if (inFlight.current || loading || loadError) return;
+    if (draft && !window.confirm('¿Sustituir el borrador de pedido anterior? Los pedidos ya registrados no se borran. Consulta el historial antes de repetirlos.')) return;
+    try {
+      const next = createOrderDraft(items, checkedIds, selectedLocal, localDate());
+      clipboardGeneration.current++;
+      setDraft(next); setError(''); setSuccess(''); setRegistered(new Set()); setCopiedProv(null); setShowOrder(true);
+    } catch (cause) { setError(errorMessage(cause)); }
   };
 
-  const updateQty = (idx: number, qty: number) => {
-    setOrderLines(prev => prev.map((l, i) => i === idx ? {...l, cantidad: Math.max(1, qty)} : l));
+  const updateQty = (line: OrderLine, qty: number) => {
+    if (inFlight.current || registered.has(providerKey(line)) || !validOrderQuantity(qty)) return;
+    clipboardGeneration.current++; setCopiedProv(null);
+    setDraft(prev => prev && ({ ...prev, lines: prev.lines.map(item => item.producto_id === line.producto_id ? { ...item, cantidad: qty } : item) }));
   };
 
-  // Group by provider
-  const grouped = orderLines.reduce<Record<string, OrderLine[]>>((acc, line) => {
-    const key = line.proveedor_nombre || 'Sin proveedor';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(line);
-    return acc;
-  }, {});
+  const grouped = groupOrderLines(draft?.lines ?? []);
+  const closeOrder = () => { if (!inFlight.current) { clipboardGeneration.current++; setCopiedProv(null); setShowOrder(false); } };
+  const discardOrder = () => {
+    if (inFlight.current || !window.confirm('¿Descartar este borrador? No se eliminarán los pedidos registrados. Comprueba el historial antes de repetir un registro sin confirmar.')) return;
+    clipboardGeneration.current++;
+    setDraft(null); setShowOrder(false); setRegistered(new Set()); setCopiedProv(null); setError(''); setSuccess('');
+  };
 
   const generateWhatsAppText = (provName: string, lines: OrderLine[]) => {
-    const header = `📦 *Pedido Salguacate — ${selectedLocal}*\n📅 ${new Date().toLocaleDateString('es-ES')}\n\nHola ${provName}, necesitamos:\n`;
+    const header = `📦 *Pedido Salguacate — ${draft!.local}*\n📅 ${formatCivilDate(draft!.fecha)}\n\nHola ${provName}, necesitamos:\n`;
     const body = lines.map(l => `• ${l.nombre} — *${l.cantidad} uds*`).join('\n');
     return header + body + '\n\n¡Gracias!';
   };
 
-  const registrarPedido = async (provName: string, lines: OrderLine[]) => {
-    if (busy || registered.has(provName)) return;
+  const registrarPedido = async (key: string, provName: string, lines: OrderLine[]) => {
+    if (inFlight.current || registered.has(key) || !draft || loading || loadError) return;
+    if (!lines.length || lines.length > 500 || lines.some(line => !validOrderQuantity(line.cantidad))) { setError('Revisa las cantidades y las líneas del pedido.'); return; }
+    inFlight.current = true;
     setBusy(true); setError(''); setSuccess('');
     try {
       await readJson(await fetchWithAuth(`${API_URL}/api/pedidos`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fecha: localDate(), local: selectedLocal,
+        body: JSON.stringify({ fecha: draft.fecha, local: draft.local,
           proveedor_id: lines[0]?.proveedor_id, proveedor_nombre: provName,
           productos: lines.map(l => ({ producto_id: l.producto_id, nombre: l.nombre, cantidad: l.cantidad })) })
       }));
-      setRegistered(prev => new Set(prev).add(provName));
+      setRegistered(prev => new Set(prev).add(key));
       setSuccess(`Pedido de ${provName} registrado. El registro no envía mensajes al proveedor.`);
       await fetchData();
     } catch (cause) {
       setError(`${errorMessage(cause)} Comprueba el historial antes de repetir el registro.`);
-    } finally { setBusy(false); }
+    } finally { inFlight.current = false; setBusy(false); }
   };
 
   const sendWhatsApp = (provName: string, lines: OrderLine[], phone?: string | null) => {
@@ -126,16 +111,18 @@ export default function StockControl() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const copyText = async (provName: string, lines: OrderLine[]) => {
+  const copyText = async (key: string, provName: string, lines: OrderLine[]) => {
+    const generation = ++clipboardGeneration.current;
+    setCopiedProv(null);
     try {
       await navigator.clipboard.writeText(generateWhatsAppText(provName, lines));
-      setCopiedProv(provName);
-      setTimeout(() => setCopiedProv(null), 2000);
-    } catch (cause) { setError(errorMessage(cause)); }
+      if (generation === clipboardGeneration.current) setCopiedProv(key);
+    } catch (cause) { if (generation === clipboardGeneration.current) setError(errorMessage(cause)); }
   };
 
   const markReceived = async (sumar_stock: boolean) => {
-    if (!receiving || busy) return;
+    if (!receiving || inFlight.current || loading || loadError) return;
+    inFlight.current = true;
     setBusy(true); setError(''); setSuccess('');
     try {
       await readJson(await fetchWithAuth(`${API_URL}/api/pedidos/${receiving.id}/recibido`, {
@@ -148,7 +135,7 @@ export default function StockControl() {
       window.dispatchEvent(new Event('ai_action_executed'));
     } catch (cause) {
       setError(`${errorMessage(cause)} Comprueba el historial antes de repetir la recepción.`);
-    } finally { setBusy(false); }
+    } finally { inFlight.current = false; setBusy(false); }
   };
 
   const getStockColor = (item: StockItem) => {
@@ -171,18 +158,19 @@ export default function StockControl() {
 
       {!showOrder && !receiving && <RequestError message={error} />}
       {!showOrder && success && <p role="status" className="text-emerald-700 dark:text-emerald-400">{success}</p>}
-      {loadError && <RequestError message={loadError} onRetry={fetchData} />}
+      {!showOrder && loadError && <RequestError message={loadError} onRetry={fetchData} />}
       {loading && <p role="status">Cargando stock y pedidos...</p>}
-      <dialog ref={receiptDialog} aria-labelledby="receipt-title" onCancel={event => { if (busy) event.preventDefault(); else { setReceiving(null); setError(''); } }} className="m-auto w-11/12 max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl p-6 bg-white text-slate-900 dark:bg-slate-900 dark:text-white backdrop:bg-black/50">
-        {receiving && <div className="space-y-4">
+      {!showOrder && draft && <button disabled={busy} onClick={() => { setCopiedProv(null); setShowOrder(true); }} className="rounded-lg border p-3 text-sm">Retomar pedido de {draft.local}</button>}
+      {receiving && <ModalDialog label={`Recibir pedido de ${receiving.proveedor_nombre}`} busy={busy} onClose={() => { setReceiving(null); setError(''); }}>
+        <div className="space-y-4 p-6 [overflow-wrap:anywhere]">
           <h3 id="receipt-title" className="text-lg font-bold">Recibir pedido de {receiving.proveedor_nombre}</h3>
           <p>Local: {receiving.local}. Elige si esta recepción debe modificar el inventario. Solo se puede recibir una vez.</p>
           <RequestError message={error} />
-          <button autoFocus disabled={busy} onClick={() => { setReceiving(null); setError(''); }} className="block w-full rounded-lg border p-3">Cancelar</button>
+          <button data-autofocus disabled={busy} onClick={() => { setReceiving(null); setError(''); }} className="block w-full rounded-lg border p-3">Cancelar</button>
           <button disabled={busy} onClick={() => markReceived(true)} className="block w-full rounded-lg bg-brand-600 p-3 text-white">Recibir y sumar stock</button>
           <button disabled={busy} onClick={() => markReceived(false)} className="block w-full rounded-lg border p-3">Recibir sin cambiar stock</button>
-        </div>}
-      </dialog>
+        </div>
+      </ModalDialog>}
       {/* Local selector */}
       <div className="flex gap-2">
         {LOCALES.map(l => (
@@ -288,59 +276,64 @@ export default function StockControl() {
       )}
 
       {/* Order modal */}
-      {showOrder && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+      {showOrder && draft && (
+        <ModalDialog label={`Pedido de ${draft.local}`} busy={busy} onClose={closeOrder} wide>
+          <div className="p-6 [overflow-wrap:anywhere]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">📦 Pedido — {selectedLocal}</h3>
-              <button aria-label="Cerrar pedido" disabled={busy} onClick={() => setShowOrder(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">📦 Pedido — {draft.local}</h3>
+              <button data-autofocus aria-label="Cerrar pedido" disabled={busy} onClick={closeOrder} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
 
             <RequestError message={error} />
+            <RequestError message={loadError} onRetry={fetchData} />
+            <p className="mb-3 text-sm">Fecha del pedido: {formatCivilDate(draft.fecha)}</p>
             {success && <p role="status" className="my-3 text-emerald-700 dark:text-emerald-400">{success}</p>}
             <p className="mb-4 text-sm text-slate-500">Abrir WhatsApp o copiar el texto no registra ni confirma el envío. Registra el pedido cuando corresponda.</p>
-            {Object.entries(grouped).map(([provName, lines]) => {
+            {grouped.map(({ key, name: provName, lines }) => {
               return (
-                <div key={provName} className="mb-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                <section key={key} aria-label={`${provName} · ${lines[0].proveedor_id === null ? 'sin proveedor asignado' : `proveedor ${lines[0].proveedor_id}`}`} className="mb-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
                   <h4 className="font-bold text-slate-900 dark:text-white text-sm mb-3">{provName}</h4>
+                  <p className="mb-3 text-xs">{lines[0].proveedor_id === null ? 'Sin proveedor asignado' : `Proveedor #${lines[0].proveedor_id}`}</p>
                   <div className="space-y-2">
                     {lines.map((line, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-2">
                         <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">{line.nombre}</span>
-                        <div className="flex items-center gap-1">
-                          <button disabled={busy || registered.has(provName)} onClick={() => updateQty(orderLines.indexOf(line), line.cantidad - 1)} className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">-</button>
-                          <span className="w-8 text-center font-bold text-sm text-slate-900 dark:text-white">{line.cantidad}</span>
-                          <button disabled={busy || registered.has(provName)} onClick={() => updateQty(orderLines.indexOf(line), line.cantidad + 1)} className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">+</button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button aria-label={`Restar unidades de ${line.nombre}`} disabled={busy || registered.has(key) || line.cantidad <= 1} onClick={() => updateQty(line, line.cantidad - 1)} className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">-</button>
+                          <span className="min-w-8 text-center font-bold text-sm text-slate-900 dark:text-white">{line.cantidad}</span>
+                          <button aria-label={`Sumar unidades de ${line.nombre}`} disabled={busy || registered.has(key) || line.cantidad >= 1000000} onClick={() => updateQty(line, line.cantidad + 1)} className="w-7 h-7 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">+</button>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <button disabled={busy || registered.has(provName)} onClick={() => registrarPedido(provName, lines)} className="mt-3 w-full rounded-lg bg-brand-600 p-3 text-white disabled:opacity-50">
-                    {registered.has(provName) ? 'Pedido registrado' : 'Registrar pedido en historial'}
+                  <button disabled={busy || loading || !!loadError || registered.has(key)} onClick={() => registrarPedido(key, provName, lines)} className="mt-3 w-full rounded-lg bg-brand-600 p-3 text-white disabled:opacity-50">
+                    {registered.has(key) ? 'Pedido registrado' : 'Registrar pedido en historial'}
                   </button>
-                  <div className="flex gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                    <button 
+                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                    <button disabled={busy}
                       onClick={() => sendWhatsApp(provName, lines, lines[0]?.proveedor_telefono)}
                       className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg flex items-center justify-center gap-1.5 text-sm transition-colors"
                     >
                       <Send size={14} /> WhatsApp
                     </button>
-                    <button
-                      onClick={() => copyText(provName, lines)}
+                    <button disabled={busy}
+                      onClick={() => copyText(key, provName, lines)}
                       className="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
                     >
-                      {copiedProv === provName ? <><CheckCircle2 size={14} className="text-emerald-500" /> Copiado</> : <><Copy size={14} /> Copiar</>}
+                      {copiedProv === key ? <><CheckCircle2 size={14} className="text-emerald-500" /> Copiado</> : <><Copy size={14} /> Copiar</>}
                     </button>
                   </div>
-                </div>
+                </section>
               );
             })}
 
-            <button disabled={busy} onClick={() => setShowOrder(false)} className="w-full mt-2 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <button disabled={busy} onClick={closeOrder} className="w-full mt-2 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
               Cerrar
             </button>
+            <button disabled={busy} onClick={discardOrder} className="w-full mt-2 py-3 text-sm text-red-700 dark:text-red-400">Descartar borrador de pedido</button>
+            <p className="mt-3 text-xs text-slate-500">Cerrar conserva el borrador mientras permanezcas en esta pantalla. Navegar a otra pantalla o cerrar sesión lo pierde.</p>
           </div>
-        </div>
+        </ModalDialog>
       )}
     </div>
   );
