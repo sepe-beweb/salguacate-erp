@@ -21,6 +21,7 @@
     "test": "vitest run",
     "check": "npm run lint && npm test && npm run build:erp",
     "test:e2e": "playwright test",
+    "test:e2e:production": "playwright test --config playwright.production.config.ts",
     "build:android": "npm run build:erp && node -e \"fs.cpSync('dist/erp', 'apps/android/app/src/main/assets/www', {recursive:true, force:true})\""
   },
   "dependencies": {

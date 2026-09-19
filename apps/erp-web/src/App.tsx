@@ -1,34 +1,31 @@
 import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { Home, Package, Sun, Moon, Camera, LogOut, Calendar as CalendarIcon, Clock, User, Mail, Truck, ClipboardList, CreditCard, Music, StickyNote, BarChart3, FileSpreadsheet, Settings, Sparkles } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAuth, Role } from './context/AuthContext';
-
-// Componentes
-import Dashboard from './pages/Dashboard';
-import Inventory from './pages/Inventory';
-import Sales from './pages/Sales';
-import Scanner from './pages/Scanner';
+// Access screens stay in the entry bundle; feature screens load only when selected.
 import Login from './pages/Login';
 import ChangePin from './pages/ChangePin';
-import HRManagement from './pages/HRManagement';
-import SettingsPage from './pages/Settings';
-import Providers from './pages/Providers';
-import Analytics from './pages/Analytics';
-import ManagerCalendar from './pages/ManagerCalendar';
-import Notes from './pages/Notes';
-import Reports from './pages/Reports';
-import Tasks from './pages/Tasks';
-import StockControl from './pages/StockControl';
-
-// Componentes Empleado
-import EmployeeDashboard from './pages/employee/EmployeeDashboard';
-import Calendar from './pages/employee/Calendar';
-import ClockScreen from './pages/employee/Clock';
-import Requests from './pages/employee/Requests';
-import Messages from './pages/employee/Messages';
-
-// Componentes Globales
 import AIChatbot from './components/AIChatbot';
+import ScreenBoundary from './components/ScreenBoundary';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const Sales = lazy(() => import('./pages/Sales'));
+const Scanner = lazy(() => import('./pages/Scanner'));
+const HRManagement = lazy(() => import('./pages/HRManagement'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const Providers = lazy(() => import('./pages/Providers'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const ManagerCalendar = lazy(() => import('./pages/ManagerCalendar'));
+const Notes = lazy(() => import('./pages/Notes'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const StockControl = lazy(() => import('./pages/StockControl'));
+const EmployeeDashboard = lazy(() => import('./pages/employee/EmployeeDashboard'));
+const Calendar = lazy(() => import('./pages/employee/Calendar'));
+const ClockScreen = lazy(() => import('./pages/employee/Clock'));
+const Requests = lazy(() => import('./pages/employee/Requests'));
+const Messages = lazy(() => import('./pages/employee/Messages'));
 
 function BottomNav({ role }: { role: Role }) {
   const location = useLocation();
@@ -237,6 +234,7 @@ function Sidebar({ role, isDarkMode, toggleTheme, logout }: SidebarProps) {
 function MainLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -301,36 +299,40 @@ function MainLayout() {
 
         {/* Content View */}
         <main className="p-4 lg:p-8 flex-1 max-w-[1600px] w-full mx-auto pb-24 lg:pb-8">
-          <Routes>
-            {user.role === 'employee' ? (
-              <>
-                <Route path="/" element={<EmployeeDashboard />} />
-                <Route path="/calendario" element={<Calendar />} />
-                <Route path="/peticiones" element={<Requests />} />
-                <Route path="/correos" element={<Messages />} />
-                <Route path="/fichaje" element={<ClockScreen />} />
-                <Route path="/ajustes" element={<SettingsPage />} />
-              </>
-            ) : (
-              <>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/inventario" element={<Inventory />} />
-                <Route path="/ventas" element={<Sales />} />
-                <Route path="/escaner" element={<Scanner />} />
-                <Route path="/correos" element={<Messages />} />
-                <Route path="/rrhh" element={<HRManagement />} />
-                <Route path="/proveedores" element={<Providers />} />
-                <Route path="/analiticas" element={<Analytics />} />
-                <Route path="/agenda" element={<ManagerCalendar />} />
-                <Route path="/notas" element={<Notes />} />
-                <Route path="/informes" element={<Reports />} />
-                <Route path="/tareas" element={<Tasks />} />
-                <Route path="/control-stock" element={<StockControl />} />
-                <Route path="/ajustes" element={<SettingsPage />} />
-              </>
-            )}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <ScreenBoundary key={`${user.id}:${user.role}:${location.pathname}`} onHome={() => navigate('/')}>
+            <Suspense fallback={<p role="status" className="p-8 text-center text-slate-600 dark:text-slate-300">Cargando pantalla...</p>}>
+              <Routes>
+                {user.role === 'employee' ? (
+                  <>
+                    <Route path="/" element={<EmployeeDashboard />} />
+                    <Route path="/calendario" element={<Calendar />} />
+                    <Route path="/peticiones" element={<Requests />} />
+                    <Route path="/correos" element={<Messages />} />
+                    <Route path="/fichaje" element={<ClockScreen />} />
+                    <Route path="/ajustes" element={<SettingsPage />} />
+                  </>
+                ) : (
+                  <>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/inventario" element={<Inventory />} />
+                    <Route path="/ventas" element={<Sales />} />
+                    <Route path="/escaner" element={<Scanner />} />
+                    <Route path="/correos" element={<Messages />} />
+                    <Route path="/rrhh" element={<HRManagement />} />
+                    <Route path="/proveedores" element={<Providers />} />
+                    <Route path="/analiticas" element={<Analytics />} />
+                    <Route path="/agenda" element={<ManagerCalendar />} />
+                    <Route path="/notas" element={<Notes />} />
+                    <Route path="/informes" element={<Reports />} />
+                    <Route path="/tareas" element={<Tasks />} />
+                    <Route path="/control-stock" element={<StockControl />} />
+                    <Route path="/ajustes" element={<SettingsPage />} />
+                  </>
+                )}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </ScreenBoundary>
         </main>
         
       </div>

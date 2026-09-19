@@ -7,6 +7,7 @@ export default defineConfig({
   envDir: '.',
   plugins: [react()],
   build: {
+    manifest: true,
     outDir: '../../dist/erp',
     emptyOutDir: true,
   },

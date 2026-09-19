@@ -2,7 +2,7 @@
 
 Aplicación de gestión interna de restauración: React/TypeScript y API Express con SQLite. Esta rama recupera la base técnica; no constituye una versión aprobada para producción.
 
-Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos y flujos operativos](docs/architecture/recovery-modules.md), [recuperación de pantallas](docs/architecture/recovery-screens.md), [backup/restauración](docs/architecture/recovery-data.md) y [notas, escáner y empleado](docs/architecture/recovery-personal-workflows.md). Los informes distinguen resultados locales de los commits publicados y su CI.
+Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos y flujos operativos](docs/architecture/recovery-modules.md), [recuperación de pantallas](docs/architecture/recovery-screens.md), [backup/restauración](docs/architecture/recovery-data.md), [notas, escáner y empleado](docs/architecture/recovery-personal-workflows.md) y [carga por rutas](docs/architecture/recovery-route-loading.md). Los informes distinguen resultados locales de los commits publicados y su CI.
 
 ## Requisitos y arranque local
 
@@ -29,6 +29,7 @@ El servidor solo escucha tras completar las migraciones. `GET /api/health` indic
 - `npm run check`: lint, pruebas de API/componentes y compilación web.
 - `npx --no-install playwright install chromium`, después `npm run test:e2e`.
 - En Windows se puede definir `E2E_CHROME_PATH` con la ruta del ejecutable Chrome instalado.
+- `npm run test:e2e:production`: comprueba el tamaño del arranque y la carga/recuperación de rutas sobre archivos compilados servidos localmente. Ejecutar después de E2E, nunca a la vez: comparten los puertos de prueba. No despliega.
 - E2E reserva `127.0.0.1:5174` y `127.0.0.1:3101`, no reutiliza servidores y crea una base exclusivamente en memoria. Las credenciales bajo `tests/fixtures` no se cargan en el arranque normal.
 - `npm audit` consulta avisos actuales; no equivale a una auditoría completa de seguridad.
 

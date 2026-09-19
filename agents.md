@@ -10,6 +10,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Pantallas de gestión](docs/architecture/recovery-screens.md): carga, errores, borradores y confirmaciones del tercer bloque.
 - [Recuperación de datos](docs/architecture/recovery-data.md): backup, restauración aislada y ensayo de migraciones.
 - [Notas, escáner y empleado](docs/architecture/recovery-personal-workflows.md): errores, borradores, consentimiento y conciliación del fichaje.
+- [Carga por rutas](docs/architecture/recovery-route-loading.md): pantallas diferidas, límite de errores, presupuesto y pruebas de archivos compilados.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -29,6 +30,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - Las nuevas pantallas deben conservar soporte móvil/tablet, accesibilidad y permisos por rol.
 - Para cargas de listas relacionadas, usar `useApiLists`: no sustituir un fallo por una lista vacía ni publicar métricas parciales. Las escrituras comprueban HTTP/JSON, conservan el borrador si fallan y no se reintentan automáticamente.
 - Un estado de fichaje desconocido bloquea las acciones; después de escribir se consulta al servidor antes de habilitar otro fichaje. El análisis externo de imágenes y el dictado requieren aceptación explícita; no se confunden con la generación local de PDF.
+- Declarar las pantallas diferidas fuera de los componentes. Mantener la navegación fuera de Suspense y del límite de errores de contenido. No recargar automáticamente ante fallos de módulos: la sesión y los borradores viven en memoria. Comprobar `test:e2e:production` y su presupuesto además de la batería funcional habitual.
 
 ## Arquitectura vigente
 
