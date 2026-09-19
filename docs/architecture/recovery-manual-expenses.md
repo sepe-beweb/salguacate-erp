@@ -2,7 +2,7 @@
 
 ## Estado y alcance
 
-Noveno bloque local en `refactor/recovery-foundation`. El octavo está publicado como `68adeb6`, con [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35422123480). Este documento no acredita publicación del noveno ni despliegue.
+Noveno bloque publicado como `b73eeef` en `refactor/recovery-foundation`, con [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35422723783). Este documento no acredita despliegue.
 
 La nueva ruta `/gastos` permite registrar gastos sin imagen, análisis externo ni consentimiento de IA. Está disponible para propietario y encargado en el menú y en los accesos del panel, también en móvil. La ruta sigue siendo diferida; un empleado no puede abrirla y las restricciones existentes de GET/POST en la API permanecen intactas.
 
@@ -44,4 +44,4 @@ La pantalla añade la entrada diferida número 19. Se actualiza el recuento espe
 
 Resultado local: lint, 175 pruebas (84 de API y 91 de componentes/helpers), TypeScript y build correctos; 21 recorridos funcionales y 5 de archivos compilados. JavaScript inicial: 224.052 bytes, 71.882 comprimidos y tres archivos estáticos según el verificador. Captura móvil de consulta revisada a 390 px. Sin nuevas dependencias, migraciones, datos reales ni despliegue.
 
-Siguiente bloque propuesto: unificar el tratamiento de fechas civiles e importes en informes y analíticas, con pruebas de agregación y presentación.
+Continuación implementada localmente: [fechas civiles e importes financieros](recovery-financial-values.md), reutilizados también por la consulta de gastos.

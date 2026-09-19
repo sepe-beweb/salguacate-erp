@@ -97,12 +97,12 @@ test('cash closing accepts blank optional amounts, rejects a duplicate without l
 
   await page.getByRole('button', { name: 'Informes Mensuales' }).click();
   await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
-  await expect(page.getByText('€51.75', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('51,75 €', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Exportar Informe PDF/ })).toBeEnabled();
   await page.getByRole('button', { name: 'Analíticas Visuales' }).click();
   await expect(page.getByRole('heading', { name: 'Analíticas Financieras' })).toBeVisible();
   await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
-  await expect(page.getByText('Saldo ingresos − gastos', { exact: true })).toBeVisible();
+  await expect(page.getByRole('paragraph').filter({ hasText: /^Saldo ingresos − gastos$/ })).toBeVisible();
   await page.getByRole('button', { name: 'Panel de Control' }).click();
   await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);

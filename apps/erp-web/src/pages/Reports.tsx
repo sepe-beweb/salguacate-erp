@@ -1,28 +1,10 @@
 import { useState } from 'react';
 import { FileBarChart, Download, Loader2, CalendarDays, TrendingUp, TrendingDown, Wallet, MapPin } from 'lucide-react';
-import { useApiLists } from '../hooks/useApiLists';
+import { useApiRead } from '../hooks/useApiLists';
 import RequestError from '../components/RequestError';
 
-
-interface Cierre {
-  id: number;
-  fecha: string;
-  local: string;
-  efectivo: number;
-  tarjeta: number;
-  invitaciones: number;
-  descuadre: number;
-  total: number;
-}
-
-interface Gasto {
-  id: number;
-  fecha: string;
-  proveedor_nombre: string;
-  total: number;
-  concepto: string;
-  local: string;
-}
+import { financialSummary, readFinancialLists, selectFinancialPeriod } from '../financialData';
+import { formatEuroCents, formatCivilDate, toCents } from '../financialValues';
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -37,50 +19,41 @@ const escapeHTML = (str: string) => {
 };
 
 export default function Reports() {
-  const { data, loading, error, reload } = useApiLists<[Cierre, Gasto]>(['/api/cierres', '/api/gastos']);
+  const { data, loading, error, reload } = useApiRead(['/api/cierres', '/api/gastos'], readFinancialLists);
   const [cierres, gastos] = data ?? [[], []];
   const [exportError, setExportError] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedLocal, setSelectedLocal] = useState('Todos');
 
-  // Filter by selected month and local
-  const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
-  const filteredCierres = cierres.filter(c => c.fecha.startsWith(monthStr) && (selectedLocal === 'Todos' || c.local === selectedLocal));
-  const filteredGastos = gastos.filter(g => g.fecha.startsWith(monthStr) && (selectedLocal === 'Todos' || g.local === selectedLocal));
-
-  // Aggregations
-  const totalIngresos = filteredCierres.reduce((sum, c) => sum + c.total, 0);
-  const totalEfectivo = filteredCierres.reduce((sum, c) => sum + c.efectivo, 0);
-  const totalTarjeta = filteredCierres.reduce((sum, c) => sum + c.tarjeta, 0);
-  const totalInvitaciones = filteredCierres.reduce((sum, c) => sum + c.invitaciones, 0);
-  const totalDescuadre = filteredCierres.reduce((sum, c) => sum + c.descuadre, 0);
-  const totalGastos = filteredGastos.reduce((sum, g) => sum + g.total, 0);
-  const beneficioNeto = totalIngresos - totalGastos;
+  const monthStr = `${String(selectedYear).padStart(4, '0')}-${String(selectedMonth + 1).padStart(2, '0')}`;
+  const [filteredCierres, filteredGastos] = selectFinancialPeriod([cierres, gastos], selectedLocal, monthStr);
+  const { income: totalIngresos, expenses: totalGastos, balance: beneficioNeto, cash: totalEfectivo, card: totalTarjeta, invitations: totalInvitaciones, discrepancy: totalDescuadre, inconsistent } = financialSummary(filteredCierres, filteredGastos);
 
   const handleExportPDF = () => {
+    if (loading || error || !data) return;
     const printWindow = window.open('', '_blank');
     setExportError('');
     if (!printWindow) { setExportError('El navegador bloqueó la ventana del informe. Permite ventanas emergentes e inténtalo de nuevo.'); return; }
 
     const cierresRows = filteredCierres.map(c => `
       <tr>
-        <td>${new Date(c.fecha).toLocaleDateString('es-ES')}</td>
+        <td>${formatCivilDate(c.fecha)}</td>
         <td>${escapeHTML(c.local)}</td>
-        <td class="num">€${c.efectivo.toFixed(2)}</td>
-        <td class="num">€${c.tarjeta.toFixed(2)}</td>
-        <td class="num">€${c.invitaciones.toFixed(2)}</td>
-        <td class="num ${c.descuadre !== 0 ? 'warn' : ''}">€${c.descuadre.toFixed(2)}</td>
-        <td class="num bold">€${c.total.toFixed(2)}</td>
+        <td class="num">${formatEuroCents(toCents(c.efectivo))}</td>
+        <td class="num">${formatEuroCents(toCents(c.tarjeta))}</td>
+        <td class="num">${formatEuroCents(toCents(c.invitaciones))}</td>
+        <td class="num ${c.descuadre !== 0 ? 'warn' : ''}">${formatEuroCents(toCents(c.descuadre))}</td>
+        <td class="num bold">${formatEuroCents(toCents(c.total))}</td>
       </tr>
     `).join('');
 
     const gastosRows = filteredGastos.map(g => `
       <tr>
-        <td>${new Date(g.fecha).toLocaleDateString('es-ES')}</td>
+        <td>${formatCivilDate(g.fecha)}</td>
         <td>${escapeHTML(g.proveedor_nombre)}</td>
         <td>${escapeHTML(g.concepto || '-')}</td>
-        <td class="num bold">€${g.total.toFixed(2)}</td>
+        <td class="num bold">${formatEuroCents(toCents(g.total))}</td>
       </tr>
     `).join('');
 
@@ -128,18 +101,19 @@ export default function Reports() {
     </div>
   </div>
 
+  ${inconsistent ? '<p class="warn">Hay cierres cuyo total no coincide con efectivo más tarjeta. Se conserva el total registrado; revisa su origen.</p>' : ''}
   <div class="summary-grid">
     <div class="summary-card">
       <div class="label">Ingresos Totales</div>
-      <div class="value positive">€${totalIngresos.toFixed(2)}</div>
+      <div class="value positive">${formatEuroCents(totalIngresos)}</div>
     </div>
     <div class="summary-card">
       <div class="label">Gastos Totales</div>
-      <div class="value negative">€${totalGastos.toFixed(2)}</div>
+      <div class="value negative">${formatEuroCents(totalGastos)}</div>
     </div>
     <div class="summary-card">
       <div class="label">Saldo ingresos − gastos</div>
-      <div class="value ${beneficioNeto >= 0 ? 'positive' : 'negative'}">€${beneficioNeto.toFixed(2)}</div>
+      <div class="value ${beneficioNeto >= 0 ? 'positive' : 'negative'}">${formatEuroCents(beneficioNeto)}</div>
     </div>
     <div class="summary-card">
       <div class="label">Nº Cierres</div>
@@ -166,11 +140,11 @@ export default function Reports() {
         ${cierresRows}
         <tr class="totals-row">
           <td colspan="2">TOTALES</td>
-          <td class="num">€${totalEfectivo.toFixed(2)}</td>
-          <td class="num">€${totalTarjeta.toFixed(2)}</td>
-          <td class="num">€${totalInvitaciones.toFixed(2)}</td>
-          <td class="num">€${totalDescuadre.toFixed(2)}</td>
-          <td class="num">€${totalIngresos.toFixed(2)}</td>
+          <td class="num">${formatEuroCents(totalEfectivo)}</td>
+          <td class="num">${formatEuroCents(totalTarjeta)}</td>
+          <td class="num">${formatEuroCents(totalInvitaciones)}</td>
+          <td class="num">${formatEuroCents(totalDescuadre)}</td>
+          <td class="num">${formatEuroCents(totalIngresos)}</td>
         </tr>
       </tbody>
     </table>`}
@@ -192,7 +166,7 @@ export default function Reports() {
         ${gastosRows}
         <tr class="totals-row">
           <td colspan="3">TOTAL GASTOS</td>
-          <td class="num">€${totalGastos.toFixed(2)}</td>
+          <td class="num">${formatEuroCents(totalGastos)}</td>
         </tr>
       </tbody>
     </table>`}
@@ -205,9 +179,9 @@ export default function Reports() {
         <tr><th>Método</th><th style="text-align:right">Total</th><th style="text-align:right">% del Total</th></tr>
       </thead>
       <tbody>
-        <tr><td>💵 Efectivo</td><td class="num">€${totalEfectivo.toFixed(2)}</td><td class="num">${totalIngresos ? ((totalEfectivo/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
-        <tr><td>💳 Tarjeta</td><td class="num">€${totalTarjeta.toFixed(2)}</td><td class="num">${totalIngresos ? ((totalTarjeta/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
-        <tr><td>🎁 Invitaciones</td><td class="num">€${totalInvitaciones.toFixed(2)}</td><td class="num">${totalIngresos ? ((totalInvitaciones/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
+        <tr><td>💵 Efectivo</td><td class="num">${formatEuroCents(totalEfectivo)}</td><td class="num">${totalIngresos ? ((totalEfectivo/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
+        <tr><td>💳 Tarjeta</td><td class="num">${formatEuroCents(totalTarjeta)}</td><td class="num">${totalIngresos ? ((totalTarjeta/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
+        <tr><td>🎁 Invitaciones</td><td class="num">${formatEuroCents(totalInvitaciones)}</td><td class="num">${totalIngresos ? ((totalInvitaciones/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
       </tbody>
     </table>
   </div>
@@ -240,14 +214,14 @@ export default function Reports() {
         </label>
         <div className="flex gap-3">
           <select 
-            value={selectedMonth} 
+            aria-label="Mes del informe" value={selectedMonth}
             onChange={e => setSelectedMonth(parseInt(e.target.value))}
             className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
           >
             {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
           <select 
-            value={selectedYear} 
+            aria-label="Año del informe" value={selectedYear}
             onChange={e => setSelectedYear(parseInt(e.target.value))}
             className="w-28 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
           >
@@ -273,6 +247,7 @@ export default function Reports() {
         </div>
       ) : error ? <RequestError message={error} onRetry={reload} /> : (
         <>
+          {inconsistent && <p role="status" className="rounded-lg border border-amber-300 p-3">Hay cierres cuyo total no coincide con efectivo más tarjeta. Se conserva el total registrado; revisa su origen.</p>}
           {/* Resumen Visual */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -280,7 +255,7 @@ export default function Reports() {
                 <TrendingUp size={16} className="text-emerald-500" />
                 <span className="text-xs text-slate-500 font-medium">Ingresos</span>
               </div>
-              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">€{totalIngresos.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatEuroCents(totalIngresos)}</p>
               <p className="text-xs text-slate-400 mt-1">{filteredCierres.length} cierres</p>
             </div>
             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -288,7 +263,7 @@ export default function Reports() {
                 <TrendingDown size={16} className="text-red-500" />
                 <span className="text-xs text-slate-500 font-medium">Gastos</span>
               </div>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">€{totalGastos.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatEuroCents(totalGastos)}</p>
               <p className="text-xs text-slate-400 mt-1">{filteredGastos.length} facturas</p>
             </div>
             <div className="col-span-2 bg-gradient-to-r from-brand-50 to-emerald-50 dark:from-brand-900/20 dark:to-emerald-900/20 p-4 rounded-2xl border border-brand-200 dark:border-brand-800 shadow-sm">
@@ -297,7 +272,7 @@ export default function Reports() {
                 <span className="text-xs text-slate-500 font-medium">Saldo ingresos − gastos</span>
               </div>
               <p className={`text-3xl font-bold ${beneficioNeto >= 0 ? 'text-brand-600 dark:text-brand-400' : 'text-red-600 dark:text-red-400'}`}>
-                €{beneficioNeto.toFixed(2)}
+                {formatEuroCents(beneficioNeto)}
               </p>
             </div>
           </div>
@@ -315,7 +290,7 @@ export default function Reports() {
                   <div key={m.label}>
                     <div className="flex justify-between text-xs mb-1">
                       <span className="text-slate-600 dark:text-slate-400">{m.label}</span>
-                      <span className="font-medium text-slate-900 dark:text-white">€{m.value.toFixed(2)} ({totalIngresos ? ((m.value/totalIngresos)*100).toFixed(0) : 0}%)</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{formatEuroCents(m.value)} ({totalIngresos ? ((m.value/totalIngresos)*100).toFixed(0) : 0}%)</span>
                     </div>
                     <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                       <div className={`h-full ${m.color} rounded-full transition-all duration-500`} style={{ width: `${totalIngresos ? (m.value/totalIngresos)*100 : 0}%` }}></div>

@@ -14,6 +14,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Idempotencia](docs/architecture/recovery-idempotency.md): contrato de altas de notas/gastos, esquema 2 y límites de recuperación.
 - [Intentos por sesión](docs/architecture/recovery-session-attempts.md): recuperación entre rutas, resultados tardíos, cierre de sesión y límites de privacidad.
 - [Gastos manuales](docs/architecture/recovery-manual-expenses.md): alta sin IA, formulario compartido, filtros y consulta de registros.
+- [Valores financieros](docs/architecture/recovery-financial-values.md): fechas civiles, céntimos, lectura conjunta y consistencia de informe/analíticas.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -37,6 +38,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - En altas de notas/gastos, mantener clave y cuerpo exactos de cada intento sin confirmar. No generar una clave nueva silenciosamente tras un fallo. La API verifica usuario, operación y huella y confirma negocio, auditoría y recibo en una sola transacción. No purgar recibos ni excluirlos del ensayo de recuperación sin revisar la garantía de deduplicación.
 - Los intentos enviados pertenecen a una instancia de sesión, no a una ruta ni a un singleton. Navegar no desbloquea una petición en curso. Cerrar/expirar sesión invalida su almacén y ninguna respuesta tardía puede repoblarlo. No persistir borradores sensibles ni trasladar consentimientos o fotos para recuperar un guardado.
 - Alta manual y escáner comparten el mismo intento de gasto. Una coincidencia en la lista no confirma un POST: solo lo hace su recibo. Un fallo de lectura posterior al éxito no debe repetir el alta. La consulta no añade conciliación automática ni permisos de edición/borrado.
+- En informes y analíticas, usar los valores financieros comunes: fechas civiles sin convertir a instantes, agregación en céntimos seguros y formato común. Preservar el total registrado de cierres inconsistentes y advertir; no reinterpretar invitaciones, descuadres ni históricos para cuadrarlos. Una lectura inválida bloquea el informe, no genera totales parciales.
 
 ## Arquitectura vigente
 
