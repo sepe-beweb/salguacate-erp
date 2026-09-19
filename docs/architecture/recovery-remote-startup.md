@@ -1,5 +1,8 @@
 # Arranque remoto explícito
 
+Continuación: el [bloque 37](recovery-remote-bootstrap.md) prepara el alta atómica;
+el texto siguiente conserva la evidencia original de este bloque.
+
 ## Alcance del bloque 36
 
 `DATABASE_DRIVER` admite `sqlite` (valor por defecto) o `libsql`. La mera presencia

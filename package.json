@@ -13,6 +13,7 @@
     "dev:erp": "vite",
     "dev:api": "npm run start --workspace apps/api",
     "bootstrap": "node apps/api/scripts/bootstrap-owner.js",
+    "bootstrap:remote": "node apps/api/scripts/bootstrap-remote-owner.js",
     "recovery": "node scripts/recovery.cjs",
     "probe:turso": "node apps/api/scripts/turso-probe.js",
     "build": "npm run build:erp",

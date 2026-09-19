@@ -43,6 +43,7 @@ Entrada vigente: [estado de recuperación y puertas de salida](recovery-status.m
 
 - [35. Ensayo Cloudinary](recovery-cloudinary-probe.md): alta y lectura HTTP, bytes originales y retirada remota de imágenes sintéticas.
 - [36. Arranque remoto](recovery-remote-startup.md): elección explícita y validación del esquema y propietario, sin inicialización automática.
+- [37. Alta remota](recovery-remote-bootstrap.md): bootstrap atómico y privado sobre una base nueva, sin muestras ni cambios a instalaciones existentes.
 
 - [22. Stock e historial](recovery-stock-values.md): cantidades y líneas registradas.
 - [23. Borrador de pedidos](recovery-order-dialogs.md): proveedor por ID y local conservado.

@@ -16,6 +16,11 @@ Consultar primero el [estado y las puertas de salida de la recuperación](docs/a
 
 El modo explícito se niega a usar cualquier archivo de base existente. El modo anterior sin argumentos sigue admitiendo `BOOTSTRAP_OWNER_NAME`/`BOOTSTRAP_OWNER_PIN` para una tabla de usuarios vacía; retirar esas variables después. Ninguno cambia cuentas existentes.
 
+Para una base Turso nueva existe un [alta remota separada](docs/architecture/recovery-remote-bootstrap.md):
+`npm run bootstrap:remote -- --help`. Crea esquema y propietario atómicamente,
+exige host exacto y entrada privada, y se niega a tocar cualquier esquema existente.
+No usar la base de compatibilidad ni pasar el token/PIN por argumentos o chat.
+
 ## Configuración
 
 La API lee `apps/api/.env`. El frontend lee el `.env` de la raíz; solo configuración pública usa el prefijo `VITE_`. Nunca poner secretos en variables `VITE_*`.

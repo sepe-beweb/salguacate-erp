@@ -42,6 +42,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Fotos Cloudinary](docs/architecture/recovery-cloudinary-storage.md): configuración privada del backend, cuenta pública permitida en el frontend y límites de copia.
 - [Ensayo Cloudinary](docs/architecture/recovery-cloudinary-probe.md): PNG/JPEG reales mediante API local, retirada confirmada y clave temporal desactivada; no es despliegue.
 - [Arranque remoto](docs/architecture/recovery-remote-startup.md): selección explícita, esquema/propietario comprobados sin migraciones automáticas; pendiente bootstrap y validación conjunta.
+- [Alta remota](docs/architecture/recovery-remote-bootstrap.md): esquema y propietario atómicos en una base vacía, secretos por entrada privada y sin reintentos tras COMMIT incierto.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
