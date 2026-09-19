@@ -12,4 +12,4 @@ Las pruebas de componentes cubren contratos, lecturas parciales, elección expl�
 
 Validación local final: `npm run check` correcto con 307 pruebas, lint, TypeScript y compilación; 28 recorridos funcionales y 5 sobre archivos compilados. Presupuesto inicial: 225.138 bytes de JavaScript, 72.048 comprimidos.
 
-Siguiente bloque: navegación móvil completa por rol, accesible también cuando falla la carga del panel y sin depender de sus accesos rápidos.
+Publicado en `e99474af7ccbb6f67578ca94dd028ccce5e521dc`; [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35439499793). Continuación: [navegación móvil completa](recovery-mobile-navigation.md).

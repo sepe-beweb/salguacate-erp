@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { Home, Package, Sun, Moon, Camera, LogOut, Calendar as CalendarIcon, Clock, User, Mail, Truck, ClipboardList, CreditCard, Music, StickyNote, BarChart3, FileSpreadsheet, Settings, Sparkles } from 'lucide-react';
+import { Home, Package, Sun, Moon, Camera, LogOut, Calendar as CalendarIcon, Clock, User, Mail, Truck, Settings, Sparkles } from 'lucide-react';
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useAuth, Role } from './context/AuthContext';
 // Access screens stay in the entry bundle; feature screens load only when selected.
@@ -8,6 +8,8 @@ import ChangePin from './pages/ChangePin';
 import AIChatbot from './components/AIChatbot';
 import ScreenBoundary from './components/ScreenBoundary';
 import PendingCreatesNotice from './components/PendingCreatesNotice';
+import NavigationLinks from './components/NavigationLinks';
+import MobileNavigation from './components/MobileNavigation';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inventory = lazy(() => import('./pages/Inventory'));
@@ -100,18 +102,7 @@ interface SidebarProps {
 
 function Sidebar({ role, isDarkMode, toggleTheme, logout }: SidebarProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useAuth();
-  
-  const isActive = (path: string) => location.pathname === path;
-  
-  const linkClass = (path: string) => `
-    flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
-    ${isActive(path) 
-      ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white shadow-md shadow-brand-600/20' 
-      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-950 dark:hover:text-white'
-    }
-  `;
 
   return (
     <aside className="w-72 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col justify-between hidden lg:flex h-screen sticky top-0 p-6 shrink-0 transition-colors duration-200">
@@ -141,77 +132,8 @@ function Sidebar({ role, isDarkMode, toggleTheme, logout }: SidebarProps) {
         </div>
 
         {/* Navigation Items */}
-        <nav className="space-y-1.5 flex-1 overflow-y-auto pr-1">
-          {role === 'employee' ? (
-            <>
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-4 mb-2">Panel Personal</p>
-              <button onClick={() => navigate('/')} className={linkClass('/')}>
-                <Home size={18} /> Inicio
-              </button>
-              <button onClick={() => navigate('/calendario')} className={linkClass('/calendario')}>
-                <CalendarIcon size={18} /> Turnos Asignados
-              </button>
-              <button onClick={() => navigate('/fichaje')} className={linkClass('/fichaje')}>
-                <Clock size={18} /> Control Horario
-              </button>
-              <button onClick={() => navigate('/correos')} className={linkClass('/correos')}>
-                <Mail size={18} /> Buzón Interno
-              </button>
-              <button onClick={() => navigate('/peticiones')} className={linkClass('/peticiones')}>
-                <Sparkles size={18} /> Solicitudes
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-4 mb-2">Operaciones</p>
-              <button onClick={() => navigate('/')} className={linkClass('/')}>
-                <Home size={18} /> Panel de Control
-              </button>
-              <button onClick={() => navigate('/inventario')} className={linkClass('/inventario')}>
-                <Package size={18} /> Almacén y Stock
-              </button>
-              <button onClick={() => navigate('/control-stock')} className={linkClass('/control-stock')}>
-                <ClipboardList size={18} /> Pedidos de Reposición
-              </button>
-              <button onClick={() => navigate('/proveedores')} className={linkClass('/proveedores')}>
-                <Truck size={18} /> Proveedores
-              </button>
-              <button onClick={() => navigate('/escaner')} className={linkClass('/escaner')}>
-                <Camera size={18} /> Escáner de Facturas
-              </button>
-
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-4 mt-4 mb-2">Gestión y Equipo</p>
-              <button onClick={() => navigate('/rrhh')} className={linkClass('/rrhh')}>
-                <User size={18} /> Recursos Humanos
-              </button>
-              <button onClick={() => navigate('/tareas')} className={linkClass('/tareas')}>
-                <ClipboardList size={18} /> Lista de Checklists
-              </button>
-              <button onClick={() => navigate('/agenda')} className={linkClass('/agenda')}>
-                <Music size={18} /> Agenda de Eventos
-              </button>
-              <button onClick={() => navigate('/correos')} className={linkClass('/correos')}>
-                <Mail size={18} /> Buzón de Mensajes
-              </button>
-              <button onClick={() => navigate('/notas')} className={linkClass('/notas')}>
-                <StickyNote size={18} /> Muro de Notas
-              </button>
-
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-4 mt-4 mb-2">Finanzas</p>
-              <button onClick={() => navigate('/ventas')} className={linkClass('/ventas')}>
-                <CreditCard size={18} /> Cierres de Caja
-              </button>
-              <button onClick={() => navigate('/gastos')} className={linkClass('/gastos')}>
-                <FileSpreadsheet size={18} /> Gastos
-              </button>
-              <button onClick={() => navigate('/analiticas')} className={linkClass('/analiticas')}>
-                <BarChart3 size={18} /> Analíticas Visuales
-              </button>
-              <button onClick={() => navigate('/informes')} className={linkClass('/informes')}>
-                <FileSpreadsheet size={18} /> Informes Mensuales
-              </button>
-            </>
-          )}
+        <nav aria-label="Navegación principal" className="space-y-1.5 flex-1 overflow-y-auto pr-1">
+          <NavigationLinks role={role} />
         </nav>
       </div>
 
@@ -285,8 +207,10 @@ function MainLayout() {
             <h1 className="text-xl font-bold bg-gradient-to-r from-brand-600 to-brand-800 dark:from-brand-400 dark:to-brand-600 bg-clip-text text-transparent">
               Salguacate
             </h1>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <MobileNavigation key={`${user.id}:${user.role}`} role={user.role} />
               <button 
+                aria-label={isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}
                 onClick={toggleTheme}
                 className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors"
               >
