@@ -10,4 +10,4 @@ Las pruebas de componentes cubren límites de PIN, repetición, coincidencia con
 
 Validación local final: `npm run check` correcto con 328 pruebas, lint, TypeScript y compilación; 30 recorridos funcionales y 5 de producción. Presupuesto inicial: 227.567 bytes de JavaScript, 73.195 comprimidos. Sin despliegue ni modificaciones de cuentas reales.
 
-Siguiente bloque: pantalla de acceso, lectura validada de perfiles, recuperación sin recarga y bloqueo del usuario/PIN durante un intento pendiente.
+Publicado en `5dbd8fe95aee26f72e7d0de0887b0e684e1ac4f6`; [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35440149524). Continuación: [pantalla de acceso](recovery-login.md).

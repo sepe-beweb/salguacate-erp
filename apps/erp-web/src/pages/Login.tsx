@@ -1,35 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ShieldCheck, Store, User as UserIcon, Lock, Loader2, AlertCircle, ChevronLeft } from 'lucide-react';
-import { API_URL } from '../config';
+import { readPublicUsers, type PublicUser } from '../publicUsers';
+import { useApiRead } from '../hooks/useApiLists';
 
-interface PublicUser {
-  id: number;
-  nombre: string;
-  rol: string;
-}
+const fetchPublicProfiles = (url: string, options?: RequestInit) => fetch(url, options);
 
 export default function Login() {
   const { login } = useAuth();
-  const [users, setUsers] = useState<PublicUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, reload } = useApiRead(['/api/usuarios/public'], readPublicUsers, fetchPublicProfiles);
+  const users = data ?? [];
   const [selectedUser, setSelectedUser] = useState<PublicUser | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [isLogging, setIsLogging] = useState(false);
-
-  useEffect(() => {
-    fetch(`${API_URL}/api/usuarios/public`)
-      .then(res => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
-      .then(data => { setUsers(data); setLoading(false); })
-      .catch(() => {
-        setError('No se pudo establecer conexión con el servidor backend');
-        setLoading(false);
-      });
-  }, []);
+  const inFlight = useRef(false);
 
   const getRoleIcon = (rol: string) => {
     switch(rol) {
@@ -55,21 +40,18 @@ export default function Login() {
     }
   };
 
-  const handleLogin = async () => {
-    if (!selectedUser || pin.length < 4) return;
+  const handleLogin = async (event: FormEvent) => {
+    event.preventDefault();
+    if (inFlight.current || !selectedUser || !/^\d{4,8}$/.test(pin)) return;
+    inFlight.current = true;
     setIsLogging(true);
     setError('');
     
-    const res = await login(selectedUser.id, pin);
-    if (!res.success) {
-      setError(res.error || 'PIN incorrecto');
-      setPin('');
-    }
-    setIsLogging(false);
-  };
-
-  const handlePinKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleLogin();
+    try {
+      const res = await login(selectedUser.id, pin);
+      if (!res.success) setError(res.error || 'No se pudo acceder.');
+    } catch { setError('No se pudo completar el acceso. Comprueba la conexión.'); }
+    finally { setPin(''); inFlight.current = false; setIsLogging(false); }
   };
 
   return (
@@ -92,18 +74,18 @@ export default function Login() {
         {!selectedUser && (
           <div className="space-y-3">
             {loading ? (
-              <div className="flex justify-center py-8 text-brand-500">
-                <Loader2 className="animate-spin" size={32} />
+              <div role="status" className="flex justify-center items-center gap-2 py-8 text-brand-500">
+                <Loader2 className="animate-spin" size={32} aria-hidden="true" /> Cargando perfiles...
               </div>
-            ) : users.length === 0 ? (
+            ) : loadError || users.length === 0 ? (
               <div className="text-center py-4 text-slate-550 space-y-3">
-                <div className="flex items-center justify-center gap-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 px-3 py-3 rounded-lg border border-red-100 dark:border-red-900/30">
+                <div role={loadError ? 'alert' : 'status'} className="flex items-center justify-center gap-2 text-slate-700 dark:text-slate-300 text-sm bg-slate-50 dark:bg-slate-800 px-3 py-3 rounded-lg border border-slate-200 dark:border-slate-700">
                   <AlertCircle size={18} />
-                  <span>{error || 'Servidor no disponible'}</span>
+                  <span>{loadError || 'No hay perfiles activos configurados.'}</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Revisa que el backend esté encendido e intenta recargar la página.</p>
+                <p className="text-xs text-slate-500 mt-1">Puedes consultar de nuevo sin recargar la página ni enviar un intento de acceso.</p>
                 <button 
-                  onClick={() => { setLoading(true); setError(''); fetch(`${API_URL}/api/usuarios/public`).then(r => r.json()).then(d => { setUsers(d); setLoading(false); }).catch(() => { setError('Error de red al conectar al servidor'); setLoading(false); }); }}
+                  type="button" onClick={reload}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg transition-colors"
                 >
                   Reintentar Conexión
@@ -119,7 +101,7 @@ export default function Login() {
                   <div className={`p-3 rounded-xl group-hover:scale-110 transition-transform ${getRoleStyle(u.rol)}`}>
                     {getRoleIcon(u.rol)}
                   </div>
-                  <div className="ml-4 text-left flex-1">
+                  <div className="ml-4 text-left flex-1 min-w-0 [overflow-wrap:anywhere]">
                     <p className="font-semibold text-slate-900 dark:text-white">{u.nombre}</p>
                     <p className="text-sm text-slate-500 dark:text-slate-400">{getRoleLabel(u.rol)}</p>
                   </div>
@@ -132,8 +114,9 @@ export default function Login() {
 
         {/* Step 2: PIN entry */}
         {selectedUser && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-            <button 
+          <form onSubmit={handleLogin} aria-label="Acceso con PIN" className="animate-in fade-in slide-in-from-right-4 duration-200">
+            <fieldset disabled={isLogging} className="space-y-4">
+            <button type="button"
               onClick={() => { setSelectedUser(null); setPin(''); setError(''); }}
               className="flex items-center gap-1 text-sm text-slate-500 hover:text-brand-500 transition-colors"
             >
@@ -156,25 +139,25 @@ export default function Login() {
                 id="login-pin"
                 type="password"
                 inputMode="numeric"
+                autoComplete="current-password" required pattern="[0-9]{4,8}"
                 maxLength={8}
                 autoFocus
                 value={pin}
                 onChange={e => { setPin(e.target.value.replace(/\D/g, '')); setError(''); }}
-                onKeyDown={handlePinKeyDown}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center text-2xl tracking-[0.5em] font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
                 placeholder="• • • •"
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+              <div role="alert" className="flex items-center gap-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
                 <AlertCircle size={16} />
                 {error}
               </div>
             )}
 
             <button 
-              onClick={handleLogin}
+              type="submit"
               disabled={pin.length < 4 || isLogging}
               className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3.5 rounded-xl flex justify-center items-center transition-colors disabled:opacity-50"
             >
@@ -182,7 +165,8 @@ export default function Login() {
             </button>
 
             <p className="text-xs text-center text-slate-400">Usa el PIN configurado para tu cuenta.</p>
-          </div>
+            </fieldset>
+          </form>
         )}
 
       </div>

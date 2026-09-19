@@ -9,12 +9,14 @@ export function useApiLists<T extends unknown[]>(paths: { [K in keyof T]: string
   return useApiRead<Lists>(paths, responses => Promise.all(responses.map(readList)) as Promise<Lists>);
 }
 
-export function useApiRead<T>(paths: string[], read: (responses: Response[]) => Promise<T>) {
+// Public login-directory reads can supply an anonymous transport; business screens use the authenticated default.
+export function useApiRead<T>(paths: string[], read: (responses: Response[]) => Promise<T>, publicTransport?: (url: string, options?: RequestInit) => Promise<Response>) {
   const { fetchWithAuth } = useAuth();
-  const fetchRef = useRef(fetchWithAuth);
+  const transport = publicTransport ?? fetchWithAuth;
+  const fetchRef = useRef(transport);
   const reader = useRef(read);
   useEffect(() => { reader.current = read; }, [read]);
-  useEffect(() => { fetchRef.current = fetchWithAuth; }, [fetchWithAuth]);
+  useEffect(() => { fetchRef.current = transport; }, [transport]);
   const key = JSON.stringify(paths);
   const activeKey = useRef(key);
   const mounted = useRef(false);

@@ -20,6 +20,8 @@ La [navegación móvil completa](docs/architecture/recovery-mobile-navigation.md
 
 La [renovación obligatoria del PIN](docs/architecture/recovery-pin-renewal.md) incorpora confirmación y protección del guardado.
 
+La [pantalla de acceso](docs/architecture/recovery-login.md) valida perfiles y bloquea intentos simultáneos.
+
 - Node 22.23.2 (ver `.node-version`).
 - Un único `package-lock.json` en la raíz; instalar siempre desde la raíz.
 - npm 10/11 para `ci`; si npm 10 falla al actualizar dependencias con `edgesOut`, regenerar con npm 11.19.1 sin ignorar las dependencias peer. No es necesario cambiar la instalación global.
