@@ -30,6 +30,8 @@ El [editor de pedidos](docs/architecture/recovery-order-dialogs.md) separa prove
 
 El [catálogo y sus alertas](docs/architecture/recovery-catalog-values.md) comparten una lectura validada de existencias y proveedores.
 
+Las [altas de producto y proveedor](docs/architecture/recovery-catalog-dialogs.md) preservan borradores y protegen la lectura de imágenes.
+
 - Node 22.23.2 (ver `.node-version`).
 - Un único `package-lock.json` en la raíz; instalar siempre desde la raíz.
 - npm 10/11 para `ci`; si npm 10 falla al actualizar dependencias con `edgesOut`, regenerar con npm 11.19.1 sin ignorar las dependencias peer. No es necesario cambiar la instalación global.

@@ -14,4 +14,6 @@ Las pruebas cubren tipos incorrectos, identidades duplicadas, rutas de imagen, c
 
 Validación local: `npm run check` supera 437 pruebas, lint, TypeScript y build; pasan 35 recorridos E2E de desarrollo y 5 de producción local. Arranque: 230319 bytes de JavaScript, 74064 comprimidos, dentro del presupuesto. Sin despliegue ni comprobación de bases reales.
 
+Publicado como `c200ec93aeb3fde9494bfa4de1c39038ee8a7079`; [CI completada correctamente](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35442241154).
+
 Siguiente bloque: formularios nativos de producto y proveedor, validación de cantidades sin truncar y lectura de imágenes aislada de borradores cerrados o sustituidos.

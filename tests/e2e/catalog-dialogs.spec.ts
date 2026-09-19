@@ -1,0 +1,60 @@
+import { test, expect } from '@playwright/test';
+
+test('mobile supplier and product dialogs retain drafts, reject decimal quantities and preserve a rejected image upload', async ({ page, request }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/'); await page.getByRole('button', { name: /Jefe Admin/ }).click();
+  await page.getByLabel('PIN de acceso').fill('246810'); const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
+  await page.getByRole('button', { name: 'Acceder' }).click();
+  const { token } = await (await login).json(); const headers = { Authorization: `Bearer ${token}` };
+  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await page.getByRole('button', { name: 'Abrir navegación' }).click();
+  await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Proveedores', exact: true }).click();
+  const openProvider = page.getByRole('button', { name: 'Nuevo proveedor' }); await openProvider.click();
+  const providerDialog = page.getByRole('dialog', { name: 'Nuevo Proveedor' });
+  await expect(providerDialog.getByLabel('Nombre / Empresa')).toBeFocused();
+  await providerDialog.getByLabel('Nombre / Empresa').fill('Distribuidor formulario');
+  await providerDialog.getByLabel('Teléfono').fill('600123456');
+  await page.keyboard.press('Escape'); await expect(openProvider).toBeFocused(); await openProvider.click();
+  await expect(providerDialog.getByLabel('Teléfono')).toHaveValue('600123456');
+  let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; }); let held = false;
+  await page.route('**/api/proveedores', async route => { if (route.request().method() === 'POST') { held = true; await gate; } await route.continue(); });
+  await providerDialog.getByRole('button', { name: 'Guardar Proveedor' }).click(); await expect.poll(() => held).toBe(true);
+  try {
+    await page.keyboard.press('Escape'); await expect(providerDialog).toBeVisible();
+    await expect(providerDialog.getByLabel('Nombre / Empresa')).toBeDisabled();
+    await expect(providerDialog.getByRole('button', { name: 'Cancelar proveedor' })).toBeDisabled();
+  } finally { release(); }
+  await expect(providerDialog).toHaveCount(0); await expect(page.getByRole('heading', { name: 'Distribuidor formulario' })).toBeVisible();
+  await page.getByRole('button', { name: 'Abrir navegación' }).click();
+  await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Almacén y Stock' }).click();
+  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click(); await page.getByRole('button', { name: 'Nuevo producto' }).click();
+  const productDialog = page.getByRole('dialog', { name: 'Nuevo Producto' });
+  await expect(productDialog.getByLabel('Nombre del Producto')).toBeFocused(); await expect(productDialog.getByLabel('Local', { exact: true })).toHaveValue('Segundo Local');
+  await productDialog.getByLabel('Nombre del Producto').fill('Producto formulario'); await productDialog.getByLabel('Stock Actual').fill('1.5');
+  const writes: string[] = []; page.on('request', req => { if (req.url().endsWith('/api/inventario') && req.method() === 'POST') writes.push(req.postData()!); });
+  await productDialog.getByRole('button', { name: 'Guardar Producto' }).click();
+  expect(await productDialog.getByLabel('Stock Actual').evaluate((element: HTMLInputElement) => element.validity.stepMismatch)).toBe(true);
+  expect(writes).toEqual([]); await productDialog.getByLabel('Stock Actual').fill('2');
+  await productDialog.getByLabel('Proveedor (Opcional)').selectOption({ label: 'Distribuidor formulario' });
+  const png = await page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 4; canvas.height = 4; canvas.getContext('2d')!.fillRect(0, 0, 4, 4); return canvas.toDataURL('image/png').split(',')[1]; });
+  await productDialog.getByLabel('Imagen (Opcional)').setInputFiles({ name: 'product.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await expect(productDialog.getByAltText('Vista previa del producto')).toBeVisible();
+  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Principal', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo producto' }).click();
+  await expect(productDialog.getByLabel('Local', { exact: true })).toHaveValue('Segundo Local');
+  await expect(productDialog.getByAltText('Vista previa del producto')).toBeVisible();
+  // The disposable API deliberately has no upload directory. Its explicit rejection must preserve the complete draft.
+  await productDialog.getByRole('button', { name: 'Guardar Producto' }).click();
+  await expect(productDialog.getByRole('alert')).toContainText('Almacenamiento de imágenes no configurado');
+  await expect(productDialog.getByAltText('Vista previa del producto')).toBeVisible();
+  await expect(productDialog.getByLabel('Nombre del Producto')).toHaveValue('Producto formulario');
+  expect(await productDialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('product-draft-mobile.png'), fullPage: true });
+  await productDialog.getByRole('button', { name: 'Retirar imagen' }).click(); await productDialog.getByRole('button', { name: 'Guardar Producto' }).click();
+  await expect(productDialog).toHaveCount(0);
+  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Producto formulario' })).toBeVisible();
+  const products = await (await request.get('http://127.0.0.1:3101/api/inventario', { headers })).json();
+  expect(products).toHaveLength(1); expect(products[0]).toMatchObject({ producto: 'Producto formulario', stock_actual: 2, stock_minimo: 5, local: 'Segundo Local', imagen_url: null });
+  expect(writes).toHaveLength(2); expect(JSON.parse(writes[0]).imagen_base64).toContain('data:image/png;base64,'); expect(JSON.parse(writes[1]).imagen_base64).toBe('');
+});

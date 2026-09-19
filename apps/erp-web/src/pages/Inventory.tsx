@@ -7,6 +7,9 @@ import { readJson, errorMessage } from '../apiResponse';
 import { useApiRead } from '../hooks/useApiLists';
 import { readInventoryWorkspace, stockAlerts, groupStockAlerts, stockAlertText, type CatalogItem } from '../catalogData';
 import RequestError from '../components/RequestError';
+import ModalDialog from '../components/ModalDialog';
+import { emptyProduct, readProductForm } from '../catalogForms';
+import { useProductImage } from '../hooks/useProductImage';
 
 export default function Inventory() {
   const { fetchWithAuth } = useAuth();
@@ -19,6 +22,8 @@ export default function Inventory() {
     `/api/inventario${suffix}`, '/api/proveedores'
   ], readInventoryWorkspace);
   const [items, providers] = data ?? [[], []];
+  const providerNames = new Map<string, number>();
+  providers.forEach(provider => providerNames.set(provider.nombre, (providerNames.get(provider.nombre) ?? 0) + 1));
   const alertas = stockAlerts(items);
   const stockInFlight = useRef(false);
   const clipboardGeneration = useRef(0);
@@ -27,7 +32,10 @@ export default function Inventory() {
   const [error, setError] = useState('');
   const [updatingStock, setUpdatingStock] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newItem, setNewItem] = useState({ producto: '', stock_actual: 0, stock_minimo: 5, categoria: 'Bebida', proveedor_id: '', imagen_base64: '', local: 'Principal' });
+  const [newItem, setNewItem] = useState(emptyProduct);
+  const [hasDraft, setHasDraft] = useState(false);
+  const image = useProductImage();
+  const createInFlight = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -37,20 +45,13 @@ export default function Inventory() {
   }, [fetchInventory]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 3 * 1024 * 1024) {
-        setError('La imagen debe ser PNG o JPEG de hasta 3 MB.');
-        return;
-      }
-      setError('');
-      const reader = new FileReader();
-      reader.onerror = () => setError('No se pudo leer la imagen.');
-      reader.onload = () => {
-        setNewItem(prev => ({ ...prev, imagen_base64: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
+    const file = e.target.files?.[0]; e.target.value = '';
+    if (file && !createInFlight.current) { setHasDraft(true); setError(''); image.read(file); }
+  };
+  const closeProduct = () => { if (!createInFlight.current) { image.cancel(); setShowAddModal(false); } };
+  const discardProduct = () => {
+    if (createInFlight.current || !window.confirm('¿Descartar el borrador de producto y su imagen? No se borrarán productos del catálogo.')) return;
+    image.clear(); setNewItem(emptyProduct(filterLocal === 'Todos' ? 'Principal' : filterLocal)); setHasDraft(false); setError('');
   };
 
   const filteredItems = items.filter(item => {
@@ -87,7 +88,11 @@ export default function Inventory() {
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItem.producto || isSubmitting) return;
+    if (createInFlight.current || stockInFlight.current || loading || loadError || image.reading) return;
+    let payload;
+    try { payload = readProductForm(newItem); } catch (cause) { setError(errorMessage(cause)); return; }
+    if (payload.proveedor_id !== null && !providers.some(provider => provider.id === payload.proveedor_id)) { setError('El proveedor seleccionado ya no está disponible. Revisa el formulario.'); return; }
+    createInFlight.current = true;
     setError('');
     setIsSubmitting(true);
     
@@ -95,15 +100,16 @@ export default function Inventory() {
       const res = await fetchWithAuth(`${API_URL}/api/inventario`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newItem)
+        body: JSON.stringify({ ...payload, imagen_base64: image.value })
       });
       await readJson(res);
       setShowAddModal(false);
-      setNewItem({ producto: '', stock_actual: 0, stock_minimo: 5, categoria: 'Bebida', proveedor_id: '', imagen_base64: '', local: filterLocal !== 'Todos' ? filterLocal : 'Principal' });
-      fetchInventory();
+      setNewItem(emptyProduct(filterLocal !== 'Todos' ? filterLocal : 'Principal')); image.clear(); setHasDraft(false);
+      await fetchInventory();
     } catch (err) {
       setError(`${errorMessage(err)} Revisa el catálogo antes de repetir el alta si se perdió la conexión.`);
     } finally {
+      createInFlight.current = false;
       setIsSubmitting(false);
     }
   };
@@ -116,7 +122,7 @@ export default function Inventory() {
     } catch (cause) { if (generation === clipboardGeneration.current) setError(errorMessage(cause)); }
   };
 
-  if (loading) {
+  if (loading && !showAddModal) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500">
         <Loader2 size={32} className="animate-spin text-brand-500 mb-4" />
@@ -130,7 +136,7 @@ export default function Inventory() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Inventario Crítico</h2>
         <button 
-          aria-label="Nuevo producto" disabled={Boolean(loadError)} onClick={() => { setError(''); setShowAddModal(true); }}
+          aria-label="Nuevo producto" disabled={Boolean(loadError) || updatingStock || isSubmitting} onClick={() => { setError(''); if (!hasDraft) { setNewItem(emptyProduct(filterLocal === 'Todos' ? 'Principal' : filterLocal)); image.clear(); } setShowAddModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 dark:hover:bg-brand-500 text-white p-2 rounded-full transition-colors shadow-md dark:shadow-brand-500/20"
         >
           <Plus size={20} />
@@ -170,23 +176,26 @@ export default function Inventory() {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200">
+        <ModalDialog label="Nuevo Producto" busy={isSubmitting} onClose={closeProduct}>
+          <div className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nuevo Producto</h3>
-              <button aria-label="Cancelar producto" disabled={isSubmitting} onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <button aria-label="Cancelar producto" disabled={isSubmitting} onClick={closeProduct} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X size={20} />
               </button>
             </div>
             
-            <form onSubmit={handleAddItem} className="space-y-4">
-              <RequestError message={error} />
-              <fieldset disabled={isSubmitting} className="space-y-4">
+            <form onSubmit={handleAddItem} onChange={() => setHasDraft(true)} className="space-y-4">
+              <RequestError message={error || image.error} />
+              <RequestError message={loadError} onRetry={fetchInventory} />
+              {loading && <p role="status">Actualizando catálogo...</p>}
+              {image.reading && <p role="status">Leyendo imagen...</p>}
+              <fieldset disabled={isSubmitting || loading || !!loadError} className="space-y-4">
               <div>
                 <label htmlFor="product-producto" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre del Producto</label>
                 <input 
                   type="text" 
-                  required
+                  required maxLength={160} data-autofocus
                   id="product-producto" value={newItem.producto}
                   onChange={e => setNewItem({...newItem, producto: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
@@ -198,9 +207,9 @@ export default function Inventory() {
                   <label htmlFor="product-stock_actual" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock Actual</label>
                   <input 
                     type="number" 
-                    min="0"
+                    min="0" max="1000000" step="1" required
                     id="product-stock_actual" value={newItem.stock_actual}
-                    onChange={e => setNewItem({...newItem, stock_actual: parseInt(e.target.value) || 0})}
+                    onChange={e => setNewItem({...newItem, stock_actual: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   />
                 </div>
@@ -208,9 +217,9 @@ export default function Inventory() {
                   <label htmlFor="product-stock_minimo" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock Mínimo</label>
                   <input 
                     type="number" 
-                    min="0"
+                    min="0" max="1000000" step="1" required
                     id="product-stock_minimo" value={newItem.stock_minimo}
-                    onChange={e => setNewItem({...newItem, stock_minimo: parseInt(e.target.value) || 0})}
+                    onChange={e => setNewItem({...newItem, stock_minimo: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   />
                 </div>
@@ -248,8 +257,9 @@ export default function Inventory() {
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
                 >
                   <option value="">Sin proveedor</option>
+                  {newItem.proveedor_id && !providers.some(provider => String(provider.id) === newItem.proveedor_id) && <option value={newItem.proveedor_id}>Proveedor no disponible (#{newItem.proveedor_id})</option>}
                   {providers.map(prov => (
-                    <option key={prov.id} value={prov.id}>{prov.nombre}</option>
+                    <option key={prov.id} value={prov.id}>{prov.nombre}{providerNames.get(prov.nombre)! > 1 ? ` (#${prov.id})` : ''}</option>
                   ))}
                 </select>
               </div>
@@ -262,25 +272,28 @@ export default function Inventory() {
                   onChange={handleImageUpload}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
                 />
-                {newItem.imagen_base64 && (
-                  <img src={newItem.imagen_base64} alt="Preview" className="mt-2 h-20 w-20 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
+                {image.value && (
+                  <img src={image.value} alt="Vista previa del producto" className="mt-2 h-20 w-20 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
                 )}
+                {(image.value || image.reading) && <button type="button" onClick={image.clear} className="mt-2 text-sm text-red-700 dark:text-red-400">Retirar imagen</button>}
               </div>
               
               <button 
                 type="submit" 
-                disabled={isSubmitting}
+                disabled={isSubmitting || image.reading}
                 className="w-full mt-2 bg-brand-600 hover:bg-brand-700 text-white font-medium py-3 rounded-lg flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Guardar Producto"}
               </button>
               </fieldset>
+              <button type="button" disabled={isSubmitting} onClick={discardProduct} className="w-full text-sm text-red-700 dark:text-red-400">Descartar borrador de producto</button>
+              <p className="text-xs text-slate-500">Cerrar conserva el borrador en esta pantalla, pero cancela una imagen aún en lectura. Navegar a otra pantalla o cerrar sesión pierde el borrador.</p>
             </form>
           </div>
-        </div>
+        </ModalDialog>
       )}
 
-      {loadError ? <RequestError message={loadError} onRetry={fetchInventory} /> : activeMainTab === 'inventario' ? (
+      {loadError ? !showAddModal && <RequestError message={loadError} onRetry={fetchInventory} /> : activeMainTab === 'inventario' ? (
         <>
           {/* Buscador, Pestañas y Filtros */}
           <div className="space-y-4">
