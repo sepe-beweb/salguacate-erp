@@ -8,6 +8,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Recuperación](docs/architecture/recovery-foundation.md): decisiones, migración y límites.
 - [Módulos y flujos](docs/architecture/recovery-modules.md): organización vigente y contratos reforzados del segundo bloque.
 - [Pantallas de gestión](docs/architecture/recovery-screens.md): carga, errores, borradores y confirmaciones del tercer bloque.
+- [Recuperación de datos](docs/architecture/recovery-data.md): backup, restauración aislada y ensayo de migraciones.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -18,6 +19,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - Todo cambio de autorización se comprueba en el servidor, no solo ocultando botones.
 - No introducir cuentas automáticas, credenciales compartidas ni secretos en Git o en variables VITE.
 - Preservar identificadores e historial; probar migraciones sobre copias. No resolver inconsistencias borrando datos.
+- La inicialización completa se ejecuta en una transacción. Rechazar esquemas futuros y comprobar claves foráneas antes del commit. Las herramientas de recuperación no sobrescriben destinos ni activan instalaciones; una restauración revoca las sesiones copiadas.
 - Las operaciones multi-escritura deben ser transaccionales. No confirmar éxito HTTP antes del commit.
 - Las pruebas usan bases temporales y nunca endpoints ni datos de producción.
 - Una respuesta HTTP 200 o una compilación correcta no acredita despliegue ni validación funcional completa.

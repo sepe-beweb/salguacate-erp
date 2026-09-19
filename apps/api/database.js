@@ -36,22 +36,21 @@ function createDatabase(filename) {
       throw error;
     }
   };
-  db.ready = initializeDatabase(db).catch(error => { connection.close(); throw error; });
+  db.ready = Promise.resolve().then(() => db.transaction(() => initializeDatabase(db))).catch(error => { connection.close(); throw error; });
   return db;
 }
 
 function runQuery(database, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    database.run(sql, params, function(error) {
-      if (error && !/duplicate column name/i.test(error.message)) reject(error);
-      else resolve(this);
-    });
-  });
+  try { return database.connection.prepare(sql).run(...params); }
+  catch (error) { if (!/duplicate column name/i.test(error.message)) throw error; }
 }
 
-async function initializeDatabase(database) {
+function initializeDatabase(database) {
+    const connection = database.connection;
+    if (connection.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'schema_migrations'").get() &&
+      connection.prepare('SELECT 1 FROM schema_migrations WHERE version > 1').get()) throw new Error('Database schema is newer than this application.');
     // 1. Crear tabla usuarios
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS usuarios (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL,
       rol TEXT NOT NULL,
@@ -61,11 +60,11 @@ async function initializeDatabase(database) {
     )`);
 
     // Migraciones usuarios
-    await runQuery(database, `ALTER TABLE usuarios ADD COLUMN telefono TEXT`);
-    await runQuery(database, `ALTER TABLE usuarios ADD COLUMN pin TEXT`);
+    runQuery(database, `ALTER TABLE usuarios ADD COLUMN telefono TEXT`);
+    runQuery(database, `ALTER TABLE usuarios ADD COLUMN pin TEXT`);
 
     // 2. Fichajes
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS fichajes (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS fichajes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       usuario_id INTEGER,
       entrada TEXT NOT NULL,
@@ -75,7 +74,7 @@ async function initializeDatabase(database) {
     )`);
 
     // 3. Proveedores
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS proveedores (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS proveedores (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL,
       telefono TEXT,
@@ -84,7 +83,7 @@ async function initializeDatabase(database) {
     )`);
 
     // 4. Inventario
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS inventario (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS inventario (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       producto TEXT NOT NULL,
       stock_actual INTEGER DEFAULT 0,
@@ -97,12 +96,12 @@ async function initializeDatabase(database) {
     )`);
 
     // Migraciones inventario
-    await runQuery(database, `ALTER TABLE inventario ADD COLUMN categoria TEXT DEFAULT 'Bebida'`);
-    await runQuery(database, `ALTER TABLE inventario ADD COLUMN imagen_url TEXT`);
-    await runQuery(database, `ALTER TABLE inventario ADD COLUMN proveedor_id INTEGER`);
+    runQuery(database, `ALTER TABLE inventario ADD COLUMN categoria TEXT DEFAULT 'Bebida'`);
+    runQuery(database, `ALTER TABLE inventario ADD COLUMN imagen_url TEXT`);
+    runQuery(database, `ALTER TABLE inventario ADD COLUMN proveedor_id INTEGER`);
 
     // 5. Turnos
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS turnos (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS turnos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       usuario_id INTEGER,
       fecha TEXT NOT NULL,
@@ -114,7 +113,7 @@ async function initializeDatabase(database) {
     )`);
 
     // 6. Mensajes
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS mensajes (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS mensajes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       remitente_id INTEGER,
       destinatario_id INTEGER,
@@ -127,7 +126,7 @@ async function initializeDatabase(database) {
     )`);
 
     // 7. Eventos
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS eventos (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS eventos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       titulo TEXT NOT NULL,
       fecha TEXT NOT NULL,
@@ -138,7 +137,7 @@ async function initializeDatabase(database) {
     )`);
 
     // 8. Notas
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS notas (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS notas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       usuario_id INTEGER,
       contenido TEXT NOT NULL,
@@ -147,10 +146,10 @@ async function initializeDatabase(database) {
       creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     )`);
-    await runQuery(database, `ALTER TABLE notas ADD COLUMN usuario_id INTEGER`);
+    runQuery(database, `ALTER TABLE notas ADD COLUMN usuario_id INTEGER`);
 
     // 9. Cierres
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS cierres (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS cierres (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fecha TEXT NOT NULL,
       local TEXT NOT NULL,
@@ -163,7 +162,7 @@ async function initializeDatabase(database) {
     )`);
 
     // 10. Gastos
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS gastos (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS gastos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fecha TEXT NOT NULL,
       proveedor_nombre TEXT NOT NULL,
@@ -172,10 +171,10 @@ async function initializeDatabase(database) {
       local TEXT DEFAULT 'Principal',
       creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
-    await runQuery(database, `ALTER TABLE gastos ADD COLUMN local TEXT DEFAULT 'Principal'`);
+    runQuery(database, `ALTER TABLE gastos ADD COLUMN local TEXT DEFAULT 'Principal'`);
 
     // 11. Tareas
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS tareas (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS tareas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       titulo TEXT NOT NULL,
       descripcion TEXT,
@@ -187,10 +186,10 @@ async function initializeDatabase(database) {
       creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(asignado_a) REFERENCES usuarios(id) ON DELETE SET NULL
     )`);
-    await runQuery(database, `ALTER TABLE tareas ADD COLUMN local TEXT`);
+    runQuery(database, `ALTER TABLE tareas ADD COLUMN local TEXT`);
 
     // 12. Pedidos
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS pedidos (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS pedidos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fecha TEXT NOT NULL,
       local TEXT NOT NULL,
@@ -203,7 +202,7 @@ async function initializeDatabase(database) {
     )`);
 
     // 13. [NUEVO P0] Tabla Peticiones
-    await runQuery(database, `CREATE TABLE IF NOT EXISTS peticiones (
+    runQuery(database, `CREATE TABLE IF NOT EXISTS peticiones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       usuario_id INTEGER,
       tipo TEXT NOT NULL,
@@ -216,9 +215,8 @@ async function initializeDatabase(database) {
     )`);
 
 
-  await runQuery(database, 'CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
-  database.transaction(connection => {
-    if (connection.prepare('SELECT 1 FROM schema_migrations WHERE version = 1').get()) return;
+  runQuery(database, 'CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
+  if (!connection.prepare('SELECT 1 FROM schema_migrations WHERE version = 1').get()) {
     connection.exec(`
       ALTER TABLE usuarios ADD COLUMN active INTEGER NOT NULL DEFAULT 1;
       ALTER TABLE usuarios ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 1;
@@ -236,7 +234,8 @@ async function initializeDatabase(database) {
       CREATE UNIQUE INDEX one_daily_close ON cierres(fecha, local);
       INSERT INTO schema_migrations VALUES (1, CURRENT_TIMESTAMP);
     `);
-  });
+  }
+  if (connection.prepare('PRAGMA foreign_key_check').all().length) throw new Error('Database contains orphaned references; reconcile before migration.');
 }
 
 module.exports = { createDatabase };

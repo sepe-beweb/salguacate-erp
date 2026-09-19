@@ -2,7 +2,7 @@
 
 Aplicación de gestión interna de restauración: React/TypeScript y API Express con SQLite. Esta rama recupera la base técnica; no constituye una versión aprobada para producción.
 
-Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos y flujos operativos](docs/architecture/recovery-modules.md) y [recuperación de pantallas](docs/architecture/recovery-screens.md). Los informes distinguen resultados locales de los commits publicados y su CI.
+Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos y flujos operativos](docs/architecture/recovery-modules.md), [recuperación de pantallas](docs/architecture/recovery-screens.md) y [backup/restauración](docs/architecture/recovery-data.md). Los informes distinguen resultados locales de los commits publicados y su CI.
 
 ## Requisitos y arranque local
 
@@ -35,6 +35,8 @@ El servidor solo escucha tras completar las migraciones. `GET /api/health` indic
 ## Antes de usar datos existentes
 
 Consultar [recuperación y migración](docs/architecture/recovery-foundation.md). Es obligatorio conservar una copia recuperable y ensayar la migración sobre una copia antes de cualquier cambio en producción.
+
+`npm run recovery -- --help` muestra los comandos locales de copia, verificación y restauración. Exigen rutas absolutas, destinos nuevos y confirmación de escrituras detenidas. Incluyen SQLite y uploads; no leen `.env`, no detienen servicios, no activan destinos ni publican archivos. Consultar el [procedimiento y sus límites](docs/architecture/recovery-data.md) antes de usarlos: una copia contiene datos sensibles y no está cifrada.
 
 Android, TPV y módulos fiscales no se consideran validados por las pruebas web. El wrapper Android antiguo permanece pendiente de recuperación.
 

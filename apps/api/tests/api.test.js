@@ -42,7 +42,7 @@ describe('Startup and migration', () => {
         migrated = null;
         connection = new DatabaseSync(filename);
         expect(connection.prepare('SELECT count(*) AS n FROM fichajes').get().n).toBe(2);
-        expect(connection.prepare('SELECT count(*) AS n FROM schema_migrations').get().n).toBe(0);
+        expect(connection.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name = 'schema_migrations'").get()).toBeUndefined();
       } else {
         await migrated.ready;
         expect(migrated.connection.prepare('SELECT nombre, must_change_pin FROM usuarios').get()).toEqual({ nombre: 'Existing', must_change_pin: 1 });
