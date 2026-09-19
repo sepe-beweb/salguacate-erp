@@ -10,4 +10,4 @@ Las pruebas verifican los destinos de propietario, encargado y empleado, ruta ac
 
 Validación local final: `npm run check` correcto con 311 pruebas, lint, TypeScript y compilación; 30 recorridos funcionales y 5 de producción. Presupuesto inicial: 226.063 bytes de JavaScript, 72.698 comprimidos; las 19 pantallas de funcionalidad siguen diferidas.
 
-Siguiente bloque: renovación obligatoria del PIN, validación coherente, confirmación del nuevo valor y bloqueo de campos/salida durante el guardado.
+Publicado en `a7e55c5d60663b6b6fe5e28e134ae1665c41f0b4`; [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35439843733). Continuación: [renovación obligatoria del PIN](recovery-pin-renewal.md).

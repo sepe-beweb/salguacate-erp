@@ -10,6 +10,7 @@ import RequestError from '../components/RequestError';
 import ModalDialog from '../components/ModalDialog';
 import { isCivilDate } from '../financialValues';
 import { isCivilTime } from '../planningData';
+import { isValidNewPin } from '../pinValidation';
 
 const EMPTY_EMP = { nombre: '', rol: 'employee', local: 'Principal', telefono: '', pin: '' };
 const emptyShift = () => ({ usuario_id: '', fecha: '', hora_inicio: '18:00', hora_fin: '02:00', local: 'Principal', compañeros: '' });
@@ -85,7 +86,7 @@ export default function HRManagement() {
     if (!empForm.nombre.trim() || empForm.nombre.length > 120 || empForm.telefono.length > 40 || !['Principal', 'Segundo Local', 'Todos'].includes(empForm.local)) {
       setCrudError('Revisa el nombre, teléfono y local del empleado.'); return;
     }
-    if ((!editingEmpId || empForm.pin) && (!/^\d{6,8}$/.test(empForm.pin) || /^(\d)\1+$/.test(empForm.pin))) {
+    if ((!editingEmpId || empForm.pin) && !isValidNewPin(empForm.pin)) {
       setCrudError('Indica un PIN de 6 a 8 dígitos que no sean todos iguales.'); return;
     }
     setIsEmpSubmitting(true);
