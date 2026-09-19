@@ -41,7 +41,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [API asíncrona](docs/architecture/recovery-async-api.md): interfaz de aplicación, permisos transaccionales y ensayo HTTP sobre Turso; arranque ordinario aún local.
 - [Fotos Cloudinary](docs/architecture/recovery-cloudinary-storage.md): configuración privada del backend, cuenta pública permitida en el frontend y límites de copia.
 - [Ensayo Cloudinary](docs/architecture/recovery-cloudinary-probe.md): PNG/JPEG reales mediante API local, retirada confirmada y clave temporal desactivada; no es despliegue.
-- [Arranque remoto](docs/architecture/recovery-remote-startup.md): selección explícita, esquema/propietario comprobados sin migraciones automáticas; pendiente bootstrap y validación conjunta.
+- [Arranque remoto](docs/architecture/recovery-remote-startup.md): selección explícita, esquema/propietario comprobados sin migraciones automáticas; pendiente validación conjunta.
 - [Alta remota](docs/architecture/recovery-remote-bootstrap.md): esquema y propietario atómicos en una base vacía, secretos por entrada privada y sin reintentos tras COMMIT incierto.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.

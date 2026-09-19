@@ -41,18 +41,27 @@ No equivalen a un bootstrap real en Turso.
 El [bloque 36](recovery-remote-startup.md) está publicado como
 `141a739a18d9b747b0231646f5af586ec867c77d`, con
 [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35458569445)
-y recorridos 40/5. No atribuir esas pruebas al nuevo commit antes de comprobar su CI.
+y recorridos 40/5. El bloque 37 está publicado como
+`bab3600661feaa724f8f5b68416adbb7cbc0e621`, con
+[CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35459183799).
 
 Se ha creado mediante el panel una base nueva `salguacate-erp`, en la organización
 personal Free y el grupo de Irlanda, separada de `salguacate-probe-20260919`.
-La ficha recién creada indica lecturas, escrituras y almacenamiento cero. No se
-ha ejecutado aún el bootstrap ni creado el propietario. La ausencia de objetos
-se comprobará dentro de la transacción, no se da por
-garantizada solo por esos contadores.
+La ficha recién creada indicó lecturas, escrituras y almacenamiento cero. Después
+el titular introdujo y envió personalmente su nombre/PIN en el formulario local
+privado. El proceso terminó con código cero y resultado `status: ready`,
+`ownerId: 1`, `sampleDataInserted: false`, también visible en el formulario.
+La inicialización real confirmó el COMMIT y superó la verificación posterior del
+esquema, migraciones, claves foráneas y propietario. No es solo una inferencia de
+los contadores del panel, ni acredita todavía un login remoto del titular.
 
 Con autorización específica se ha emitido un token RW de un día exclusivo de esta
-base, mantenido en memoria. Su revocación al terminar está autorizada. Queda
-pendiente la entrada y envío personales del nombre/PIN en el formulario privado.
+base, mantenido en memoria. Tras el alta se ejecutó y confirmó en el panel
+`Invalidate Tokens` exclusivamente para esa base nueva, cuyo único token emitido
+era el del alta. No se conservaron el token ni el PIN para repetir peticiones;
+no se realizó una prueba HTTP 401 posterior. El plan Free no ofrece auditoría de
+la organización. El proceso privado terminó y sus campos de credenciales se
+vaciaron al enviar; su desaparición del formulario no indica un fallo del alta.
 No se ha enviado ninguna credencial a Render. La clave temporal Cloudinary
 del ensayo anterior sigue desactivada.
 

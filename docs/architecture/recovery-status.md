@@ -17,7 +17,10 @@ El [bloque 36](recovery-remote-startup.md) añade arranque remoto explícito con
 verificación de esquema/propietario, 625 pruebas locales y sin activar un servicio.
 Su [CI está correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35458569445).
 El [bloque 37](recovery-remote-bootstrap.md) prepara el bootstrap remoto atómico,
-con 646 pruebas locales. La base nueva está creada, pero aún no inicializada.
+con 646 pruebas y [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35459183799).
+El alta real en la base nueva terminó correctamente con propietario ID 1, sin
+muestras y con verificación posterior; el titular introdujo su PIN personalmente.
+El acceso temporal se revocó en el panel al finalizar, sin desplegar Render.
 
 Ampliación local del bloque 31: lint y compilación correctos, batería final de
 537 pruebas en 33 archivos (27 nuevas del ensayo/adaptador), 39 recorridos E2E y
@@ -47,7 +50,7 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 | Publicación del código | Bloques publicados en la rama de recuperación | Verificar HEAD y CI de cada commit; no equivale a merge |
 | Backup/restauración | Herramientas y pruebas desechables disponibles | [Procedimiento](recovery-data.md), incluida revocación de sesiones y conservación de recibos |
 | Migración de datos existentes | No aplicable a la decisión vigente | No hay datos anteriores que conservar; no se han borrado instalaciones |
-| Instalación nueva | Bootstrap remoto preparado; base gratuita nueva creada sin inicializar, token temporal emitido con autorización | Pendiente envío personal del nombre/PIN en el formulario privado; revocar el token al terminar |
+| Instalación nueva | Alta remota confirmada, propietario ID 1 y sin muestras; acceso temporal retirado | Falta login del titular, credenciales operativas y ensayo conjunto antes del despliegue |
 | Compatibilidad Turso/libSQL | Base y rutas HTTP ensayadas en Irlanda | [Compatibilidad](recovery-turso-compatibility.md) y [API asíncrona](recovery-async-api.md), cuenta Free; no son despliegue ni navegador contra Turso |
 | Fotos Cloudinary | PNG/JPEG remotos verificados desde API local | [Ensayo real](recovery-cloudinary-probe.md), bytes idénticos y retirada confirmada; clave temporal desactivada, sin despliegue |
 | Aceptación operativa y seguridad de exposición | Pendiente | Reglas por local, acceso público, dispositivos y operación descritos abajo |
@@ -58,14 +61,14 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 La [API asíncrona](recovery-async-api.md) conserva transacciones, autorización y
 recibos y ya tiene evidencia HTTP con Turso. Las fotos tienen evidencia real
 independiente con Cloudinary. El arranque remoto explícito está preparado y
-validado localmente; el bootstrap remoto está preparado, pendiente de ejecución
-con entrada privada en la base nueva. Aún faltan ensayo conjunto, backup remoto
+validado localmente; el bootstrap remoto ya terminó con entrada privada del titular
+en la base nueva. Aún faltan login remoto del titular, ensayo conjunto, backup remoto
 y despliegue. No activar el blueprint
 antiguo como gratuito. La clave temporal Cloudinary no es una credencial operativa.
 
 ## Instalación nueva local disponible
 
-Seguir el [procedimiento de alta inicial](recovery-fresh-install.md), eligiendo destino y propietario. El modo explícito exige un archivo nuevo, no lee `.env`, recibe el PIN por stdin y no inserta muestras. No se ha creado una cuenta real ni elegido una ruta operativa por aproximación. El PIN se introduce en un prompt privado del equipo, no en el chat.
+Seguir el [procedimiento de alta inicial](recovery-fresh-install.md) para una instalación local distinta, eligiendo destino y propietario. El modo explícito exige un archivo nuevo, no lee `.env`, recibe el PIN por stdin y no inserta muestras. No se ha creado una instalación operativa local; el propietario real se ha creado exclusivamente en la base Turso nueva mediante el procedimiento remoto anterior. El PIN se introduce en un prompt privado del equipo, no en el chat.
 
 La ausencia de históricos elimina el ensayo de migración como bloqueo de esta instalación, pero no demuestra que exista un servicio nuevo ni elimina la aceptación operativa, los permisos o el backup a partir del primer dato útil. IA y comunicaciones externas permanecen desactivadas durante el arranque local.
 
