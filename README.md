@@ -2,39 +2,9 @@
 
 Aplicación de gestión interna de restauración: React/TypeScript y API Express con SQLite. Esta rama recupera la base técnica; no constituye una versión aprobada para producción.
 
-Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos y flujos operativos](docs/architecture/recovery-modules.md), [recuperación de pantallas](docs/architecture/recovery-screens.md), [backup/restauración](docs/architecture/recovery-data.md), [notas, escáner y empleado](docs/architecture/recovery-personal-workflows.md), [carga por rutas](docs/architecture/recovery-route-loading.md), [idempotencia de notas/gastos](docs/architecture/recovery-idempotency.md), [guardados durante la sesión](docs/architecture/recovery-session-attempts.md), [gastos manuales y consulta](docs/architecture/recovery-manual-expenses.md), [fechas e importes financieros](docs/architecture/recovery-financial-values.md) y [panel y cierres](docs/architecture/recovery-dashboard-closings.md). Los informes distinguen resultados locales de los commits publicados y su CI.
+Consultar primero el [estado y las puertas de salida de la recuperación](docs/architecture/recovery-status.md). El [índice por áreas](docs/architecture/README.md) conserva los informes de cada bloque y separa los planes históricos de TPV/fiscalidad. Un resultado local, un commit publicado, una CI correcta y un despliegue son evidencias diferentes.
 
 ## Requisitos y arranque local
-
-La continuación de la recuperación de fechas y lecturas está documentada en [agenda y tareas](docs/architecture/recovery-planning-values.md) y [planificación del empleado](docs/architecture/recovery-employee-planning.md).
-
-La recuperación de borradores y accesibilidad continúa en [modales de planificación](docs/architecture/recovery-planning-dialogs.md).
-
-La consulta y revisión de personal continúa en [peticiones y RRHH](docs/architecture/recovery-personnel-requests.md).
-
-Los formularios de personal y el aislamiento E2E se describen en [editores de plantilla y turnos](docs/architecture/recovery-personnel-dialogs.md).
-
-La recuperación del [buzón interno](docs/architecture/recovery-messages.md) cubre lecturas, borradores y envíos desde móvil.
-
-La [navegación móvil completa](docs/architecture/recovery-mobile-navigation.md) comparte destinos por rol con escritorio y no depende de la carga del panel.
-
-La [renovación obligatoria del PIN](docs/architecture/recovery-pin-renewal.md) incorpora confirmación y protección del guardado.
-
-La [pantalla de acceso](docs/architecture/recovery-login.md) valida perfiles y bloquea intentos simultáneos.
-
-La [sesión autenticada](docs/architecture/recovery-authenticated-session.md) valida identidad y aísla respuestas tardías.
-
-La [lectura de stock y pedidos](docs/architecture/recovery-stock-values.md) valida cantidades e historial y conserva sus fechas civiles.
-
-El [editor de pedidos](docs/architecture/recovery-order-dialogs.md) separa proveedores homónimos y conserva el borrador en un diálogo nativo.
-
-El [catálogo y sus alertas](docs/architecture/recovery-catalog-values.md) comparten una lectura validada de existencias y proveedores.
-
-Las [altas de producto y proveedor](docs/architecture/recovery-catalog-dialogs.md) preservan borradores y protegen la lectura de imágenes.
-
-El [muro de notas](docs/architecture/recovery-note-values.md) valida fechas y autoría, y fija notas sin sobrescribir su contenido.
-
-La [presencia registrada](docs/architecture/recovery-presence-values.md) comparte lecturas validadas con el panel y permite actualizar el resumen explícitamente.
 
 - Node 22.23.2 (ver `.node-version`).
 - Un único `package-lock.json` en la raíz; instalar siempre desde la raíz.

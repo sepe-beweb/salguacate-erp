@@ -2,6 +2,8 @@
 
 Fecha: 2026-09-19. Cuarto bloque local sobre `81fa2a8`.
 
+La evidencia y el estado de publicación que siguen son históricos de este bloque. El procedimiento y sus límites se mantienen; consultar el [estado consolidado](recovery-status.md) para la validación acumulada y la puerta pendiente del ensayo real.
+
 ## Publicación anterior
 
 El tercer bloque se publicó como `de1a14c575281c1604bb5ae7221f4e78f821187c`. La CI encontró una carrera en el recorrido de pedidos: el selector se ejecutaba antes de terminar la navegación y coincidía con los botones de inventario. El reintento además reutilizaba nombres de datos ya creados.

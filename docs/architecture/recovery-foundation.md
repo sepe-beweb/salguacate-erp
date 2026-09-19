@@ -2,6 +2,8 @@
 
 Fecha: 2026-09-19. Primera iteración local. No declara el producto listo para producción.
 
+Informe histórico del primer bloque: sus pendientes y cifras corresponden a esa iteración. Consultar el [estado consolidado](recovery-status.md) para la situación posterior; no interpretar «siguiente iteración» ni «sin ejecución remota» como estado vigente de toda la rama.
+
 ## Decisiones aplicadas
 
 1. Conservar React, los flujos operativos útiles y el esquema histórico; separar arranque, configuración, seguridad y operaciones atómicas. El resto de rutas antiguas sigue en `apps/api/index.js` y se extraerá por módulos en iteraciones siguientes.

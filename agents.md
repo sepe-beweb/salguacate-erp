@@ -5,6 +5,8 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 ## Fuentes de verdad
 
 - [README](README.md): requisitos, configuración y comandos.
+- [Estado de recuperación](docs/architecture/recovery-status.md): evidencia vigente, límites y puertas operativas; consultar antes de interpretar los informes históricos como estado actual.
+- [Índice por áreas](docs/architecture/README.md): informes de recuperación y propuestas históricas separadas.
 - [Recuperación](docs/architecture/recovery-foundation.md): decisiones, migración y límites.
 - [Módulos y flujos](docs/architecture/recovery-modules.md): organización vigente y contratos reforzados del segundo bloque.
 - [Pantallas de gestión](docs/architecture/recovery-screens.md): carga, errores, borradores y confirmaciones del tercer bloque.

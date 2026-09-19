@@ -9,3 +9,5 @@ Las pruebas de componentes cubren datos inválidos, orden, ausencia de local, fi
 Validación local: `npm run check` supera 493 pruebas, lint, TypeScript y build; pasan los 38 recorridos E2E de desarrollo y los 5 de producción local. Arranque: 230281 bytes de JavaScript, 74026 comprimidos y 19 pantallas diferidas. Se revisó la captura móvil y se comprobó la ausencia de desbordamiento horizontal. Sin cambios de dependencias, datos reales ni despliegue.
 
 Siguiente bloque: consolidar el índice de recuperación y contrastar los criterios de salida de esta fase con los scripts, pruebas y límites operativos actuales. El ensayo sobre datos existentes y la publicación de servicios permanecen separados.
+
+Publicado como `3f36cca46cc56baab072cf0fc2cfb49b0b7be45c`; [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35443710872). Sin merge ni despliegue.
