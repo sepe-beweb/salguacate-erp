@@ -58,6 +58,14 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 
 ## Siguiente paso: publicar el piloto gratuito
 
+La creación del servicio Render se bloqueó por verificación de tarjeta; no se creó
+una URL operativa. Se continúa con [Netlify Free](../netlify-deploy.md): equipo personal
+Salguacate creado, 300 créditos y sin tarjeta comprobados en el panel. El envío de
+credenciales se ha autorizado para Netlify en lugar de Render. El adaptador Lambda
+y el TOML tienen validación local: 658 pruebas, lint, compilación y paquete importable
+con el empaquetador predeterminado; no acreditan publicación remota. La sesión del
+panel volvió a solicitar login antes de conectar un repositorio o crear un proyecto.
+
 La [API asíncrona](recovery-async-api.md) conserva transacciones, autorización y
 recibos y ya tiene evidencia HTTP con Turso. Las fotos tienen evidencia real
 independiente con Cloudinary. El arranque remoto explícito está preparado y

@@ -28,3 +28,4 @@ apps/erp-web/dist/
 test-results/
 playwright-report/
 coverage/
+.netlify/

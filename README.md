@@ -64,6 +64,10 @@ Los scripts `generate-user-guide.cjs` y `render-create-services.cjs` son histór
 
 ## Publicación
 
+Alternativa vigente tras el bloqueo de verificación de tarjeta en Render:
+[piloto Netlify Free](docs/netlify-deploy.md), con frontend y API bajo un mismo origen,
+Turso y Cloudinary. El adaptador no implica que la aplicación esté publicada.
+
 El [plan gratuito aprobado](docs/architecture/recovery-free-hosting.md) comienza con
 `npm run probe:turso -- --help`: ensayo manual en una base Turso/libSQL nueva y
 desechable, separado del servidor. SQLite sigue siendo el valor por defecto;

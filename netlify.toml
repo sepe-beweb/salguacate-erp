@@ -1,0 +1,32 @@
+[build]
+  command = "npm run build:erp"
+  publish = "dist/erp"
+  functions = "apps/api/functions"
+
+[build.environment]
+  NODE_VERSION = "22.23.2"
+  NPM_FLAGS = "--ignore-scripts --include=dev"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Robots-Tag = "noindex, nofollow"
