@@ -86,8 +86,16 @@ function createLibsqlDatabase(client) {
   return db;
 }
 
-function connectProbe(config) {
+function readTursoConfig(env) {
+  try {
+    return readProbeConfig({ SALGUACATE_TURSO_PROBE_URL: env.TURSO_DATABASE_URL, SALGUACATE_TURSO_PROBE_TOKEN: env.TURSO_AUTH_TOKEN }, env.TURSO_DATABASE_HOST);
+  } catch {
+    throw new Error('Turso requires a valid URL, private token and exact TURSO_DATABASE_HOST confirmation.');
+  }
+}
+
+function connectLibsql(config) {
   const transport = config.fetch || (request => fetch(request, { redirect: 'error', signal: AbortSignal.timeout(10000) }));
   return createLibsqlDatabase(createClient({ ...config, fetch: transport }));
 }
-module.exports = { readProbeConfig, createLibsqlDatabase, connectProbe, normalizeResult };
+module.exports = { readProbeConfig, readTursoConfig, createLibsqlDatabase, connectLibsql, connectProbe: connectLibsql, normalizeResult };

@@ -1,20 +1,6 @@
 const assert = require('node:assert/strict');
 const { performance } = require('node:perf_hooks');
-const { createDatabase } = require('./database');
-
-async function freshSchemaStatements() {
-  // Derive the fresh schema from the authoritative migrations, not a second schema.
-  const local = createDatabase(':memory:');
-  try {
-    await local.ready;
-    return [
-      ...local.connection.prepare("SELECT sql FROM sqlite_schema WHERE sql IS NOT NULL AND name NOT GLOB 'sqlite_*' ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END, rowid").all().map(row => row.sql),
-      ...local.connection.prepare('SELECT version, applied_at FROM schema_migrations ORDER BY version').all().map(row => ({
-        sql: 'INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', args: [row.version, row.applied_at],
-      })),
-    ];
-  } finally { local.close(); }
-}
+const { freshSchemaStatements } = require('./schema-contract');
 
 async function runTursoProbe(db, onStep = () => {}) {
   const schema = await freshSchemaStatements();

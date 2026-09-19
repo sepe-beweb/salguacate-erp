@@ -24,11 +24,18 @@ El [almacén Cloudinary](docs/architecture/recovery-cloudinary-storage.md) requi
 `IMAGE_STORAGE=cloudinary` y sus tres variables privadas en la API, sin `UPLOADS_DIR`.
 El frontend necesita al compilar `VITE_CLOUDINARY_CLOUD_NAME` con el nombre público
 de la misma cuenta (no la API key ni el secreto). Por defecto se conserva el
-almacenamiento local. No hay fallback implícito ni validación remota Cloudinary aún.
+almacenamiento local. No hay fallback implícito. El [ensayo remoto sintético](docs/architecture/recovery-cloudinary-probe.md)
+ha validado ambas imágenes y su retirada; no equivale a despliegue.
 
 En desarrollo: API en loopback, puerto 3001; SQLite y fotos bajo `apps/api`. En producción: ruta persistente explícita y orígenes HTTPS exactos obligatorios. Si el frontend y API no comparten origen, establecer `VITE_API_URL` al compilar. No existe conexión implícita a un servidor de producción.
 
-El servidor solo escucha tras completar las migraciones. `GET /api/health` indica disponibilidad de la base. La IA está desactivada por defecto; incluso activada, el chat no dispone de herramientas de escritura.
+El servidor local solo escucha tras completar las migraciones. El [modo Turso explícito](docs/architecture/recovery-remote-startup.md)
+usa `DATABASE_DRIVER=libsql`, `TURSO_DATABASE_URL`, `TURSO_DATABASE_HOST` y un token
+privado. Rechaza esquemas incompatibles y bases sin propietario preparado; no
+crea ni migra la base remota. En producción remota exige Cloudinary, sin uploads
+efímeros. No se ha activado esta configuración en ningún servicio.
+
+`GET /api/health` indica disponibilidad de la base. La IA está desactivada por defecto; incluso activada, el chat no dispone de herramientas de escritura.
 
 ## Validación
 
@@ -54,9 +61,9 @@ Los scripts `generate-user-guide.cjs` y `render-create-services.cjs` son histór
 
 El [plan gratuito aprobado](docs/architecture/recovery-free-hosting.md) comienza con
 `npm run probe:turso -- --help`: ensayo manual en una base Turso/libSQL nueva y
-desechable, separado del servidor. El backend activo sigue siendo SQLite local;
+desechable, separado del servidor. SQLite sigue siendo el valor por defecto;
 el ensayo inicial no constituye despliegue. El [bloque asíncrono](docs/architecture/recovery-async-api.md)
-ya aporta comprobaciones HTTP de las rutas reales con Turso, pero el arranque
-ordinario no activa todavía el proveedor remoto.
+aporta comprobaciones HTTP con Turso y el [arranque explícito](docs/architecture/recovery-remote-startup.md)
+prepara su selección operacional, pendiente del bootstrap y la validación conjunta.
 
 CI comprueba los cambios; no publica. El workflow de Render es manual y exige validación. `render.yaml` declara despliegues automáticos desactivados, pero un cambio en este archivo **no demuestra** que esa configuración se haya aplicado al servicio remoto. No se han modificado servicios remotos desde esta rama.

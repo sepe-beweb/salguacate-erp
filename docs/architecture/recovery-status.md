@@ -12,7 +12,9 @@ El [bloque 34](recovery-cloudinary-storage.md) publica el almacén Cloudinary co
 [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35452347156).
 El [bloque 35](recovery-cloudinary-probe.md) verifica subida, lectura y retirada
 reales de PNG/JPEG, con clave temporal ya desactivada. Su validación local reúne
-600 pruebas; no se atribuye esa ampliación a la CI de los bloques anteriores.
+600 pruebas y [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35458105893).
+El [bloque 36](recovery-remote-startup.md) añade arranque remoto explícito con
+verificación de esquema/propietario, 625 pruebas locales y sin activar un servicio.
 
 Ampliación local del bloque 31: lint y compilación correctos, batería final de
 537 pruebas en 33 archivos (27 nuevas del ensayo/adaptador), 39 recorridos E2E y
@@ -42,7 +44,7 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 | Publicación del código | Bloques publicados en la rama de recuperación | Verificar HEAD y CI de cada commit; no equivale a merge |
 | Backup/restauración | Herramientas y pruebas desechables disponibles | [Procedimiento](recovery-data.md), incluida revocación de sesiones y conservación de recibos |
 | Migración de datos existentes | No aplicable a la decisión vigente | No hay datos anteriores que conservar; no se han borrado instalaciones |
-| Instalación nueva | Comando y pruebas preparados; destino real no creado | Elegir entorno/rutas y dar de alta el propietario con PIN privado |
+| Instalación nueva | Bootstrap local y selección de arranque remoto preparados; destino operativo no creado | Falta bootstrap remoto y propietario con PIN privado |
 | Compatibilidad Turso/libSQL | Base y rutas HTTP ensayadas en Irlanda | [Compatibilidad](recovery-turso-compatibility.md) y [API asíncrona](recovery-async-api.md), cuenta Free; no son despliegue ni navegador contra Turso |
 | Fotos Cloudinary | PNG/JPEG remotos verificados desde API local | [Ensayo real](recovery-cloudinary-probe.md), bytes idénticos y retirada confirmada; clave temporal desactivada, sin despliegue |
 | Aceptación operativa y seguridad de exposición | Pendiente | Reglas por local, acceso público, dispositivos y operación descritos abajo |
@@ -52,8 +54,9 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 
 La [API asíncrona](recovery-async-api.md) conserva transacciones, autorización y
 recibos y ya tiene evidencia HTTP con Turso. Las fotos tienen evidencia real
-independiente con Cloudinary. Aún faltan configuración de arranque y bootstrap
-remoto, ensayo conjunto, backup remoto y despliegue. No activar el blueprint
+independiente con Cloudinary. El arranque remoto explícito está preparado y
+validado localmente; aún faltan bootstrap remoto, ensayo conjunto, backup remoto
+y despliegue. No activar el blueprint
 antiguo como gratuito. La clave temporal Cloudinary no es una credencial operativa.
 
 ## Instalación nueva local disponible

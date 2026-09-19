@@ -41,6 +41,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [API asíncrona](docs/architecture/recovery-async-api.md): interfaz de aplicación, permisos transaccionales y ensayo HTTP sobre Turso; arranque ordinario aún local.
 - [Fotos Cloudinary](docs/architecture/recovery-cloudinary-storage.md): configuración privada del backend, cuenta pública permitida en el frontend y límites de copia.
 - [Ensayo Cloudinary](docs/architecture/recovery-cloudinary-probe.md): PNG/JPEG reales mediante API local, retirada confirmada y clave temporal desactivada; no es despliegue.
+- [Arranque remoto](docs/architecture/recovery-remote-startup.md): selección explícita, esquema/propietario comprobados sin migraciones automáticas; pendiente bootstrap y validación conjunta.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -71,4 +72,4 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 
 ## Arquitectura vigente
 
-React 18 + TypeScript, Tailwind y React Router para el ERP; Express para la API; SQLite local/persistente. Sesión cliente en memoria, API con sesiones revocables y PIN scrypt. La IA es opcional y no ejecuta escrituras. El servidor se compone en `apps/api/index.js`; las rutas están distribuidas por áreas bajo `apps/api/modules`, junto a seguridad y operaciones transaccionales. Las URLs se conservan.
+React 18 + TypeScript, Tailwind y React Router para el ERP; Express para la API; SQLite local/persistente por defecto y Turso/libSQL explícito sobre esquema ya preparado. Sesión cliente en memoria, API con sesiones revocables y PIN scrypt. La IA es opcional y no ejecuta escrituras. El servidor se compone en `apps/api/index.js`; las rutas están distribuidas por áreas bajo `apps/api/modules`, junto a seguridad y operaciones transaccionales. Las URLs se conservan.
