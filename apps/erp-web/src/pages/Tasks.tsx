@@ -2,58 +2,35 @@ import { useState, useEffect } from 'react';
 import { ClipboardList, Plus, Trash2, Loader2, X, CheckCircle2, Circle, User, CalendarDays } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { readJson, readList, errorMessage } from '../apiResponse';
-
-interface Tarea {
-  id: number;
-  titulo: string;
-  descripcion: string | null;
-  asignado_a: number | null;
-  asignado_nombre: string | null;
-  fecha: string;
-  prioridad: string;
-  completada: boolean;
-}
-
-interface Employee {
-  id: number;
-  nombre: string;
-  rol: string;
-}
-
-const today = new Date().toISOString().split('T')[0];
+import { readJson, errorMessage } from '../apiResponse';
+import { useApiRead } from '../hooks/useApiLists';
+import { emptyTask, formatCivilDate, readTaskWorkspace, type PlannedTask as Tarea } from '../planningData';
+import { localDate } from '../localDate';
+import { isCivilDate } from '../financialValues';
+import RequestError from '../components/RequestError';
 
 export default function Tasks() {
   const { fetchWithAuth } = useAuth();
-  const [tareas, setTareas] = useState<Tarea[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: loadError, reload: fetchData } = useApiRead(['/api/tareas', '/api/usuarios'], readTaskWorkspace);
+  const [tareas, employees] = data ?? [[], []];
+  const today = localDate();
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('pending');
-  const [form, setForm] = useState({ titulo: '', descripcion: '', asignado_a: '', fecha: today, prioridad: 'normal', local: '' });
-
-  const fetchData = () => {
-    setLoading(true); setError('');
-    Promise.all([
-      fetchWithAuth(`${API_URL}/api/tareas`).then(readList<Tarea>),
-      fetchWithAuth(`${API_URL}/api/usuarios`).then(readList<Employee>),
-    ])
-    .then(([t, e]) => { setTareas(t); setEmployees(e); setLoading(false); })
-    .catch(cause => { setError(errorMessage(cause)); setLoading(false); });
-  };
+  const [form, setForm] = useState(emptyTask);
 
   useEffect(() => {
-    fetchData();
     const handleAiAction = () => fetchData();
     window.addEventListener('ai_action_executed', handleAiAction);
     return () => window.removeEventListener('ai_action_executed', handleAiAction);
-  }, []);
+  }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.titulo) return;
+    if (isSubmitting || busy || loading || loadError) return;
+    if (!form.titulo.trim() || !isCivilDate(form.fecha)) { setError('Revisa el título y la fecha de la tarea.'); return; }
     setIsSubmitting(true); setError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/tareas`, {
@@ -66,13 +43,15 @@ export default function Tasks() {
       });
       await readJson(res);
       setShowModal(false);
-      setForm({ titulo: '', descripcion: '', asignado_a: '', fecha: today, prioridad: 'normal', local: '' });
+      setForm(emptyTask());
       fetchData();
     } catch (err) { setError(errorMessage(err)); }
     finally { setIsSubmitting(false); }
   };
 
   const handleToggle = async (tarea: Tarea) => {
+    if (busy || isSubmitting || loading || loadError) return;
+    setBusy(true); setError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/tareas/${tarea.id}/completada`, {
         method: 'PUT',
@@ -80,15 +59,19 @@ export default function Tasks() {
         body: JSON.stringify({ completada: !tarea.completada })
       });
       await readJson(res);
-      fetchData();
-    } catch (err) { setError(errorMessage(err)); }
+      await fetchData();
+    } catch (err) { setError(`${errorMessage(err)} Comprueba el estado antes de repetir el cambio.`); await fetchData(); }
+    finally { setBusy(false); }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (tarea: Tarea) => {
+    if (busy || isSubmitting || loading || loadError || !window.confirm(`¿Eliminar la tarea «${tarea.titulo}»? Esta acción no se puede deshacer.`)) return;
+    setBusy(true); setError('');
     try {
-      await readJson(await fetchWithAuth(`${API_URL}/api/tareas/${id}`, { method: 'DELETE' }));
-      fetchData();
-    } catch (err) { setError(errorMessage(err)); }
+      await readJson(await fetchWithAuth(`${API_URL}/api/tareas/${tarea.id}`, { method: 'DELETE' }));
+      await fetchData();
+    } catch (err) { setError(`${errorMessage(err)} Comprueba la lista antes de repetir la eliminación.`); await fetchData(); }
+    finally { setBusy(false); }
   };
 
   const filtered = tareas.filter(t => {
@@ -110,14 +93,16 @@ export default function Tasks() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {error && !showModal && <div role="alert" className="rounded-lg bg-red-50 text-red-700 p-3">{error} <button type="button" onClick={fetchData} className="underline">Reintentar carga</button></div>}
+      {!showModal && <RequestError message={error} />}
+      <RequestError message={loadError} onRetry={fetchData} />
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <ClipboardList className="text-brand-500" />
           Tareas
         </h2>
         <button 
-          onClick={() => setShowModal(true)}
+          disabled={loading || !!loadError || busy || isSubmitting}
+          onClick={() => { setError(''); setShowModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-full transition-colors shadow-md flex items-center gap-1 px-4"
         >
           <Plus size={18} /> <span className="font-semibold text-sm">Nueva</span>
@@ -125,7 +110,7 @@ export default function Tasks() {
       </div>
 
       {/* Counters + Filters */}
-      <div className="flex gap-2">
+      {!loading && !loadError && <div className="flex gap-2">
         <button onClick={() => setFilter('pending')} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${filter === 'pending' ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}>
           Pendientes <span className="ml-1 bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded-full text-xs">{pendingCount}</span>
         </button>
@@ -135,7 +120,7 @@ export default function Tasks() {
         <button onClick={() => setFilter('all')} className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${filter === 'all' ? 'bg-slate-700 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}>
           Todo
         </button>
-      </div>
+      </div>}
 
       {/* Modal: Nueva Tarea */}
       {showModal && (
@@ -143,17 +128,18 @@ export default function Tasks() {
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nueva Tarea</h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <button aria-label="Cerrar tarea" disabled={isSubmitting} onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X size={20} />
               </button>
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && <p role="alert" className="text-red-700">{error}</p>}
+              <fieldset disabled={isSubmitting || loading || !!loadError} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tarea</label>
+                <label htmlFor="task-title" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tarea</label>
                 <input 
-                  type="text" required autoFocus
+                  id="task-title" type="text" required autoFocus
                   value={form.titulo}
                   onChange={e => setForm({...form, titulo: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500"
@@ -161,9 +147,9 @@ export default function Tasks() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Detalles (Opcional)</label>
+                <label htmlFor="task-description" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Detalles (Opcional)</label>
                 <textarea 
-                  rows={2}
+                  id="task-description" rows={2}
                   value={form.descripcion}
                   onChange={e => setForm({...form, descripcion: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white resize-none"
@@ -172,9 +158,9 @@ export default function Tasks() {
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Asignar a</label>
+                  <label htmlFor="task-assignee" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Asignar a</label>
                   <select 
-                    value={form.asignado_a}
+                    id="task-assignee" value={form.asignado_a}
                     onChange={e => setForm({...form, asignado_a: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   >
@@ -185,9 +171,9 @@ export default function Tasks() {
                   </select>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Prioridad</label>
+                  <label htmlFor="task-priority" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Prioridad</label>
                   <select 
-                    value={form.prioridad}
+                    id="task-priority" value={form.prioridad}
                     onChange={e => setForm({...form, prioridad: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   >
@@ -198,18 +184,18 @@ export default function Tasks() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha</label>
+                <label htmlFor="task-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha</label>
                 <input 
-                  type="date" required
+                  id="task-date" type="date" required
                   value={form.fecha}
                   onChange={e => setForm({...form, fecha: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Local</label>
+                <label htmlFor="task-local" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Local</label>
                 <select 
-                  value={form.local}
+                  id="task-local" value={form.local}
                   onChange={e => setForm({...form, local: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                 >
@@ -224,6 +210,7 @@ export default function Tasks() {
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Crear Tarea"}
               </button>
+              </fieldset>
             </form>
           </div>
         </div>
@@ -231,10 +218,10 @@ export default function Tasks() {
 
       {/* Lista de tareas */}
       {loading ? (
-        <div className="flex justify-center py-12 text-brand-500">
+        <div role="status" aria-label="Cargando tareas" className="flex justify-center py-12 text-brand-500">
           <Loader2 className="animate-spin" size={32} />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : loadError ? null : filtered.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-sm">
           <div className="bg-brand-100 dark:bg-brand-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <ClipboardList size={32} className="text-brand-500" />
@@ -250,7 +237,7 @@ export default function Tasks() {
         <div className="space-y-2">
           {filtered.map((tarea) => {
             const prio = getPrioStyle(tarea.prioridad);
-            const isOverdue = !tarea.completada && new Date(tarea.fecha) < new Date(today);
+            const isOverdue = !tarea.completada && tarea.fecha < today;
             
             return (
               <div 
@@ -259,7 +246,7 @@ export default function Tasks() {
               >
                 {/* Checkbox */}
                 <button 
-                  onClick={() => handleToggle(tarea)}
+                  disabled={busy || isSubmitting} aria-label={`${tarea.completada ? 'Marcar pendiente' : 'Completar'}: ${tarea.titulo}`} onClick={() => handleToggle(tarea)}
                   className={`mt-0.5 flex-shrink-0 transition-colors ${tarea.completada ? 'text-emerald-500' : 'text-slate-300 dark:text-slate-600 hover:text-brand-500'}`}
                 >
                   {tarea.completada ? <CheckCircle2 size={22} /> : <Circle size={22} />}
@@ -288,14 +275,14 @@ export default function Tasks() {
                     <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${isOverdue ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 font-semibold' : 'text-slate-400 bg-slate-50 dark:bg-slate-800'}`}>
                       <CalendarDays size={10} />
                       {isOverdue ? '⚠ Atrasada — ' : ''}
-                      {new Date(tarea.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                      {formatCivilDate(tarea.fecha)}
                     </span>
                   </div>
                 </div>
 
                 {/* Delete */}
                 <button 
-                  onClick={() => handleDelete(tarea.id)}
+                  disabled={busy || isSubmitting} aria-label={`Eliminar tarea: ${tarea.titulo}`} onClick={() => handleDelete(tarea)}
                   className="text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors p-1 flex-shrink-0"
                 >
                   <Trash2 size={14} />

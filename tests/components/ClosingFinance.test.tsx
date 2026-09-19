@@ -115,7 +115,7 @@ describe('Closing editor and history', () => {
 describe('Dashboard boundaries', () => {
   it('renders shared cents, a deterministic latest closing and civil event dates', async () => {
     vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-01-15T12:00:00Z'));
-    mocks.fetchWithAuth.mockImplementation(async url => response(url.endsWith('/cierres') ? [{ ...closing, id: 2, fecha: '2025-12-31' }, { ...closing, total: 5 }] : url.endsWith('/gastos') ? [expense] : url.endsWith('/eventos') ? [{ titulo: 'Próximo evento', fecha: '2026-01-16', tipo: 'Evento' }] : []));
+    mocks.fetchWithAuth.mockImplementation(async url => response(url.endsWith('/cierres') ? [{ ...closing, id: 2, fecha: '2025-12-31' }, { ...closing, total: 5 }] : url.endsWith('/gastos') ? [expense] : url.endsWith('/eventos') ? [{ id: 1, titulo: 'Próximo evento', fecha: '2026-01-16', hora: '10:00', descripcion: '', tipo: 'Evento' }] : []));
     render(<MemoryRouter><Dashboard /></MemoryRouter>);
     const summary = await screen.findByRole('region', { name: 'Resumen financiero mensual' });
     expect(summary).toHaveTextContent('5,00 €'); expect(summary).toHaveTextContent('4,95 €');

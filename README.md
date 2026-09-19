@@ -6,6 +6,8 @@ Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos 
 
 ## Requisitos y arranque local
 
+La continuación de la recuperación de fechas y lecturas está documentada en [agenda y tareas](docs/architecture/recovery-planning-values.md).
+
 - Node 22.23.2 (ver `.node-version`).
 - Un único `package-lock.json` en la raíz; instalar siempre desde la raíz.
 - npm 10/11 para `ci`; si npm 10 falla al actualizar dependencias con `edgesOut`, regenerar con npm 11.19.1 sin ignorar las dependencias peer. No es necesario cambiar la instalación global.

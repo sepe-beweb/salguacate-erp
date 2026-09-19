@@ -4,25 +4,19 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 import { readJson, errorMessage } from '../apiResponse';
-import { useApiLists } from '../hooks/useApiLists';
+import { useApiRead } from '../hooks/useApiLists';
 import RequestError from '../components/RequestError';
 import { localDate } from '../localDate';
 
-interface Evento {
-  id: number;
-  titulo: string;
-  fecha: string;
-  hora: string;
-  descripcion: string;
-  tipo: string;
-}
+import { eventHasPassed, formatCivilDate, isCivilTime, readEvents, type PlannedEvent as Evento } from '../planningData';
+import { isCivilDate } from '../financialValues';
 
 const EMPTY_EVENT = { titulo: '', fecha: '', hora: '10:00', descripcion: '', tipo: 'General' };
 
 export default function ManagerCalendar() {
   const { fetchWithAuth } = useAuth();
-  const { data, loading, error: loadError, reload: fetchEventos } = useApiLists<[Evento]>(['/api/eventos']);
-  const eventos = data?.[0] ?? [];
+  const { data, loading, error: loadError, reload: fetchEventos } = useApiRead(['/api/eventos'], readEvents);
+  const eventos = data ?? [];
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -72,6 +66,7 @@ export default function ManagerCalendar() {
     e.preventDefault();
     if (!formData.titulo || !formData.fecha || !formData.hora || isSubmitting) return;
     setError('');
+    if (!isCivilDate(formData.fecha) || !isCivilTime(formData.hora)) { setError('Revisa la fecha y la hora del evento.'); return; }
     
     setIsSubmitting(true);
     try {
@@ -336,7 +331,7 @@ export default function ManagerCalendar() {
         <div className="space-y-4">
           {eventos.map((evento) => {
             const estilos = getTipoEstilos(evento.tipo);
-            const isPast = new Date(`${evento.fecha}T${evento.hora}`) < new Date();
+            const isPast = eventHasPassed(evento);
             
             return (
               <div 
@@ -362,7 +357,7 @@ export default function ManagerCalendar() {
                   <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
                     <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300">
                       <CalendarIcon size={14} className={estilos.text} />
-                      {new Date(evento.fecha).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      {formatCivilDate(evento.fecha)}
                     </div>
                     <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300">
                       <Clock size={14} className={estilos.text} />

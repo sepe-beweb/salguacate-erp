@@ -2,7 +2,7 @@
 
 ## Estado
 
-Undécimo bloque local en `refactor/recovery-foundation`, pendiente de commit/push. El décimo se publicó como `437e819` y su [CI terminó correctamente](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35429587555). No se ha desplegado ni utilizado una base real.
+Undécimo bloque publicado como `af5808b` en `refactor/recovery-foundation`, con [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35430540100). No se ha desplegado ni utilizado una base real.
 
 ## Panel
 
@@ -34,4 +34,4 @@ JavaScript inicial: 224.059 bytes, 71.884 bytes comprimidos; dentro del presupue
 
 ## Siguiente bloque propuesto
 
-Extender las fechas civiles y la validación de lecturas a agenda y tareas, conservando las reglas de asignación, los permisos y los borradores. Las horas de fichaje seguirán tratándose como instantes.
+La continuación sobre fechas civiles y validación de agenda y tareas se documenta en [el duodécimo bloque](recovery-planning-values.md). Las horas de fichaje siguen tratándose como instantes.

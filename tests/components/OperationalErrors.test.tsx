@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Messages from '../../apps/erp-web/src/pages/employee/Messages';
 import Requests from '../../apps/erp-web/src/pages/employee/Requests';
@@ -57,6 +57,7 @@ describe('Visible operational failures', () => {
   it('keeps the task editor open after failed creation', async () => {
     mocks.fetchWithAuth.mockImplementation(async (_url, options) => options?.method === 'POST' ? response({ error: 'Usuario desactivado' }, 404) : response([]));
     render(<Tasks />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Nueva' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Nueva' }));
     const title = screen.getByPlaceholderText('Ej. Limpiar cámara frigorífica');
     fireEvent.change(title, { target: { value: 'Tarea pendiente' } });
