@@ -13,7 +13,7 @@ async function enter(page: Page, user = 'Jefe Admin', path = '/') {
   await page.getByRole('button', { name: new RegExp(user) }).click();
   await page.getByLabel('PIN de acceso').fill('246810');
   await page.getByRole('button', { name: 'Acceder' }).click();
-  await expect(page.getByText(user === 'María García' ? 'Hola, María 👋' : 'Presencia en Tiempo Real', { exact: true })).toBeVisible();
+  await expect(page.getByText(user === 'María García' ? 'Hola, María 👋' : 'Presencia registrada', { exact: true })).toBeVisible();
 }
 
 test('compiled login defers feature screens and loads each selected route on demand', async ({ page }) => {
@@ -25,7 +25,7 @@ test('compiled login defers feature screens and loads each selected route on dem
   await page.getByRole('button', { name: /Jefe Admin/ }).click();
   await page.getByLabel('PIN de acceso').fill('246810');
   await page.getByRole('button', { name: 'Acceder' }).click();
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   expect(assets).toContain(routeAsset('Dashboard'));
   expect(assets).not.toContain(routeAsset('Analytics'));
   expect(assets.some(url => url.includes('jspdf'))).toBe(false);
@@ -46,7 +46,7 @@ test('compiled login defers feature screens and loads each selected route on dem
   await expect(page.getByRole('heading', { name: 'Gastos', exact: true })).toBeVisible();
   expect(assets).toContain(routeAsset('Expenses'));
   await page.getByRole('button', { name: 'Panel de Control' }).click();
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   expect(assets.filter(url => url === routeAsset('Dashboard'))).toHaveLength(1);
 });
 

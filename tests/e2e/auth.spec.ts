@@ -82,8 +82,8 @@ test.describe('Salguacate ERP - Integración local con datos desechables', () =>
     await expect(page.getByText('Saldo ingresos − gastos', { exact: true })).toBeVisible();
     await expect(page.locator('text=Módulos')).toBeVisible();
 
-    // Debería mostrar la sección premium del Dashboard: "Presencia en Tiempo Real"
-    await expect(page.locator('text=Presencia en Tiempo Real')).toBeVisible();
+    // Debería mostrar la sección premium del Dashboard: "Presencia registrada"
+    await expect(page.locator('text=Presencia registrada')).toBeVisible();
 
     // En pantallas de escritorio (la por defecto en Playwright Chromium), el Sidebar lateral premium debe ser visible
     // El sidebar contiene el texto "ERP Restauración" y la etiqueta del rol "Owner"

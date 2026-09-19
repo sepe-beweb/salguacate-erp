@@ -31,6 +31,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Catálogo y alertas](docs/architecture/recovery-catalog-values.md): lectura compartida, categorías ausentes e identidades de proveedores.
 - [Altas de catálogo](docs/architecture/recovery-catalog-dialogs.md): formularios nativos, cantidades exactas e imágenes aisladas por borrador.
 - [Notas y fijado](docs/architecture/recovery-note-values.md): lectura UTC, autoría y fijado sin sobrescribir ediciones concurrentes.
+- [Presencia registrada](docs/architecture/recovery-presence-values.md): resumen validado, fechas completas y actualización manual explícita.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.

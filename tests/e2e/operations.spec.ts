@@ -7,7 +7,7 @@ async function enter(page: Page) {
   const response = page.waitForResponse(r => r.url().endsWith('/api/login'));
   await page.getByRole('button', { name: 'Acceder' }).click();
   const { token } = await (await response).json();
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   return token as string;
 }
 

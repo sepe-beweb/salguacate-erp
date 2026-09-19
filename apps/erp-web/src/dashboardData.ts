@@ -1,16 +1,16 @@
-import { readList } from './apiResponse';
 import { closingHistory, financialSummary, readFinancialLists, selectFinancialPeriod, type FinancialLists } from './financialData';
 import { isCivilDate } from './financialValues';
 import { readEvents, readTasks, type PlannedEvent, type PlannedTask } from './planningData';
+import { readStock, type StockItem } from './stockData';
+import { readStaff, type StaffMember } from './personnelData';
+import { readPresence, type Presence } from './presenceData';
 
-interface Product { stock_actual?: number; stock_minimo?: number; }
-interface Presence { usuario_id: number; usuario_nombre: string; usuario_local: string; estado_presencia: string; ultimo_fichaje_entrada?: string; ultimo_fichaje_salida?: string; }
-type DashboardLists = [...FinancialLists, PlannedTask[], PlannedEvent[], Product[], unknown[], Presence[]];
+type DashboardLists = [...FinancialLists, PlannedTask[], PlannedEvent[], StockItem[], StaffMember[], Presence[]];
 
 export async function readDashboardLists(responses: Response[]): Promise<DashboardLists> {
   const [financial, tasks, events, products, users, presence] = await Promise.all([
     readFinancialLists(responses.slice(0, 2)), readTasks([responses[2]]), readEvents([responses[3]]),
-    readList<Product>(responses[4]), readList(responses[5]), readList<Presence>(responses[6])
+    readStock(responses[4]), readStaff([responses[5]]), readPresence(responses[6])
   ]);
   return [...financial, tasks, events, products, users, presence];
 }

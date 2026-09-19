@@ -9,7 +9,7 @@ test('notes recover invalid pin flags, display the recorded UTC instant and pres
       await page.getByLabel('PIN de acceso').fill('246810'); const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
       await page.getByRole('button', { name: 'Acceder' }).click();
       const { token } = await (await login).json(); const headers = { Authorization: `Bearer ${token}` };
-      await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+      await expect(page.getByText('Presencia registrada')).toBeVisible();
       const content = `Nota ${timezoneId}`;
       const created = await request.post('http://127.0.0.1:3101/api/notas', { headers, data: { contenido: content, color: 'sepia' } });
       expect(created.ok()).toBe(true); const id = (await created.json()).id;

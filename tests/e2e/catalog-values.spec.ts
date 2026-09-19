@@ -6,7 +6,7 @@ test('mobile catalogue and alerts share quantities, separate supplier identities
   await page.getByLabel('PIN de acceso').fill('246810'); const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
   await page.getByRole('button', { name: 'Acceder' }).click();
   const { token } = await (await login).json(); const headers = { Authorization: `Bearer ${token}` };
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   const ids: number[] = [];
   for (let index = 0; index < 2; index++) {
     const response = await request.post('http://127.0.0.1:3101/api/proveedores', { headers, data: { nombre: '__proto__', telefono: '', email: '' } });

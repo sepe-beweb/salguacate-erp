@@ -7,7 +7,7 @@ async function enter(page: Page) {
   const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
   await page.getByRole('button', { name: 'Acceder' }).click();
   const { token } = await (await login).json();
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -105,7 +105,7 @@ test('cash closing accepts blank optional amounts, rejects a duplicate without l
   await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
   await expect(page.getByRole('paragraph').filter({ hasText: /^Saldo ingresos − gastos$/ })).toBeVisible();
   await page.getByRole('button', { name: 'Panel de Control' }).click();
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 

@@ -1,0 +1,11 @@
+# Presencia registrada y resumen verificable
+
+Vigésimo séptimo bloque. El panel comparte los lectores validados de inventario y plantilla y valida también la presencia antes de mostrar cifras. Rechaza identificadores repetidos, roles o estados desconocidos, fechas inválidas y combinaciones incompatibles de entrada, salida y estado. Una lectura inválida bloquea el resumen completo, sin sustituirla por estados «fuera», contadores cero ni totales parciales. La navegación sigue disponible y el reintento solo consulta.
+
+La presencia no es un seguimiento en tiempo real: la pantalla no consulta automáticamente. Ahora se denomina «Presencia registrada», explica que representa la última carga y permite «Actualizar resumen». Una entrada de otro día muestra su fecha completa, no solo una hora que parezca de hoy. Los instantes UTC se presentan en la zona del navegador, con atributo `time/datetime`; los fichajes nocturnos válidos se conservan. La ausencia de local se indica, sin asignar «Principal» por defecto. El contador «Plantilla activa» incluye los perfiles activos que devuelve la API, no afirma que todos sean empleados.
+
+Las pruebas de componentes cubren datos inválidos, orden, ausencia de local, fichajes nocturnos y actualización conjunta. El navegador usa dos contextos móviles, Los Ángeles y Kiritimati: registra entrada, descanso, vuelta y salida contra la API desechable, comprueba que el panel no cambia sin consulta, recupera una respuesta inválida y verifica fecha y estado tras actualizar. No hay fichajes reales ni cambios en el contrato de escritura o en las reglas de jornada.
+
+Validación local: `npm run check` supera 493 pruebas, lint, TypeScript y build; pasan los 38 recorridos E2E de desarrollo y los 5 de producción local. Arranque: 230281 bytes de JavaScript, 74026 comprimidos y 19 pantallas diferidas. Se revisó la captura móvil y se comprobó la ausencia de desbordamiento horizontal. Sin cambios de dependencias, datos reales ni despliegue.
+
+Siguiente bloque: consolidar el índice de recuperación y contrastar los criterios de salida de esta fase con los scripts, pruebas y límites operativos actuales. El ensayo sobre datos existentes y la publicación de servicios permanecen separados.

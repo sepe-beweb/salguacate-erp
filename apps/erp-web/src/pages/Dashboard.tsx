@@ -7,6 +7,7 @@ import RequestError from '../components/RequestError';
 import { localDate } from '../localDate';
 import { dashboardFinancialSummary, readDashboardLists } from '../dashboardData';
 import { formatCivilDate, formatEuroCents, toCents } from '../financialValues';
+import { formatPresenceTimestamp, presenceTimestamp } from '../presenceData';
 
 interface KPIs {
   // Sales
@@ -50,7 +51,7 @@ export default function Dashboard() {
   const futureEvents = eventos.filter(e => e.fecha >= today).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const proximoEvento = futureEvents.length > 0 ? futureEvents[0] : null;
 
-  const stockBajo = productos.filter(p => p.stock_actual !== undefined && p.stock_minimo !== undefined && p.stock_actual <= p.stock_minimo).length;
+  const stockBajo = productos.filter(p => p.stock_actual <= p.stock_minimo).length;
 
   const kpis: KPIs = {
     ventasMes, ventasMesAnterior, ultimoCierre,
@@ -77,6 +78,8 @@ export default function Dashboard() {
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
           {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
+        <button onClick={reload} className="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">Actualizar resumen</button>
+        <p className="mt-2 text-xs text-slate-500">Datos de la última carga. No se actualizan automáticamente.</p>
       </div>
 
       {/* Revenue Hero Card */}
@@ -147,7 +150,7 @@ export default function Dashboard() {
         </Link>
         <Link to="/rrhh" className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-center transition-colors hover:border-brand-500">
           <p className="text-2xl font-bold text-brand-600 dark:text-brand-400">{kpis.totalEmpleados}</p>
-          <p className="text-xs text-slate-500 mt-0.5">Empleados</p>
+          <p className="text-xs text-slate-500 mt-0.5">Plantilla activa</p>
         </Link>
         <Link to="/inventario" className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-center transition-colors hover:border-emerald-500">
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{kpis.productosStock}</p>
@@ -179,56 +182,52 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Control de Presencia en Tiempo Real */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Presencia en Tiempo Real</h3>
+      {/* Recorded presence from the latest successful read, not a live subscription. */}
+      <section aria-label="Presencia registrada" className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Presencia registrada</h3>
         <div className="space-y-2">
           {presencia.length === 0 ? (
             <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">No hay información de turnos disponible.</p>
           ) : (
             presencia.map(emp => {
-              const dateOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
               
               let statusText = 'Fuera';
               let statusColor = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
               let indicatorColor = 'bg-slate-400';
-              let timeInfo = '';
+              const timestamp = emp.estado_presencia === 'fuera' ? emp.ultimo_fichaje_salida : emp.ultimo_fichaje_entrada;
+              const timeLabel = emp.estado_presencia === 'fuera' ? 'Salida' : 'Entrada';
 
               if (emp.estado_presencia === 'trabajando') {
                 statusText = 'Trabajando';
                 statusColor = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400';
                 indicatorColor = 'bg-emerald-500 animate-pulse';
-                timeInfo = emp.ultimo_fichaje_entrada ? `Entrada: ${new Date(emp.ultimo_fichaje_entrada).toLocaleTimeString('es-ES', dateOpts)}` : '';
               } else if (emp.estado_presencia === 'descanso') {
                 statusText = 'Descanso';
                 statusColor = 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400';
                 indicatorColor = 'bg-amber-500 animate-pulse';
-                timeInfo = 'En pausa';
-              } else if (emp.ultimo_fichaje_salida) {
-                timeInfo = `Salida: ${new Date(emp.ultimo_fichaje_salida).toLocaleTimeString('es-ES', dateOpts)}`;
               }
 
               return (
-                <div key={emp.usuario_id} className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800/40">
-                  <div className="flex items-center gap-2">
+                <div key={emp.usuario_id} className="flex flex-wrap gap-2 justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800/40 [overflow-wrap:anywhere]">
+                  <div className="flex min-w-0 items-center gap-2">
                     <span className={`w-2.5 h-2.5 rounded-full ${indicatorColor}`}></span>
                     <div>
                       <p className="font-semibold text-sm text-slate-900 dark:text-white">{emp.usuario_nombre}</p>
-                      <p className="text-[10px] text-slate-400">{emp.usuario_local || 'Principal'}</p>
+                      <p className="text-[10px] text-slate-500">{emp.usuario_local || 'Local no indicado'}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor}`}>
                       {statusText}
                     </span>
-                    {timeInfo && <p className="text-[10px] text-slate-550 dark:text-slate-400 mt-1 font-medium">{timeInfo}</p>}
+                    <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 font-medium">{timestamp ? <>{timeLabel}: <time dateTime={presenceTimestamp(timestamp).toISOString()}>{formatPresenceTimestamp(timestamp)}</time></> : 'Sin fichajes registrados'}</p>
                   </div>
                 </div>
               );
             })
           )}
         </div>
-      </div>
+      </section>
 
       {/* Locales */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">

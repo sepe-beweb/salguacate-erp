@@ -35,7 +35,7 @@ test('financial screens and printable report agree on cents and civil dates in w
       await page.getByRole('button', { name: /Jefe Admin/ }).click();
       await page.getByLabel('PIN de acceso').fill('246810');
       await page.getByRole('button', { name: 'Acceder' }).click();
-      await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+      await expect(page.getByText('Presencia registrada')).toBeVisible();
       const dashboard = page.getByRole('region', { name: 'Resumen financiero mensual' });
       await expect(dashboard).toContainText('1,00 €');
       await expect(dashboard).toContainText('0,85 €');

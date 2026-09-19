@@ -7,7 +7,7 @@ test('mobile order draft keeps its local, focus and quantities and registers sam
   const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
   await page.getByRole('button', { name: 'Acceder' }).click();
   const { token } = await (await login).json(); const headers = { Authorization: `Bearer ${token}` };
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   const providers: { id: number; name: string; productId: number; product: string }[] = [];
   for (const [index, name] of ['Distribuidor homónimo', 'Distribuidor homónimo', '__proto__'].entries()) {
     const supplier = await request.post('http://127.0.0.1:3101/api/proveedores', { headers, data: { nombre: name, telefono: `60000000${index}` } });

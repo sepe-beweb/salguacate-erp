@@ -7,7 +7,7 @@ async function enter(page: Page) {
   const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
   await page.getByRole('button', { name: 'Acceder' }).click();
   const { token } = await (await login).json();
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -45,7 +45,7 @@ test('lost note response is explicitly confirmed with one persisted note', async
   await page.screenshot({ path: testInfo.outputPath('pending-note-mobile.png'), fullPage: true });
   await page.getByRole('button', { name: 'Cerrar nota' }).click();
   await page.getByRole('button', { name: 'Inicio', exact: true }).click();
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   await page.getByRole('link', { name: 'Revisar nota: por revisar' }).click();
   await page.getByRole('button', { name: 'Recuperar nota pendiente' }).click();
   await expect(page.getByLabel('Contenido de la nota')).toHaveValue(text);
@@ -93,7 +93,7 @@ test('reviewed expense keeps image and fields after a lost response and confirms
   await page.getByRole('button', { name: 'Confirmar guardado pendiente' }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath('pending-expense-mobile.png'), fullPage: true });
   await page.getByRole('button', { name: 'Inicio', exact: true }).click();
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   await page.getByRole('link', { name: 'Revisar gasto: por revisar' }).click();
   await expect(page.getByRole('heading', { name: 'Recuperar gasto de esta sesión' })).toBeVisible();
   await expect(page.getByAltText('Vista previa')).toHaveCount(0);
@@ -133,7 +133,7 @@ test('note success arriving after navigation is consumed on return without a sec
   try {
     await committed;
     await page.goBack();
-    await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+    await expect(page.getByText('Presencia registrada')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Revisar nota: guardando' })).toBeVisible();
   } finally { release(); }
   await expect(page.getByRole('link', { name: 'Revisar nota: confirmado' })).toBeVisible();

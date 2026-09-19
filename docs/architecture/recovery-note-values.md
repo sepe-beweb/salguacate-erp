@@ -15,3 +15,5 @@ Las pruebas verifican autoría ausente, tipos incorrectos, colores históricos, 
 Validación local: `npm run check` supera 473 pruebas, lint, TypeScript y build; pasan 37 recorridos E2E de desarrollo y 5 de producción local. Arranque: 230269 bytes de JavaScript, 74021 comprimidos, dentro del presupuesto vigente.
 
 Siguiente bloque: validación de presencia y cifras de inventario en el panel, manteniendo independientes la navegación y el resto de lecturas financieras ya recuperadas.
+
+Publicado como `80c73def741e7583c946bb386778aad8dbd89105`; [CI correcta](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35443178296). Sin merge ni despliegue.

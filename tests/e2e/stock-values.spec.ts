@@ -10,7 +10,7 @@ test('order history keeps civil dates and recorded lines in western and eastern 
       const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
       await page.getByRole('button', { name: 'Acceder' }).click();
       const { token } = await (await login).json(); const headers = { Authorization: `Bearer ${token}` };
-      await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+      await expect(page.getByText('Presencia registrada')).toBeVisible();
       const name = `Agua ${timezoneId}`;
       const created = await request.post('http://127.0.0.1:3101/api/inventario', { headers, data: { producto: name, stock_actual: 2, stock_minimo: 5, local: 'Segundo Local', categoria: 'Bebida' } });
       expect(created.ok()).toBe(true); const productId = (await created.json()).id;

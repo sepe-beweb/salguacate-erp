@@ -6,7 +6,7 @@ test('mobile supplier and product dialogs retain drafts, reject decimal quantiti
   await page.getByLabel('PIN de acceso').fill('246810'); const login = page.waitForResponse(r => r.url().endsWith('/api/login'));
   await page.getByRole('button', { name: 'Acceder' }).click();
   const { token } = await (await login).json(); const headers = { Authorization: `Bearer ${token}` };
-  await expect(page.getByText('Presencia en Tiempo Real')).toBeVisible();
+  await expect(page.getByText('Presencia registrada')).toBeVisible();
   await page.getByRole('button', { name: 'Abrir navegación' }).click();
   await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Proveedores', exact: true }).click();
   const openProvider = page.getByRole('button', { name: 'Nuevo proveedor' }); await openProvider.click();
