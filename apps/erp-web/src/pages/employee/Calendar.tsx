@@ -1,19 +1,12 @@
 import { Users, Loader2, CalendarX2 } from 'lucide-react';
-import { useApiLists } from '../../hooks/useApiLists';
+import { useApiRead } from '../../hooks/useApiLists';
 import RequestError from '../../components/RequestError';
-
-interface Turno {
-  id: number;
-  fecha: string;
-  hora_inicio: string;
-  hora_fin: string;
-  local: string;
-  compañeros: string;
-}
+import { readShifts } from '../../shiftData';
+import { formatCivilDate } from '../../financialValues';
 
 export default function Calendar() {
-  const { data, loading, error, reload } = useApiLists<[Turno]>(['/api/turnos']);
-  const shifts = data?.[0] ?? [];
+  const { data, loading, error, reload } = useApiRead(['/api/turnos'], readShifts);
+  const shifts = data ?? [];
 
   if (loading) {
     return (
@@ -39,23 +32,22 @@ export default function Calendar() {
       ) : (
         <div className="space-y-4">
           {shifts.map((shift) => {
-            const dateObj = new Date(`${shift.fecha}T12:00:00`);
-            const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short' });
-            const dayNum = dateObj.toLocaleDateString('es-ES', { day: '2-digit' });
+            const dayNum = shift.fecha.slice(8, 10);
             
             return (
               <div key={shift.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-4 transition-colors">
                 <div className="flex flex-col items-center justify-center w-14 h-14 bg-slate-50 dark:bg-slate-800 rounded-lg shrink-0">
-                  <span className="text-xs text-slate-500 capitalize">{dayName}</span>
+                  <span className="text-xs text-slate-500">Día</span>
                   <span className="text-lg font-bold text-slate-900 dark:text-white">{dayNum}</span>
                 </div>
                 
                 <div className="flex-1">
+                  <p className="text-sm text-slate-600 dark:text-slate-300"><time dateTime={shift.fecha}>{formatCivilDate(shift.fecha)}</time></p>
                   <p className="font-semibold text-slate-900 dark:text-white">
                     {shift.hora_inicio} - {shift.hora_fin}
                   </p>
                   <p className="text-xs text-brand-600 dark:text-brand-400 font-medium mb-1">
-                    {shift.local}
+                    {shift.local || 'Local no indicado'}
                   </p>
                   
                   {shift.compañeros && (

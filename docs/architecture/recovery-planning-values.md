@@ -4,6 +4,8 @@
 
 Duodécimo bloque de recuperación. Se validan las listas de eventos, tareas y personas antes de publicarlas. El panel usa las mismas lecturas que sus pantallas; un fallo o registro inválido bloquea la vista afectada, sin contadores parciales ni mensajes de lista vacía ficticios. No se modifica la API, el esquema, las asignaciones ni los permisos.
 
+Publicado como `914a5c1`, con [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35437454652). No acredita despliegue.
+
 Las fechas de eventos y tareas se presentan como `DD/MM/YYYY`, sin convertirlas a instantes UTC. Las tareas vencen por comparación civil con el día local del navegador. La fecha inicial se obtiene al crear el estado del formulario, no al importar el módulo. Los borradores existentes no cambian su fecha automáticamente.
 
 Los eventos se ordenan por fecha, hora e ID; las tareas conservan orden descendente de fecha, pendientes primero en cada día e ID para desempatar. Los estados persistidos 0/1 se normalizan a booleanos tras validación; cadenas como `"0"` se rechazan. Se admiten los tipos históricos de evento como texto, sin restringirlos a las opciones actuales del formulario.
@@ -23,3 +25,5 @@ JavaScript inicial: 224.173 bytes, 71.928 bytes comprimidos, dentro del presupue
 ## Continuación
 
 Aplicar la misma validación de tareas y fechas al panel del empleado y su calendario de turnos. Mantener horas de turno como horas civiles, sin inferir duración, cruce de medianoche ni horas trabajadas.
+
+Continuación implementada en [calendario y panel del empleado](recovery-employee-planning.md).

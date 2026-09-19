@@ -6,7 +6,7 @@ Estado actual: [cimientos](docs/architecture/recovery-foundation.md), [módulos 
 
 ## Requisitos y arranque local
 
-La continuación de la recuperación de fechas y lecturas está documentada en [agenda y tareas](docs/architecture/recovery-planning-values.md).
+La continuación de la recuperación de fechas y lecturas está documentada en [agenda y tareas](docs/architecture/recovery-planning-values.md) y [planificación del empleado](docs/architecture/recovery-employee-planning.md).
 
 - Node 22.23.2 (ver `.node-version`).
 - Un único `package-lock.json` en la raíz; instalar siempre desde la raíz.

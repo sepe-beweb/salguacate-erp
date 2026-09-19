@@ -4,42 +4,24 @@ import { Clock, CalendarDays, Bell, CheckCircle2, Circle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
 
-import { useApiLists } from '../../hooks/useApiLists';
+import { useApiRead } from '../../hooks/useApiLists';
 import { readJson, errorMessage } from '../../apiResponse';
 import { localDate } from '../../localDate';
 import RequestError from '../../components/RequestError';
 
-interface Tarea {
-  id: number;
-  titulo: string;
-  descripcion: string | null;
-  asignado_a: number | null;
-  asignado_nombre: string | null;
-  fecha: string;
-  prioridad: string;
-  completada: boolean;
-  local: string | null;
-}
-
-interface Turno {
-  id: number;
-  fecha: string;
-  hora_inicio: string;
-  hora_fin: string;
-  local: string;
-  compañeros: string;
-}
+import { type PlannedTask as Tarea } from '../../planningData';
+import { readEmployeePlanning } from '../../shiftData';
 
 export default function EmployeeDashboard() {
   const { user, fetchWithAuth } = useAuth();
   const navigate = useNavigate();
-  const { data, loading, error: loadError, reload: fetchDashboardData } = useApiLists<[Tarea, Turno]>(['/api/tareas', '/api/turnos']);
+  const { data, loading, error: loadError, reload: fetchDashboardData } = useApiRead(['/api/tareas', '/api/turnos'], readEmployeePlanning);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const today = localDate();
   const dateStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const tareas = (data?.[0] ?? []).filter(t => t.fecha === today && (t.asignado_a === null || String(t.asignado_a) === user?.id) && (!t.local || t.local === 'Ambos' || t.local === user?.location));
-  const turnoHoy = data?.[1].find(t => t.fecha === today);
+  const turnosHoy = (data?.[1] ?? []).filter(t => t.fecha === today);
 
   const handleToggleTarea = async (tarea: Tarea) => {
     if (busy || loading || loadError) return;
@@ -81,20 +63,22 @@ export default function EmployeeDashboard() {
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <Clock size={100} className="text-slate-900 dark:text-white" />
         </div>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Tu Turno de Hoy</h3>
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">{turnosHoy.length > 1 ? 'Tus Turnos de Hoy' : 'Tu Turno de Hoy'}</h3>
         
-        {turnoHoy ? (
+        {turnosHoy.length > 0 ? (
           <>
+            {turnosHoy.map(turnoHoy => <div key={turnoHoy.id} className="py-3 border-b border-slate-100 dark:border-slate-800">
             <p className="text-3xl font-black text-brand-600 dark:text-brand-400 mb-2">
               {turnoHoy.hora_inicio} - {turnoHoy.hora_fin}
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <CalendarDays size={16} className="text-brand-500" />
-              Hoy en <strong>{turnoHoy.local}</strong>
+              Hoy en <strong>{turnoHoy.local || 'Local no indicado'}</strong>
             </p>
             {turnoHoy.compañeros && (
               <p className="text-xs text-slate-400 mt-1">Con: {turnoHoy.compañeros}</p>
             )}
+            </div>)}
             
             <button 
               onClick={() => navigate('/fichaje')}

@@ -90,7 +90,7 @@ describe('Employee recovery', () => {
   });
 
   it('preserves the authoritative task status on failed completion', async () => {
-    const task = { id: 1, titulo: 'Revisar cámara', completada: false, fecha: localDate(), asignado_a: 3, local: 'Principal', prioridad: 'normal' };
+    const task = { id: 1, titulo: 'Revisar cámara', descripcion: '', asignado_nombre: 'María', completada: false, fecha: localDate(), asignado_a: 3, local: 'Principal', prioridad: 'normal' };
     mocks.fetchWithAuth.mockImplementation(async (url, options) => options?.method === 'PUT' ? response({ error: 'No guardado' }, 409) : response(url.endsWith('/api/tareas') ? [task] : []));
     render(<MemoryRouter><EmployeeDashboard /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('button', { name: /Revisar cámara/ }));

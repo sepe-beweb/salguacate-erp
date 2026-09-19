@@ -17,6 +17,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Valores financieros](docs/architecture/recovery-financial-values.md): fechas civiles, céntimos, lectura conjunta y consistencia de informe/analíticas.
 - [Panel y cierres](docs/architecture/recovery-dashboard-closings.md): resumen mensual, historial validado y vista previa del alta de cierre.
 - [Agenda y tareas](docs/architecture/recovery-planning-values.md): fechas civiles, estados persistidos y lecturas completas compartidas con el panel.
+- [Planificación del empleado](docs/architecture/recovery-employee-planning.md): turnos validados, fecha completa y todos los turnos del día.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
