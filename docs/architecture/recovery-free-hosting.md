@@ -79,9 +79,9 @@ simulados para éxito/fallo y restauración del entorno; no se introdujo un toke
 real. La instalación desde el lockfile no ejecutó scripts de dependencias y la
 consulta de auditoría npm devolvió cero avisos en ese momento.
 
-El acceso remoto sigue pendiente: el navegador disponible muestra la pantalla
-de login de Turso, sin sesión iniciada. No se ha ejecutado el ensayo real ni
-medido su latencia. Estas pruebas no acreditan las puertas siguientes.
+El bloque 32 supera el [ensayo remoto real](recovery-turso-compatibility.md): siete
+comprobaciones correctas contra una base libSQL desechable en Irlanda, sin método
+de pago y con token exclusivo de un día. El ERP aún no usa este adaptador.
 
 1. **Acceso y compatibilidad remota:** cuenta Free, base desechable libSQL y token
    privado. Ejecutar el ensayo real y revisar tiempos: las transacciones libSQL

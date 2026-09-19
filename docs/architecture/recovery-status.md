@@ -8,7 +8,9 @@ Ampliación local del bloque 31: lint y compilación correctos, batería final d
 537 pruebas en 33 archivos (27 nuevas del ensayo/adaptador), 39 recorridos E2E y
 5 de archivos compilados correctos. El SDK HTTP usa transporte simulado y las
 pruebas SQL usan un doble asíncrono local: **no hay validación Turso remota**.
-El navegador disponible requiere login. La evidencia histórica siguiente
+El [bloque 32](recovery-turso-compatibility.md) añade siete comprobaciones reales
+correctas contra Turso/libSQL en una base desechable; el ERP todavía no se ha
+adaptado al acceso remoto. La evidencia histórica siguiente
 corresponde a los bloques anteriores y no sustituye la CI del nuevo commit.
 
 La base de panel/catálogo se publicó con el bloque 27 y la ampliación de fotos como `ccccf5c633fc42880928b50ed805388f246a00a8`, con [CI correcta del bloque 29](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35444372055), correspondiente a 496/39/5 pruebas. El bloque 30 añade el bootstrap explícito; su evidencia local no se atribuye a esa CI anterior. Base validada con Node 22.23.2 y Chrome instalado en Windows:
@@ -29,17 +31,16 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 | Backup/restauración | Herramientas y pruebas desechables disponibles | [Procedimiento](recovery-data.md), incluida revocación de sesiones y conservación de recibos |
 | Migración de datos existentes | No aplicable a la decisión vigente | No hay datos anteriores que conservar; no se han borrado instalaciones |
 | Instalación nueva | Comando y pruebas preparados; destino real no creado | Elegir entorno/rutas y dar de alta el propietario con PIN privado |
-| Compatibilidad Turso/libSQL | Adaptador y ensayo aislados preparados; ensayo remoto pendiente | Cuenta Free, base nueva desechable, token privado y tiempos/transacciones verificados; el ERP activo sigue usando SQLite local |
+| Compatibilidad Turso/libSQL | Ensayo remoto correcto en Irlanda | [Siete comprobaciones](recovery-turso-compatibility.md), cuenta Free sin método de pago; no acredita las rutas del ERP, que aún usa SQLite local |
 | Aceptación operativa y seguridad de exposición | Pendiente | Reglas por local, acceso público, dispositivos y operación descritos abajo |
 | Merge, activación y despliegue | No realizados | Decisión específica, instalación aceptada y procedimiento de copia/vuelta |
 
-## Siguiente paso: compatibilidad remota antes de la instalación
+## Siguiente paso: acceso asíncrono del ERP
 
-Seguir el [ensayo de alojamiento gratuito](recovery-free-hosting.md). El bloque 31
-no conecta las rutas del ERP con Turso: primero se debe ejecutar y aceptar el
-ensayo contra una base remota vacía exclusiva de pruebas. Las comprobaciones
-locales con doble de contrato no sustituyen esa puerta. La adaptación asíncrona,
-Cloudinary, bootstrap remoto, backup remoto y despliegue siguen pendientes.
+El [ensayo remoto real](recovery-turso-compatibility.md) permite avanzar al acceso
+asíncrono de seguridad y operaciones, conservando transacciones, autorización y
+recibos. Aún faltan la validación de las rutas sobre Turso, Cloudinary, bootstrap
+remoto, backup remoto y despliegue. No activar el blueprint antiguo como gratuito.
 
 ## Instalación nueva local disponible
 

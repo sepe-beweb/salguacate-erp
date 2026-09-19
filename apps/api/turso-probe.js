@@ -16,13 +16,15 @@ async function freshSchemaStatements() {
   } finally { local.close(); }
 }
 
-async function runTursoProbe(db) {
+async function runTursoProbe(db, onStep = () => {}) {
   const schema = await freshSchemaStatements();
   const timings = [];
   const timed = async (name, work) => {
+    onStep({ check: name, status: 'running' });
     const start = performance.now();
     const value = await work();
     timings.push({ check: name, milliseconds: Math.round(performance.now() - start) });
+    onStep({ ...timings[timings.length - 1], status: 'passed' });
     return value;
   };
   const assertEqual = (actual, expected, message) => assert.deepEqual(actual, expected, message);

@@ -6,7 +6,7 @@ function readProbeConfig(env, expectedHost) {
   const token = env.SALGUACATE_TURSO_PROBE_TOKEN;
   let url;
   try { url = new URL(raw); } catch { throw new Error('A dedicated Turso probe URL is required.'); }
-  if (!['libsql:', 'https:'].includes(url.protocol) || !/^[a-z0-9][a-z0-9-]*\.turso\.io$/.test(url.hostname) ||
+  if (!['libsql:', 'https:'].includes(url.protocol) || !/^[a-z0-9][a-z0-9-]*(?:\.aws-[a-z0-9-]+)?\.turso\.io$/.test(url.hostname) ||
       url.hostname !== expectedHost || url.username || url.password || url.port || url.search || url.hash || !['', '/'].includes(url.pathname)) {
     throw new Error('The probe URL must match the explicitly confirmed Turso database host, without credentials or options.');
   }

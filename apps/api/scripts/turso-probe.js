@@ -8,7 +8,8 @@ Creates the current schema and synthetic, inactive fixtures in an EMPTY database
 Refuses existing objects. Does not delete the database or fixtures afterwards.
 Requires SALGUACATE_TURSO_PROBE_URL and SALGUACATE_TURSO_PROBE_TOKEN in the process
 environment. Never reads .env or production TURSO_* variables; never logs secrets.
-HOST must exactly match the dedicated database hostname (name.turso.io).
+HOST must exactly match the dedicated database hostname (name.turso.io or
+name.aws-REGION.turso.io, as displayed in the Turso console).
 Do not use a production database or token. No automatic retries or paid services.
 `;
 

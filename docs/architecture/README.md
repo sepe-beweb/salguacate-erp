@@ -14,6 +14,7 @@ Entrada vigente: [estado de recuperación y puertas de salida](recovery-status.m
 - [8. Intentos por sesión](recovery-session-attempts.md): navegación, respuestas tardías y cierre de sesión.
 - [30. Instalación nueva](recovery-fresh-install.md): alta inicial explícita, sin migrar históricos ni sobrescribir bases.
 - [31. Alojamiento gratuito](recovery-free-hosting.md): ensayo Turso desechable, adaptador asíncrono aislado y puertas de integración.
+- [32. Compatibilidad remota](recovery-turso-compatibility.md): resultado real en Turso/libSQL, URL regional, tiempos y límites de la evidencia.
 
 ## Finanzas, planificación y personal
 

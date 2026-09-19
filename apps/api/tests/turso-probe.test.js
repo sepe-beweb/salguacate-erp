@@ -47,6 +47,15 @@ describe('Explicit Turso probe boundary', () => {
     expect(readProbeConfig(env, 'probe-example.turso.io')).toEqual({ url: 'https://probe-example.turso.io', authToken: 'synthetic-token', intMode: 'bigint' });
     expect(() => readProbeConfig({ TURSO_DATABASE_URL: env.SALGUACATE_TURSO_PROBE_URL, TURSO_AUTH_TOKEN: 'production' }, 'probe-example.turso.io')).toThrow();
   });
+  it('accepts the regional AWS hostname returned by the Turso console only when confirmed exactly', () => {
+    const host = 'probe-example.aws-eu-west-1.turso.io';
+    const regional = { ...env, SALGUACATE_TURSO_PROBE_URL: `libsql://${host}` };
+    expect(readProbeConfig(regional, host)).toEqual({ url: `https://${host}`, authToken: 'synthetic-token', intMode: 'bigint' });
+    expect(() => readProbeConfig(regional, 'probe-example.turso.io')).toThrow();
+  });
+  it.each(['probe-example.aws-eu-west-1.turso.io.evil.test', 'probe-example.evil.turso.io', 'probe-example.aws-eu-west-1.evil.turso.io'])('rejects unrecognized regional host %s even when supplied as confirmation', host => {
+    expect(() => readProbeConfig({ ...env, SALGUACATE_TURSO_PROBE_URL: `https://${host}` }, host)).toThrow();
+  });
   it.each(['file:test.sqlite', ':memory:', 'http://probe-example.turso.io', 'libsql://other.turso.io', 'https://probe-example.turso.io.evil.test', 'https://secret@probe-example.turso.io', 'https://probe-example.turso.io?tls=0', 'https://probe-example.turso.io/path', 'https://probe-example.turso.io/#token', 'https://probe-example.turso.io:444'])('refuses unsafe or unconfirmed URL %s', url => {
     expect(() => readProbeConfig({ ...env, SALGUACATE_TURSO_PROBE_URL: url }, 'probe-example.turso.io')).toThrow();
   });
