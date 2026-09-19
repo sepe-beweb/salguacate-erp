@@ -1,6 +1,6 @@
 const { sendDatabaseError } = require('../http');
 const { createOnce } = require('../idempotency');
-const { text, boolean, requireValid, activeUser } = require('../validation');
+const { text, boolean, validId, requireValid, activeUser } = require('../validation');
 
 function registerCommunications(app, { db, requireAuth, requireRole }) {
   // --- RUTAS DE MENSAJES ---
@@ -38,7 +38,7 @@ function registerCommunications(app, { db, requireAuth, requireRole }) {
   // --- RUTAS DE NOTAS ---
 
   app.get('/api/notas', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
-    db.all('SELECT * FROM notas ORDER BY fijada DESC, creado_en DESC', [], (err, rows) => {
+    db.all('SELECT n.*, u.nombre AS autor FROM notas n LEFT JOIN usuarios u ON n.usuario_id = u.id ORDER BY n.fijada DESC, n.creado_en DESC, n.id DESC', [], (err, rows) => {
       if (err) return sendDatabaseError(res, err);
       res.json(rows);
     });
@@ -53,6 +53,18 @@ function registerCommunications(app, { db, requireAuth, requireRole }) {
       return { id, mensaje: 'Nota guardada' };
     });
     res.status(result.status).json(result.body);
+  });
+
+  // Pinning must not write back a stale snapshot of content or colour.
+  app.patch('/api/notas/:id/fijada', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
+    const { id } = req.params;
+    const fijada = req.body?.fijada;
+    requireValid(validId(id) && boolean(fijada), 'Identificador o estado fijado inválido.');
+    db.run('UPDATE notas SET fijada = ? WHERE id = ?', [fijada ? 1 : 0, Number(id)], function(err) {
+      if (err) return sendDatabaseError(res, err);
+      if (!this.changes) return res.status(404).json({ error: 'Nota no encontrada.' });
+      res.json({ id: Number(id), mensaje: 'Estado fijado actualizado' });
+    });
   });
 
   app.put('/api/notas/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {

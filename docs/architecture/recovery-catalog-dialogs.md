@@ -12,4 +12,6 @@ Las pruebas cubren límites, fracciones sin truncar, local inicial y retenido, c
 
 Validación local: `npm run check` supera 453 pruebas, lint, TypeScript y build; pasan 36 recorridos E2E de desarrollo y 5 de producción local. Arranque: 230320 bytes de JavaScript, 74056 comprimidos, dentro del presupuesto existente. Sin despliegue.
 
+Publicado como `148bb75d7d52e97a6eb736a75962e497af59fd97`; [CI completada correctamente](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35442738614).
+
 Siguiente bloque: lectura de notas, estados fijados y marcas de tiempo UTC, conservando los intentos idempotentes existentes.

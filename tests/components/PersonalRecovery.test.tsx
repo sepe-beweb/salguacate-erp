@@ -15,7 +15,7 @@ let pendingCreates: ReturnType<typeof createPendingCreates>;
 vi.mock('../../apps/erp-web/src/context/AuthContext', () => ({ useAuth: () => ({ ...mocks, pendingCreates }) }));
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const writes = () => mocks.fetchWithAuth.mock.calls.filter(([, options]) => options?.method && options.method !== 'GET');
-const note = { id: 1, contenido: 'Nota existente', color: 'yellow', fijada: false, creado_en: '2026-09-19T12:00:00', usuario_id: 3, autor: 'María' };
+const note = { id: 1, contenido: 'Nota existente', color: 'yellow', fijada: false, creado_en: '2026-09-19T12:00:00Z', usuario_id: 3, autor: 'María' };
 const dialogMethods = Object.fromEntries(['showModal', 'close'].map(name => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]));
 beforeAll(() => {
   // jsdom-only shim. Native modal focus and Escape are exercised in browser tests.

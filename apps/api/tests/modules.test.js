@@ -99,6 +99,35 @@ describe('Communications and task permissions', () => {
     await request(app).delete('/api/notas/' + id).set(auth(manager)).expect(404);
     await request(app).put('/api/notas/' + id).set(auth(owner)).send({ contenido: 'Cambio', color: 'blue', fijada: false }).expect(404);
   });
+  it('reads note authors without dropping legacy unattributed notes and keeps stable same-second ordering', async () => {
+    db.connection.prepare("INSERT INTO notas (id,usuario_id,contenido,color,fijada,creado_en) VALUES (1,2,'De gestión','sepia',0,'2024-02-29 23:30:00'), (2,NULL,'Histórica',NULL,0,'2024-02-29 23:30:00')").run();
+    const notes = (await request(app).get('/api/notas').set(auth(owner)).expect(200)).body;
+    expect(notes.map(note => note.id)).toEqual([2, 1]);
+    expect(notes[0]).toMatchObject({ usuario_id: null, autor: null, color: null });
+    expect(notes[1].autor).toBe(db.connection.prepare('SELECT nombre FROM usuarios WHERE id=2').get().nombre);
+    expect(notes[1].creado_en).toBe('2024-02-29 23:30:00');
+    expect(notes.some(note => 'pin' in note || 'pin_hash' in note)).toBe(false);
+  });
+  it('pins only the requested state, preserving content, colour, author and creation time edited by another client', async () => {
+    const { body: { id } } = await request(app).post('/api/notas').set(auth(manager)).send({ contenido: 'Original', color: 'yellow' }).expect(200);
+    await request(app).put('/api/notas/' + id).set(auth(owner)).send({ contenido: 'Edición más reciente', color: 'sepia', fijada: false }).expect(200);
+    const before = db.connection.prepare('SELECT * FROM notas WHERE id=?').get(id);
+    await request(app).patch(`/api/notas/${id}/fijada`).set(auth(manager)).send({ fijada: true, contenido: 'Original', color: 'yellow' }).expect(200);
+    expect(db.connection.prepare('SELECT * FROM notas WHERE id=?').get(id)).toEqual({ ...before, fijada: 1 });
+    await request(app).patch(`/api/notas/${id}/fijada`).set(auth(owner)).send({ fijada: true }).expect(200);
+    await request(app).patch(`/api/notas/${id}/fijada`).set(auth(owner)).send({ fijada: false }).expect(200);
+    expect(db.connection.prepare('SELECT * FROM notas WHERE id=?').get(id)).toEqual(before);
+  });
+  it('requires authentication, management role and a valid note ID and pinned state', async () => {
+    const { body: { id } } = await request(app).post('/api/notas').set(auth(owner)).send({ contenido: 'Original' }).expect(200);
+    await request(app).patch(`/api/notas/${id}/fijada`).send({ fijada: true }).expect(401);
+    await request(app).patch(`/api/notas/${id}/fijada`).set(auth(employee)).send({ fijada: true }).expect(403);
+    await request(app).patch(`/api/notas/${id}/fijada`).set(auth(owner)).expect(400);
+    for (const fijada of ['false', null, {}, [], 2]) await request(app).patch(`/api/notas/${id}/fijada`).set(auth(owner)).send({ fijada }).expect(400);
+    for (const target of ['0', '-1', '1.5', 'abc', '9007199254740992']) await request(app).patch(`/api/notas/${target}/fijada`).set(auth(owner)).send({ fijada: true }).expect(400);
+    await request(app).patch('/api/notas/999/fijada').set(auth(owner)).send({ fijada: true }).expect(404);
+    expect(db.connection.prepare('SELECT fijada FROM notas WHERE id=?').get(id).fijada).toBe(0);
+  });
   it('filters employee tasks by both assignment and location and enforces the same rule on writes', async () => {
     for (const data of [task, { ...task, asignado_a: 2 }, { ...task, local: 'Segundo Local' }, { ...task, asignado_a: null, local: 'Ambos' }]) {
       await request(app).post('/api/tareas').set(auth(manager)).send(data).expect(200);

@@ -4,19 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 
 import { readJson, errorMessage } from '../apiResponse';
-import { useApiLists } from '../hooks/useApiLists';
+import { useApiRead } from '../hooks/useApiLists';
+import { readNotes, noteCreatedAt, type Note as Nota } from '../noteData';
 import RequestError from '../components/RequestError';
 import { useIdempotentCreate } from '../hooks/useIdempotentCreate';
-
-interface Nota {
-  id: number;
-  contenido: string;
-  color: string;
-  fijada: boolean;
-  creado_en: string;
-  usuario_id: number | null;
-  autor: string | null;
-}
 
 const COLORS = [
   { id: 'yellow', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-700', accent: 'bg-amber-400' },
@@ -29,11 +20,12 @@ const COLORS = [
 export default function Notes() {
   const { user, fetchWithAuth } = useAuth();
   const { submit: createNote, locked, discard, payload, inFlight: isSubmitting, confirmedId, recoveryError } = useIdempotentCreate<{ contenido: string; color: string }>('/api/notas');
-  const { data, loading, error: loadError, reload: fetchNotas } = useApiLists<[Nota]>(['/api/notas']);
-  const notas = data?.[0] ?? [];
+  const { data, loading, error: loadError, reload: fetchNotas } = useApiRead(['/api/notas'], readNotes);
+  const notas = data ?? [];
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
+  const mutationInFlight = useRef(false);
   const modalRef = useRef<HTMLDialogElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const [voiceConsent, setVoiceConsent] = useState(false);
@@ -120,7 +112,8 @@ export default function Notes() {
   };
 
   const handleDelete = async (id: number) => {
-    if (busy || !window.confirm('¿Eliminar esta nota? Esta acción no se puede deshacer.')) return;
+    if (mutationInFlight.current || loading || loadError || !window.confirm('¿Eliminar esta nota? Esta acción no se puede deshacer.')) return;
+    mutationInFlight.current = true;
     setBusy(true); setError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/notas/${id}`, { method: 'DELETE' });
@@ -128,30 +121,32 @@ export default function Notes() {
       await fetchNotas();
     } catch (err) {
       setError(`${errorMessage(err)} Comprueba la lista antes de repetir la eliminación.`);
-    } finally { setBusy(false); }
+      await fetchNotas();
+    } finally { mutationInFlight.current = false; setBusy(false); }
   };
 
   const handleTogglePin = async (nota: Nota) => {
-    if (busy) return;
+    if (mutationInFlight.current || loading || loadError) return;
+    mutationInFlight.current = true;
     setBusy(true); setError('');
     try {
-      const response = await fetchWithAuth(`${API_URL}/api/notas/${nota.id}`, {
-        method: 'PUT',
+      const response = await fetchWithAuth(`${API_URL}/api/notas/${nota.id}/fijada`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contenido: nota.contenido, color: nota.color, fijada: !nota.fijada })
+        body: JSON.stringify({ fijada: !nota.fijada })
       });
       await readJson(response);
       await fetchNotas();
     } catch (err) {
-      setError(errorMessage(err));
-    } finally { setBusy(false); }
+      setError(`${errorMessage(err)} Comprueba el estado antes de repetir el cambio.`);
+      await fetchNotas();
+    } finally { mutationInFlight.current = false; setBusy(false); }
   };
 
-  const getColorStyle = (colorId: string) => COLORS.find(c => c.id === colorId) || COLORS[0];
+  const getColorStyle = (colorId: string | null) => COLORS.find(c => c.id === colorId) || { bg: 'bg-slate-50 dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-700' };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return noteCreatedAt(dateStr).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -288,7 +283,7 @@ export default function Notes() {
             return (
               <div 
                 key={nota.id} 
-                className={`${style.bg} border ${style.border} rounded-2xl p-4 shadow-sm transition-all relative group`}
+                className={`${style.bg} border ${style.border} rounded-2xl p-4 shadow-sm transition-all relative group min-w-0 [overflow-wrap:anywhere]`}
               >
                 {nota.fijada && (
                   <div className="absolute -top-1.5 -right-1.5 bg-brand-500 text-white rounded-full p-1 shadow-md">
@@ -299,15 +294,14 @@ export default function Notes() {
                 <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap text-sm leading-relaxed">
                   {nota.contenido}
                 </p>
+                {!COLORS.some(color => color.id === nota.color) && <p className="mt-2 text-xs text-slate-500">Color registrado: {nota.color || 'sin color'}</p>}
 
                 <div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/30">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-xs text-slate-400">{formatDate(nota.creado_en)}</span>
-                    {nota.autor && (
+                    <time dateTime={noteCreatedAt(nota.creado_en).toISOString()} className="text-xs text-slate-500">{formatDate(nota.creado_en)}</time>
                       <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <User size={10} /> {nota.autor}
+                        <User size={10} /> {nota.autor || (nota.usuario_id === null ? 'Autor no registrado' : `Autor no disponible (#${nota.usuario_id})`)}
                       </span>
-                    )}
                   </div>
                   <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                     <button 
