@@ -12,6 +12,8 @@ La recuperación de borradores y accesibilidad continúa en [modales de planific
 
 La consulta y revisión de personal continúa en [peticiones y RRHH](docs/architecture/recovery-personnel-requests.md).
 
+Los formularios de personal y el aislamiento E2E se describen en [editores de plantilla y turnos](docs/architecture/recovery-personnel-dialogs.md).
+
 - Node 22.23.2 (ver `.node-version`).
 - Un único `package-lock.json` en la raíz; instalar siempre desde la raíz.
 - npm 10/11 para `ci`; si npm 10 falla al actualizar dependencias con `edgesOut`, regenerar con npm 11.19.1 sin ignorar las dependencias peer. No es necesario cambiar la instalación global.
@@ -35,6 +37,7 @@ El servidor solo escucha tras completar las migraciones. `GET /api/health` indic
 - `npm run check`: lint, pruebas de API/componentes y compilación web.
 - `npx --no-install playwright install chromium`, después `npm run test:e2e`.
 - En Windows se puede definir `E2E_CHROME_PATH` con la ruta del ejecutable Chrome instalado.
+- La batería funcional usa una API en memoria nueva por archivo, conservando los límites de acceso reales; los artefactos se separan bajo `test-results/e2e`. Para una selección concreta: `npm run test:e2e -- nombre.spec.ts`.
 - `npm run test:e2e:production`: comprueba el tamaño del arranque y la carga/recuperación de rutas sobre archivos compilados servidos localmente. Ejecutar después de E2E, nunca a la vez: comparten los puertos de prueba. No despliega.
 - E2E reserva `127.0.0.1:5174` y `127.0.0.1:3101`, no reutiliza servidores y crea una base exclusivamente en memoria. Las credenciales bajo `tests/fixtures` no se cargan en el arranque normal.
 - `npm audit` consulta avisos actuales; no equivale a una auditoría completa de seguridad.

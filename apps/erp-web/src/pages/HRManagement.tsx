@@ -7,8 +7,12 @@ import { useApiRead } from '../hooks/useApiLists';
 import { readPersonnelWorkspace, requestCreatedAt, type StaffMember as Employee } from '../personnelData';
 import { formatCivilDate } from '../financialValues';
 import RequestError from '../components/RequestError';
+import ModalDialog from '../components/ModalDialog';
+import { isCivilDate } from '../financialValues';
+import { isCivilTime } from '../planningData';
 
 const EMPTY_EMP = { nombre: '', rol: 'employee', local: 'Principal', telefono: '', pin: '' };
+const emptyShift = () => ({ usuario_id: '', fecha: '', hora_inicio: '18:00', hora_fin: '02:00', local: 'Principal', compañeros: '' });
 
 export default function HRManagement() {
   const { fetchWithAuth, user } = useAuth();
@@ -23,12 +27,14 @@ export default function HRManagement() {
   const [showEmpModal, setShowEmpModal] = useState(false);
   const [editingEmpId, setEditingEmpId] = useState<number | null>(null);
   const [empForm, setEmpForm] = useState(EMPTY_EMP);
+  const [empDirty, setEmpDirty] = useState(false);
   const [isEmpSubmitting, setIsEmpSubmitting] = useState(false);
   const [crudError, setCrudError] = useState('');
 
   // Shift modal
   const [showShiftModal, setShowShiftModal] = useState(false);
-  const [newShift, setNewShift] = useState({ usuario_id: '', fecha: '', hora_inicio: '18:00', hora_fin: '02:00', local: 'Principal', compañeros: '' });
+  const [newShift, setNewShift] = useState(emptyShift);
+  const [shiftDirty, setShiftDirty] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -38,20 +44,35 @@ export default function HRManagement() {
   }, [fetchData]);
 
   // --- Employee CRUD ---
+  const closeEmployee = () => {
+    if (isEmpSubmitting) return;
+    setEmpForm(form => ({ ...form, pin: '' }));
+    setShowEmpModal(false);
+  };
+  const discardEmployee = () => {
+    if (isEmpSubmitting || !confirm('¿Descartar el borrador de empleado?')) return;
+    setEmpForm(EMPTY_EMP); setEditingEmpId(null); setEmpDirty(false); setCrudError(''); setShowEmpModal(false);
+  };
   const openNewEmp = () => {
+    if (empDirty && editingEmpId === null) { setShowEmpModal(true); return; }
+    if (empDirty && !confirm('¿Descartar la edición pendiente para añadir otro empleado?')) return;
     setEditingEmpId(null);
+    setEmpDirty(false);
     setCrudError('');
     setEmpForm(EMPTY_EMP);
     setShowEmpModal(true);
   };
 
   const openEditEmp = (emp: Employee) => {
+    if (empDirty && editingEmpId === emp.id) { setShowEmpModal(true); return; }
+    if (empDirty && !confirm('¿Descartar el borrador pendiente para editar este empleado?')) return;
     setEditingEmpId(emp.id);
+    setEmpDirty(false);
     setCrudError('');
     setEmpForm({ 
       nombre: emp.nombre, 
       rol: emp.rol, 
-      local: emp.local || 'Principal', 
+      local: emp.local ?? '',
       telefono: emp.telefono || '', 
       pin: '' // Dejar PIN vacío al iniciar edición (para no exponerlo)
     });
@@ -60,7 +81,13 @@ export default function HRManagement() {
 
   const handleEmpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!empForm.nombre || isEmpSubmitting || isSubmitting || busy || loading || loadError) return;
+    if (isEmpSubmitting || isSubmitting || busy || loading || loadError) return;
+    if (!empForm.nombre.trim() || empForm.nombre.length > 120 || empForm.telefono.length > 40 || !['Principal', 'Segundo Local', 'Todos'].includes(empForm.local)) {
+      setCrudError('Revisa el nombre, teléfono y local del empleado.'); return;
+    }
+    if ((!editingEmpId || empForm.pin) && (!/^\d{6,8}$/.test(empForm.pin) || /^(\d)\1+$/.test(empForm.pin))) {
+      setCrudError('Indica un PIN de 6 a 8 dígitos que no sean todos iguales.'); return;
+    }
     setIsEmpSubmitting(true);
     setCrudError('');
     try {
@@ -70,10 +97,6 @@ export default function HRManagement() {
       const method = editingEmpId ? 'PUT' : 'POST';
       
       const payload = { ...empForm };
-      if (!editingEmpId && !payload.pin) {
-        alert('Indica un PIN de 6 a 8 dígitos para el nuevo empleado.');
-        return;
-      }
 
       const res = await fetchWithAuth(url, {
         method,
@@ -85,9 +108,10 @@ export default function HRManagement() {
         setShowEmpModal(false);
         setEditingEmpId(null);
         setEmpForm(EMPTY_EMP);
+        setEmpDirty(false);
         fetchData();
     } catch (err) {
-      setCrudError(errorMessage(err));
+      setCrudError(`${errorMessage(err)} Consulta la plantilla antes de repetir si se perdió la conexión.`);
     } finally {
       setIsEmpSubmitting(false);
     }
@@ -108,7 +132,10 @@ export default function HRManagement() {
   // --- Shift assignment ---
   const handleAssignShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newShift.usuario_id || !newShift.fecha || isSubmitting || isEmpSubmitting || busy || loading || loadError) return;
+    if (isSubmitting || isEmpSubmitting || busy || loading || loadError) return;
+    if (!employees.some(emp => emp.id === Number(newShift.usuario_id)) || !isCivilDate(newShift.fecha) || !isCivilTime(newShift.hora_inicio) || !isCivilTime(newShift.hora_fin)) {
+      setCrudError('Selecciona una persona activa, fecha y horas válidas.'); return;
+    }
     setIsSubmitting(true); setCrudError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/turnos`, {
@@ -118,11 +145,10 @@ export default function HRManagement() {
       });
       await readJson(res);
         setShowShiftModal(false);
-        setNewShift({ usuario_id: '', fecha: '', hora_inicio: '18:00', hora_fin: '02:00', local: 'Principal', compañeros: '' });
+        setNewShift(emptyShift()); setShiftDirty(false);
         fetchData();
     } catch (err) {
-      console.error(err);
-      setCrudError(errorMessage(err));
+      setCrudError(`${errorMessage(err)} Consulta los turnos antes de repetir si se perdió la conexión.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -177,6 +203,8 @@ export default function HRManagement() {
           <Plus size={18} /> <span className="font-semibold text-sm">Empleado</span>
         </button>
       </div>
+
+      {empDirty && <button type="button" disabled={busy || isSubmitting || isEmpSubmitting} onClick={() => setShowEmpModal(true)} className="text-brand-700 underline">Retomar borrador de empleado</button>}
 
       <div className="grid grid-cols-2 gap-4">
         <button type="button" disabled={busy || isSubmitting || isEmpSubmitting}
@@ -347,27 +375,27 @@ export default function HRManagement() {
 
       {/* --- CRUD MODAL --- */}
       {showEmpModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <ModalDialog label={editingEmpId ? 'Editar Empleado' : 'Añadir Empleado'} busy={isEmpSubmitting} onClose={closeEmployee}>
           <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 {editingEmpId ? "Editar Empleado" : "Añadir Empleado"}
               </h3>
               <button 
-                aria-label="Cerrar empleado" disabled={isEmpSubmitting} onClick={() => setShowEmpModal(false)}
+                aria-label="Cerrar empleado" disabled={isEmpSubmitting} onClick={closeEmployee}
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleEmpSubmit} className="space-y-4">
+            <form onSubmit={handleEmpSubmit} onChange={() => setEmpDirty(true)} className="space-y-4">
               <fieldset disabled={isEmpSubmitting} className="space-y-4">
               {crudError && <p role="alert" className="text-red-700">{crudError}</p>}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre Completo</label>
+                <label htmlFor="staff-name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre Completo</label>
                 <input 
-                  type="text" required
+                  id="staff-name" data-autofocus type="text" required maxLength={120}
                   value={empForm.nombre}
                   onChange={e => setEmpForm({...empForm, nombre: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
@@ -376,8 +404,8 @@ export default function HRManagement() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rol</label>
-                  <select 
+                  <label htmlFor="staff-role" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Rol</label>
+                  <select id="staff-role"
                     value={empForm.rol}
                     onChange={e => setEmpForm({...empForm, rol: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
@@ -388,8 +416,8 @@ export default function HRManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Local</label>
-                  <select 
+                  <label htmlFor="staff-location" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Local</label>
+                  <select id="staff-location" required
                     value={empForm.local}
                     onChange={e => setEmpForm({...empForm, local: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
@@ -397,13 +425,14 @@ export default function HRManagement() {
                     <option value="Principal">Principal</option>
                     <option value="Segundo Local">Segundo Local</option>
                     <option value="Todos">Todos</option>
+                    {!['Principal', 'Segundo Local', 'Todos'].includes(empForm.local) && <option value={empForm.local}>{empForm.local || 'Selecciona local...'}</option>}
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
+                <label htmlFor="staff-phone" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Teléfono</label>
                 <input 
-                  type="tel"
+                  id="staff-phone" type="tel" maxLength={40}
                   value={empForm.telefono}
                   onChange={e => setEmpForm({...empForm, telefono: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
@@ -411,9 +440,9 @@ export default function HRManagement() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">PIN de Acceso</label>
+                <label htmlFor="staff-pin" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">PIN de Acceso</label>
                 <input 
-                  type="text"
+                  id="staff-pin" type="password" autoComplete="new-password" required={!editingEmpId} pattern="[0-9]{6,8}" aria-describedby="staff-pin-help"
                   inputMode="numeric"
                   maxLength={8}
                   value={empForm.pin}
@@ -421,7 +450,7 @@ export default function HRManagement() {
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white font-mono tracking-widest text-center"
                   placeholder={editingEmpId ? "Vacío para mantener el PIN actual" : "PIN de 6 a 8 dígitos"}
                 />
-                <p className="text-xs text-slate-400 mt-1">Mínimo 4 dígitos. Se usa para entrar a la app.</p>
+                <p id="staff-pin-help" className="text-xs text-slate-400 mt-1">De 6 a 8 dígitos, no todos iguales. En edición, vacío conserva el PIN actual. Al cerrar se borra este campo por seguridad.</p>
               </div>
               <button 
                 type="submit" disabled={isEmpSubmitting}
@@ -429,15 +458,16 @@ export default function HRManagement() {
               >
                 {isEmpSubmitting ? <Loader2 size={20} className="animate-spin" /> : (editingEmpId ? "Guardar Cambios" : "Añadir Empleado")}
               </button>
+              {empDirty && <button type="button" onClick={discardEmployee} className="text-red-700 underline">Descartar borrador de empleado</button>}
               </fieldset>
             </form>
           </div>
-        </div>
+        </ModalDialog>
       )}
 
       {/* --- SHIFT MODAL --- */}
       {showShiftModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <ModalDialog label="Asignar Turno" busy={isSubmitting} onClose={() => setShowShiftModal(false)}>
           <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Asignar Turno</h3>
@@ -449,12 +479,12 @@ export default function HRManagement() {
               </button>
             </div>
 
-            <form onSubmit={handleAssignShift} className="space-y-4">
+            <form onSubmit={handleAssignShift} onChange={() => setShiftDirty(true)} className="space-y-4">
               <fieldset disabled={isSubmitting} className="space-y-4">
               {crudError && <p role="alert" className="text-red-700">{crudError}</p>}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Empleado</label>
-                <select 
+                <label htmlFor="shift-employee" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Empleado</label>
+                <select id="shift-employee" data-autofocus
                   required
                   value={newShift.usuario_id}
                   onChange={e => setNewShift({...newShift, usuario_id: e.target.value})}
@@ -466,8 +496,8 @@ export default function HRManagement() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha</label>
-                  <input 
+                  <label htmlFor="shift-date" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fecha</label>
+                  <input id="shift-date"
                     type="date" required
                     value={newShift.fecha}
                     onChange={e => setNewShift({...newShift, fecha: e.target.value})}
@@ -475,8 +505,8 @@ export default function HRManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Local</label>
-                  <select 
+                  <label htmlFor="shift-location" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Local</label>
+                  <select id="shift-location"
                     value={newShift.local}
                     onChange={e => setNewShift({...newShift, local: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
@@ -488,8 +518,8 @@ export default function HRManagement() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Hora Inicio</label>
-                  <input 
+                  <label htmlFor="shift-start" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Hora Inicio</label>
+                  <input id="shift-start"
                     type="time" required
                     value={newShift.hora_inicio}
                     onChange={e => setNewShift({...newShift, hora_inicio: e.target.value})}
@@ -497,8 +527,8 @@ export default function HRManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Hora Fin</label>
-                  <input 
+                  <label htmlFor="shift-end" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Hora Fin</label>
+                  <input id="shift-end"
                     type="time" required
                     value={newShift.hora_fin}
                     onChange={e => setNewShift({...newShift, hora_fin: e.target.value})}
@@ -507,8 +537,8 @@ export default function HRManagement() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Compañeros (Opcional)</label>
-                <input 
+                <label htmlFor="shift-colleagues" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Compañeros (Opcional)</label>
+                <input id="shift-colleagues"
                   type="text"
                   value={newShift.compañeros}
                   onChange={e => setNewShift({...newShift, compañeros: e.target.value})}
@@ -522,10 +552,11 @@ export default function HRManagement() {
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Guardar Turno"}
               </button>
+              {shiftDirty && <button type="button" className="text-red-700 underline" onClick={() => { if (confirm('¿Descartar el borrador de turno?')) { setNewShift(emptyShift()); setShiftDirty(false); setCrudError(''); setShowShiftModal(false); } }}>Descartar borrador de turno</button>}
               </fieldset>
             </form>
           </div>
-        </div>
+        </ModalDialog>
       )}
     </div>
   );

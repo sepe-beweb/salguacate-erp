@@ -20,6 +20,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Planificación del empleado](docs/architecture/recovery-employee-planning.md): turnos validados, fecha completa y todos los turnos del día.
 - [Modales de planificación](docs/architecture/recovery-planning-dialogs.md): foco nativo, Escape seguro y descarte explícito de borradores.
 - [Peticiones de personal](docs/architecture/recovery-personnel-requests.md): lecturas validadas, fechas civiles, decisiones bloqueadas y acceso móvil.
+- [Editores de personal](docs/architecture/recovery-personnel-dialogs.md): diálogos nativos, borradores, PIN y aislamiento E2E por archivo.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.

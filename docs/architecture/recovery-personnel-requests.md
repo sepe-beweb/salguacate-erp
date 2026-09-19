@@ -8,4 +8,6 @@ Durante el envío se bloquean los campos y se conserva el borrador si falla. Las
 
 Validación local: `npm run check` correcto con 291 pruebas, lint, TypeScript y compilación; 26 pruebas funcionales de navegador y 5 sobre archivos compilados. El flujo real local de envío y rechazo se comprueba en móvil en Los Ángeles y Kiritimati, conservando las fechas 29/02/2024 y 01/03/2024. Se revisó la captura móvil del revisor. Presupuesto inicial: 224.710 bytes de JavaScript, 72.015 comprimidos.
 
-Sin cambios de esquema, permisos o dependencias. Sin datos reales, despliegue ni servicios externos. Siguiente bloque: diálogos de plantilla y asignación de turnos, etiquetas accesibles, validación de PIN y conservación explícita de borradores.
+Sin cambios de esquema, permisos o dependencias. Sin datos reales, despliegue ni servicios externos.
+
+Publicado en `51400086754bbf32400a9ff176e245e5e54d6876`; [CI correcto](https://github.com/sepe-beweb/salguacate-erp/actions/runs/35438715377). Continuación: [editores de plantilla y turnos](recovery-personnel-dialogs.md).
