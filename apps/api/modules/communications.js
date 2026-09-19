@@ -1,4 +1,5 @@
 const { sendDatabaseError } = require('../http');
+const { createOnce } = require('../idempotency');
 const { text, boolean, requireValid, activeUser } = require('../validation');
 
 function registerCommunications(app, { db, requireAuth, requireRole }) {
@@ -46,13 +47,12 @@ function registerCommunications(app, { db, requireAuth, requireRole }) {
   app.post('/api/notas', requireAuth, requireRole(['owner', 'manager']), (req, res) => {
     const { contenido, color } = req.body;
     requireValid(text(contenido, 5000) && text(color ?? 'yellow', 30), 'Contenido o color de nota inválidos.');
-    db.run(`INSERT INTO notas (usuario_id, contenido, color, fijada) VALUES (?, ?, ?, 0)`,
-      [req.user.id, contenido, color || 'yellow'],
-      function(err) {
-        if (err) return sendDatabaseError(res, err);
-        res.json({ id: this.lastID, mensaje: 'Nota guardada' });
-      }
-    );
+    const result = createOnce(db, req, 'note.create', [contenido, color ?? 'yellow'], 200, sql => {
+      const id = Number(sql.prepare('INSERT INTO notas (usuario_id, contenido, color, fijada) VALUES (?, ?, ?, 0)').run(req.user.id, contenido, color ?? 'yellow').lastInsertRowid);
+      sql.prepare('INSERT INTO audit_events (actor_id, action, entity_id) VALUES (?, ?, ?)').run(req.user.id, 'note.created', String(id));
+      return { id, mensaje: 'Nota guardada' };
+    });
+    res.status(result.status).json(result.body);
   });
 
   app.put('/api/notas/:id', requireAuth, requireRole(['owner', 'manager']), (req, res) => {

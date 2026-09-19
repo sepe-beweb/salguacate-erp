@@ -6,6 +6,7 @@ import { readJson, errorMessage } from '../apiResponse';
 import { localDate } from '../localDate';
 import { parseScanResult, type ScanMode, type ScanResult } from '../scannerResult';
 import RequestError from '../components/RequestError';
+import { useIdempotentCreate } from '../hooks/useIdempotentCreate';
 
 interface ScannedDoc { id: string; name: string; date: string; dataUrl: string; }
 const emptyInvoice = () => ({ fecha: localDate(), local: 'Principal', proveedor_nombre: '', total: '', concepto: '' });
@@ -22,6 +23,7 @@ function loadImage(source: string): Promise<HTMLImageElement> {
 
 export default function Scanner() {
   const { fetchWithAuth } = useAuth();
+  const { submit: createExpense, locked, discard } = useIdempotentCreate('/api/gastos');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -43,7 +45,7 @@ export default function Scanner() {
   const handleCapture = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || pending.current) return;
+    if (!file || pending.current || locked) return;
     setError(''); setSuccess('');
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
       setError('Selecciona una imagen JPEG, PNG o WebP de hasta 10 MB.'); return;
@@ -54,11 +56,11 @@ export default function Scanner() {
     } catch { setError('No se pudo abrir la imagen. Selecciónala de nuevo.'); }
   };
   const changeMode = (mode: ScanMode) => {
-    if (pending.current || mode === scanMode) return;
+    if (pending.current || locked || mode === scanMode) return;
     setScanMode(mode); setAiResult(null); setConsent(false); setError('');
   };
   const processImage = async () => {
-    if (!imageSrc || pending.current || (scanMode !== 'pdf' && !consent)) return;
+    if (!imageSrc || pending.current || locked || (scanMode !== 'pdf' && !consent)) return;
     pending.current = true;
     const request = ++operation.current;
     setIsProcessing(true); setError(''); setSuccess('');
@@ -108,12 +110,10 @@ export default function Scanner() {
     const request = ++operation.current;
     setIsProcessing(true); setError(''); setSuccess('');
     try {
-      await readJson(await fetchWithAuth(`${API_URL}/api/gastos`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(invoiceForm)
-      }));
+      await createExpense(invoiceForm);
       if (request === operation.current) { clearImage(); setSuccess('Gasto registrado correctamente.'); }
     } catch (cause) {
-      if (request === operation.current) setError(`${errorMessage(cause)} Se conserva el borrador. Si se perdió la conexión, comprueba los gastos antes de repetir el registro.`);
+      if (request === operation.current) setError(`${errorMessage(cause)} Se conserva el borrador.`);
     } finally {
       if (request === operation.current) { pending.current = false; setIsProcessing(false); }
     }
@@ -137,13 +137,16 @@ export default function Scanner() {
           <div className="bg-white dark:bg-slate-900 rounded-xl border p-3">
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium">Vista Previa</h3>
-              <button aria-label="Descartar imagen y borrador" disabled={isProcessing} onClick={() => { clearImage(); setError(''); }} className="p-2 text-red-500"><Trash2 size={20} /></button>
+              <button aria-label="Descartar imagen y borrador" disabled={isProcessing} onClick={() => {
+                if (locked && !window.confirm('El servidor puede haber registrado el gasto. Descartar elimina este borrador y su protección frente a duplicados. Comprueba los gastos antes de crear otro. ¿Continuar?')) return;
+                discard(); clearImage(); setError('');
+              }} className="p-2 text-red-500"><Trash2 size={20} /></button>
             </div>
             <img src={imageSrc} alt="Vista previa" className="max-h-[50vh] w-full object-contain rounded-lg" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             {([['pdf', 'Solo PDF'], ['ai_invoice', 'Factura IA'], ['ai_inventory', 'Stock IA']] as const).map(([mode, label]) => (
-              <button key={mode} disabled={isProcessing} aria-pressed={scanMode === mode} onClick={() => changeMode(mode)} className={`p-2 rounded-lg ${scanMode === mode ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}>{label}</button>
+              <button key={mode} disabled={isProcessing || locked} aria-pressed={scanMode === mode} onClick={() => changeMode(mode)} className={`p-2 rounded-lg ${scanMode === mode ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}>{label}</button>
             ))}
           </div>
           {scanMode !== 'pdf' && (
@@ -160,14 +163,15 @@ export default function Scanner() {
             <form onSubmit={saveExpense} className="rounded-xl border border-brand-200 p-4 space-y-3">
               <h3 className="font-semibold">Revisar factura</h3>
               <p className="text-sm text-slate-500">El análisis puede contener errores. Revisa cada campo antes de registrar el gasto.</p>
-              <fieldset disabled={isProcessing} className="space-y-3">
+              {locked && !isProcessing && <p role="status" className="text-sm">Hay un guardado sin confirmar. Los datos quedan bloqueados. Puedes confirmar el mismo intento sin crear otro gasto. Resuélvelo antes de salir de esta pantalla o recargar: la protección de este borrador no se conserva fuera de ella.</p>}
+              <fieldset disabled={isProcessing || locked} className="space-y-3">
                 <label className="block">Total Detectado (€)<input aria-label="Total Detectado (€)" type="number" required min="0" step="0.01" value={invoiceForm.total} onChange={e => setInvoiceForm({ ...invoiceForm, total: e.target.value })} className={inputClass} /></label>
                 <label className="block">Proveedor<input type="text" required maxLength={160} value={invoiceForm.proveedor_nombre} onChange={e => setInvoiceForm({ ...invoiceForm, proveedor_nombre: e.target.value })} className={inputClass} /></label>
                 <label className="block">Fecha<input type="date" required value={invoiceForm.fecha} onChange={e => setInvoiceForm({ ...invoiceForm, fecha: e.target.value })} className={inputClass} /></label>
                 <label className="block">Local<select value={invoiceForm.local} onChange={e => setInvoiceForm({ ...invoiceForm, local: e.target.value })} className={inputClass}><option>Principal</option><option>Segundo Local</option></select></label>
                 <label className="block">Concepto<input type="text" required maxLength={1000} value={invoiceForm.concepto} onChange={e => setInvoiceForm({ ...invoiceForm, concepto: e.target.value })} className={inputClass} /></label>
-                <button type="submit" className="w-full bg-emerald-600 text-white p-3 rounded-lg disabled:opacity-50">{isProcessing ? 'Registrando...' : 'Registrar Gasto Directamente'}</button>
               </fieldset>
+              <button type="submit" disabled={isProcessing} className="w-full bg-emerald-600 text-white p-3 rounded-lg disabled:opacity-50">{isProcessing ? 'Registrando...' : locked ? 'Confirmar guardado pendiente' : 'Registrar Gasto Directamente'}</button>
             </form>
           )}
           {aiResult?.kind === 'ai_inventory' && (

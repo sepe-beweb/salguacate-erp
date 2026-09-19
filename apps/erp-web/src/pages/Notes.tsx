@@ -6,6 +6,7 @@ import { API_URL } from '../config';
 import { readJson, errorMessage } from '../apiResponse';
 import { useApiLists } from '../hooks/useApiLists';
 import RequestError from '../components/RequestError';
+import { useIdempotentCreate } from '../hooks/useIdempotentCreate';
 
 interface Nota {
   id: number;
@@ -27,6 +28,7 @@ const COLORS = [
 
 export default function Notes() {
   const { user, fetchWithAuth } = useAuth();
+  const { submit: createNote, locked, discard } = useIdempotentCreate('/api/notas');
   const { data, loading, error: loadError, reload: fetchNotas } = useApiLists<[Nota]>(['/api/notas']);
   const notas = data?.[0] ?? [];
   const [error, setError] = useState('');
@@ -74,7 +76,7 @@ export default function Notes() {
   };
   const toggleVoice = () => {
     if (isListening) { stopVoice(); return; }
-    if (!voiceConsent || isSubmitting) return;
+    if (!voiceConsent || isSubmitting || locked) return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) { setError('Este navegador no ofrece dictado. Puedes escribir la nota.'); return; }
     const recognition = new SpeechRecognition();
@@ -106,22 +108,13 @@ export default function Notes() {
     
     setIsSubmitting(true);
     try {
-      const res = await fetchWithAuth(`${API_URL}/api/notas`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          contenido: newNote.trim(), 
-          color: selectedColor,
-          usuario_id: user ? parseInt(user.id) : null
-        })
-      });
-      await readJson(res);
+      await createNote({ contenido: newNote.trim(), color: selectedColor });
       modalRef.current?.close(); setShowModal(false); setVoiceConsent(false);
       setNewNote('');
       setSelectedColor('yellow');
       await fetchNotas();
     } catch (err) {
-      setError(`${errorMessage(err)} Revisa las notas antes de repetir el guardado si se perdió la conexión.`);
+      setError(errorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -191,7 +184,8 @@ export default function Notes() {
             
             <form onSubmit={handleSaveNote} className="space-y-4">
               <RequestError message={error} onRetry={fetchNotas} />
-              <fieldset disabled={isSubmitting} className="space-y-4">
+              {locked && !isSubmitting && <p role="status" className="text-sm">Hay un guardado sin confirmar. Los datos quedan bloqueados. Puedes confirmar el mismo intento sin crear otra nota. Resuélvelo antes de salir de esta pantalla o recargar: la protección de este borrador no se conserva fuera de ella.</p>}
+              <fieldset disabled={isSubmitting || locked} className="space-y-4">
               {/* Voice indicator */}
               {isListening && (
                 <div className="flex items-center gap-2 text-red-500 text-sm font-medium bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg border border-red-200 dark:border-red-800">
@@ -256,13 +250,17 @@ export default function Notes() {
                 </div>
               )}
 
+              </fieldset>
               <button 
                 type="submit" disabled={isSubmitting || isListening || !newNote.trim()}
                 className="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-3 rounded-lg flex justify-center items-center transition-colors disabled:opacity-50"
               >
-                {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Guardar Nota"}
+                {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : locked ? 'Confirmar guardado pendiente' : 'Guardar Nota'}
               </button>
-              </fieldset>
+              {locked && !isSubmitting && <button type="button" className="text-sm underline" onClick={() => {
+                if (!window.confirm('El servidor puede haber guardado la nota. Descartar el intento elimina este borrador y su protección frente a duplicados. Comprueba las notas antes de crear otra. ¿Continuar?')) return;
+                discard(); setNewNote(''); setSelectedColor('yellow'); setError('');
+              }}>Descartar intento pendiente</button>}
             </form>
           </div>
         </dialog>

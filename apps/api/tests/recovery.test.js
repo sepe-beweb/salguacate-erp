@@ -34,6 +34,9 @@ describe('Recovery with disposable files only', () => {
     await current();
     const app = createApp({ db });
     const oldToken = (await request(app).post('/api/login').send({ usuario_id: 1, pin: TEST_PIN }).expect(200)).body.token;
+    const key = '458941fa-e48e-4fc3-a484-4aaf1c964828';
+    const note = { contenido: 'Restaurar sin duplicar', color: 'blue' };
+    const receipt = await request(app).post('/api/notas').set('Authorization', `Bearer ${oldToken}`).set('Idempotency-Key', key).send(note).expect(200);
     expect(fs.statSync(file('source.sqlite-wal')).size).toBeGreaterThan(0);
     await createBackup(backupOptions());
     const manifest = verifyBackup(file('backup'));
@@ -42,6 +45,7 @@ describe('Recovery with disposable files only', () => {
     const report = await restoreBackup({ source: file('backup'), output: file('restored'), offline: true });
     expect(report.sessionsRevoked).toBe(1);
     expect(report.tables.inventario.count).toBe(1);
+    expect(report.tables.idempotency_requests.count).toBe(1);
     expect(fs.readFileSync(file('restored/uploads/image.png'))).toEqual(fs.readFileSync(file('uploads/image.png')));
     expect(db.connection.prepare('SELECT count(*) n FROM sessions').get().n).toBe(1);
     const restored = createDatabase(file('restored/database.sqlite')); await restored.ready;
@@ -50,7 +54,10 @@ describe('Recovery with disposable files only', () => {
       expect(restored.connection.prepare('SELECT total FROM cierres').get().total).toBe(12.35);
       const restoredApp = createApp({ db: restored });
       await request(restoredApp).get('/api/inventario').set('Authorization', `Bearer ${oldToken}`).expect(401);
-      await request(restoredApp).post('/api/login').send({ usuario_id: 1, pin: TEST_PIN }).expect(200);
+      const restoredToken = (await request(restoredApp).post('/api/login').send({ usuario_id: 1, pin: TEST_PIN }).expect(200)).body.token;
+      const replay = await request(restoredApp).post('/api/notas').set('Authorization', `Bearer ${restoredToken}`).set('Idempotency-Key', key).send(note).expect(200);
+      expect(replay.body).toEqual(receipt.body);
+      expect(restored.connection.prepare('SELECT count(*) n FROM notas').get().n).toBe(1);
       await request(restoredApp).get('/api/health').expect(200);
     } finally { restored.close(); }
     expect(verifyBackup(file('backup'))).toEqual(manifest);
@@ -66,7 +73,7 @@ describe('Recovery with disposable files only', () => {
     try {
       expect(restored.connection.prepare('SELECT id, nombre, pin, must_change_pin FROM usuarios').get()).toEqual({ id: 7, nombre: 'Histórico', pin: '0000', must_change_pin: 1 });
       expect(restored.connection.prepare('SELECT id, usuario_id FROM fichajes').get()).toEqual({ id: 9, usuario_id: 7 });
-      expect(restored.connection.prepare('SELECT count(*) n FROM schema_migrations').get().n).toBe(1);
+      expect(restored.connection.prepare('SELECT count(*) n FROM schema_migrations').get().n).toBe(2);
     } finally { restored.close(); }
   });
 
@@ -159,11 +166,11 @@ describe('Recovery with disposable files only', () => {
   });
 
   it('refuses future schemas and orphaned references before committing initialization', async () => {
-    await current(); db.connection.exec('INSERT INTO schema_migrations VALUES (2,CURRENT_TIMESTAMP)'); db.close(); db = null;
+    await current(); db.connection.exec('INSERT INTO schema_migrations VALUES (3,CURRENT_TIMESTAMP)'); db.close(); db = null;
     const future = createDatabase(file('source.sqlite'));
     await expect(future.ready).rejects.toThrow(/newer/);
     const raw = new DatabaseSync(file('source.sqlite'));
-    raw.exec("DELETE FROM schema_migrations WHERE version=2; PRAGMA foreign_keys=OFF; INSERT INTO mensajes(remitente_id,destinatario_id,asunto,cuerpo) VALUES (999,1,'Test','Test')"); raw.close();
+    raw.exec("DELETE FROM schema_migrations WHERE version=3; PRAGMA foreign_keys=OFF; INSERT INTO mensajes(remitente_id,destinatario_id,asunto,cuerpo) VALUES (999,1,'Test','Test')"); raw.close();
     const orphaned = createDatabase(file('source.sqlite'));
     await expect(orphaned.ready).rejects.toThrow(/orphaned/);
     await expect(createBackup(backupOptions())).rejects.toThrow(/huérfanas/);

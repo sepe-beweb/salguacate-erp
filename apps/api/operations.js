@@ -1,4 +1,5 @@
 const { LOCALS, validDate } = require('./validation');
+const { createOnce } = require('./idempotency');
 
 function money(value, negative = false) {
   if ((typeof value !== 'string' && typeof value !== 'number') || !/^-?\d+(\.\d{1,2})?$/.test(String(value))) return null;
@@ -32,12 +33,12 @@ function registerOperations(app, db, { requireAuth, requireRole }) {
     if (!validDate(fecha) || !LOCALS.includes(local) || cents === null || typeof proveedor_nombre !== 'string' || !proveedor_nombre.trim() || proveedor_nombre.length > 160 || typeof concepto !== 'string' || concepto.length > 1000) {
       return res.status(400).json({ error: 'Revisa la fecha, el local, el proveedor y el importe.' });
     }
-    const id = db.transaction(() => {
+    const outcome = createOnce(db, req, 'expense.create', [fecha, local, proveedor_nombre.trim(), concepto, cents], 201, () => {
       const result = sql.prepare('INSERT INTO gastos (fecha, local, proveedor_nombre, concepto, total) VALUES (?, ?, ?, ?, ?)').run(fecha, local, proveedor_nombre.trim(), concepto, cents / 100);
       audit(req, 'expense.created', result.lastInsertRowid);
-      return Number(result.lastInsertRowid);
+      return { id: Number(result.lastInsertRowid), mensaje: 'Gasto registrado correctamente' };
     });
-    res.status(201).json({ id, mensaje: 'Gasto registrado correctamente' });
+    res.status(outcome.status).json(outcome.body);
   });
 
   app.put('/api/inventario/:id/stock', requireAuth, managers, (req, res) => {

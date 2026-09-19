@@ -5,6 +5,6 @@ function sendDatabaseError(res, error) {
 
 const canManageStaff = user => ['owner', 'manager'].includes(user?.rol);
 class HttpError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message, code) { super(message); this.status = status; this.code = code; }
 }
 module.exports = { sendDatabaseError, canManageStaff, HttpError };

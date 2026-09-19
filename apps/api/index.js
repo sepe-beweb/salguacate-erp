@@ -24,7 +24,7 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
     if (origin && !origins.includes(origin)) return res.status(403).json({ error: 'Origen no permitido.' });
     next();
   });
-  app.use(cors({ origin: origins, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+  app.use(cors({ origin: origins, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'] }));
   app.use(express.json({ limit: '6mb' }));
   app.use('/api', (req, res, next) => {
     if (Object.values(req.query).some(value => typeof value !== 'string')) return res.status(400).json({ error: 'Parámetros de consulta inválidos.' });
@@ -60,7 +60,7 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
   app.use('/api', (req, res) => res.status(404).json({ error: 'Recurso no encontrado.' }));
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
-    if (error instanceof HttpError) return res.status(error.status).json({ error: error.message });
+    if (error instanceof HttpError) return res.status(error.status).json({ error: error.message, ...(error.code ? { code: error.code } : {}) });
     const status = error.type === 'entity.too.large' ? 413 : error.type === 'entity.parse.failed' ? 400 : 500;
     res.status(status).json({ error: status === 413 ? 'El archivo es demasiado grande.' : status === 400 ? 'JSON inválido.' : 'No se pudo completar la operación.' });
   });

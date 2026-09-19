@@ -48,7 +48,7 @@ function runQuery(database, sql, params = []) {
 function initializeDatabase(database) {
     const connection = database.connection;
     if (connection.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'schema_migrations'").get() &&
-      connection.prepare('SELECT 1 FROM schema_migrations WHERE version > 1').get()) throw new Error('Database schema is newer than this application.');
+      connection.prepare('SELECT 1 FROM schema_migrations WHERE version > 2').get()) throw new Error('Database schema is newer than this application.');
     // 1. Crear tabla usuarios
     runQuery(database, `CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -233,6 +233,21 @@ function initializeDatabase(database) {
       CREATE UNIQUE INDEX one_active_shift ON fichajes(usuario_id) WHERE estado IN ('trabajando', 'descanso');
       CREATE UNIQUE INDEX one_daily_close ON cierres(fecha, local);
       INSERT INTO schema_migrations VALUES (1, CURRENT_TIMESTAMP);
+    `);
+  }
+  if (!connection.prepare('SELECT 1 FROM schema_migrations WHERE version = 2').get()) {
+    connection.exec(`
+      CREATE TABLE idempotency_requests (
+        actor_id INTEGER NOT NULL REFERENCES usuarios(id),
+        operation TEXT NOT NULL CHECK (operation IN ('note.create', 'expense.create')),
+        request_key TEXT NOT NULL,
+        request_hash TEXT NOT NULL,
+        status INTEGER NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (actor_id, operation, request_key)
+      );
+      INSERT INTO schema_migrations VALUES (2, CURRENT_TIMESTAMP);
     `);
   }
   if (connection.prepare('PRAGMA foreign_key_check').all().length) throw new Error('Database contains orphaned references; reconcile before migration.');

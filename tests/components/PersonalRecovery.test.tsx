@@ -213,6 +213,7 @@ describe('Scanner recovery with simulated image decoding and AI', () => {
     expect(writes()).toHaveLength(1);
   });
   it('preserves all invoice edits on failed registration and clears extraction on discard', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     mocks.fetchWithAuth.mockImplementation(async url => url.endsWith('/api/ai/vision') ? response(invoice) : response({ error: 'Gasto rechazado' }, 409));
     render(<Scanner />);
     await analyze();

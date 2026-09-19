@@ -11,6 +11,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - [Recuperación de datos](docs/architecture/recovery-data.md): backup, restauración aislada y ensayo de migraciones.
 - [Notas, escáner y empleado](docs/architecture/recovery-personal-workflows.md): errores, borradores, consentimiento y conciliación del fichaje.
 - [Carga por rutas](docs/architecture/recovery-route-loading.md): pantallas diferidas, límite de errores, presupuesto y pruebas de archivos compilados.
+- [Idempotencia](docs/architecture/recovery-idempotency.md): contrato de altas de notas/gastos, esquema 2 y límites de recuperación.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -31,6 +32,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 - Para cargas de listas relacionadas, usar `useApiLists`: no sustituir un fallo por una lista vacía ni publicar métricas parciales. Las escrituras comprueban HTTP/JSON, conservan el borrador si fallan y no se reintentan automáticamente.
 - Un estado de fichaje desconocido bloquea las acciones; después de escribir se consulta al servidor antes de habilitar otro fichaje. El análisis externo de imágenes y el dictado requieren aceptación explícita; no se confunden con la generación local de PDF.
 - Declarar las pantallas diferidas fuera de los componentes. Mantener la navegación fuera de Suspense y del límite de errores de contenido. No recargar automáticamente ante fallos de módulos: la sesión y los borradores viven en memoria. Comprobar `test:e2e:production` y su presupuesto además de la batería funcional habitual.
+- En altas de notas/gastos, mantener clave y cuerpo exactos de cada intento sin confirmar. No generar una clave nueva silenciosamente tras un fallo. La API verifica usuario, operación y huella y confirma negocio, auditoría y recibo en una sola transacción. No purgar recibos ni excluirlos del ensayo de recuperación sin revisar la garantía de deduplicación.
 
 ## Arquitectura vigente
 

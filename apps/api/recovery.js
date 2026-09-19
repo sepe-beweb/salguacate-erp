@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const { DatabaseSync, backup } = require('node:sqlite');
 const { createDatabase } = require('./database');
 
-const BUSINESS_TABLES = ['usuarios', 'fichajes', 'proveedores', 'inventario', 'turnos', 'mensajes', 'eventos', 'notas', 'cierres', 'gastos', 'tareas', 'pedidos', 'peticiones', 'audit_events'];
+const BUSINESS_TABLES = ['usuarios', 'fichajes', 'proveedores', 'inventario', 'turnos', 'mensajes', 'eventos', 'notas', 'cierres', 'gastos', 'tareas', 'pedidos', 'peticiones', 'audit_events', 'idempotency_requests'];
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 
