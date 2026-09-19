@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Send, FileQuestion, Loader2, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
+import { readJson, readList, errorMessage } from '../../apiResponse';
 
 interface Peticion {
   id: number;
@@ -26,17 +27,15 @@ export default function Requests() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const loadPeticiones = async () => {
-    setLoading(true);
+    setLoading(true); setLoadError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/peticiones`);
-      if (res.ok) {
-        const data = await res.json();
-        setPeticiones(data || []);
-      }
+      setPeticiones(await readList<Peticion>(res));
     } catch (err) {
-      console.error(err);
+      setLoadError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -69,7 +68,7 @@ export default function Requests() {
         })
       });
       
-      const data = await res.json();
+      const data = await readJson<{ error?: string }>(res);
       if (res.ok) {
         setSuccessMsg('Petición enviada correctamente. El encargado la revisará.');
         setFechaInicio('');
@@ -81,7 +80,7 @@ export default function Requests() {
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Error de red. No se pudo conectar al servidor.');
+      setErrorMsg(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -118,19 +117,19 @@ export default function Requests() {
       )}
       
       {errorMsg && (
-        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-4 rounded-xl text-red-700 dark:text-red-400 text-sm">
+        <div role="alert" className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-4 rounded-xl text-red-700 dark:text-red-400 text-sm">
           {errorMsg}
         </div>
       )}
 
       <form className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors animate-in zoom-in-95 duration-200" onSubmit={handleSubmit}>
         <div className="space-y-1">
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Tipo de Petición</label>
+          <label htmlFor="request-type" className="text-sm font-medium text-slate-700 dark:text-slate-300">Tipo de Petición</label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <FileQuestion size={18} className="text-slate-400" />
             </div>
-            <select 
+            <select id="request-type"
               value={type}
               onChange={(e) => setType(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-brand-500 transition-colors appearance-none"
@@ -145,11 +144,12 @@ export default function Requests() {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="request-start" className="text-sm font-medium text-slate-700 dark:text-slate-300">
               {type === 'vacaciones' ? 'Desde' : 'Fecha'}
             </label>
             <input 
               type="date" required
+              id="request-start"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:border-brand-500 transition-colors" 
@@ -158,9 +158,11 @@ export default function Requests() {
           
           {type === 'vacaciones' ? (
             <div className="space-y-1 animate-in fade-in zoom-in-95 duration-200">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Hasta</label>
+              <label htmlFor="request-end" className="text-sm font-medium text-slate-700 dark:text-slate-300">Hasta</label>
               <input 
                 type="date" required
+                id="request-end"
+                min={fechaInicio}
                 value={fechaFin}
                 onChange={(e) => setFechaFin(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2.5 focus:outline-none focus:border-brand-500 transition-colors" 
@@ -174,9 +176,11 @@ export default function Requests() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Comentarios (Opcional)</label>
+          <label htmlFor="request-comments" className="text-sm font-medium text-slate-700 dark:text-slate-300">Comentarios (Opcional)</label>
           <textarea 
             rows={3} 
+            id="request-comments"
+            maxLength={2000}
             value={comentarios}
             onChange={(e) => setComentarios(e.target.value)}
             placeholder="Especifica los detalles (ej: 'Cambio con María el viernes de noche' o 'Vacaciones solicitadas para el viaje familiar')"
@@ -195,11 +199,12 @@ export default function Requests() {
 
       <div className="space-y-3">
         <h3 className="font-semibold text-slate-900 dark:text-white">Mis Peticiones Anteriores</h3>
+        {loadError && <div role="alert" className="text-red-700">{loadError} <button type="button" onClick={loadPeticiones} className="underline">Reintentar carga</button></div>}
         {loading ? (
           <div className="flex justify-center py-4 text-brand-500">
             <Loader2 className="animate-spin" size={24} />
           </div>
-        ) : peticiones.length === 0 ? (
+        ) : peticiones.length === 0 && !loadError ? (
           <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">No has realizado ninguna petición anterior.</p>
         ) : (
           <div className="space-y-2">

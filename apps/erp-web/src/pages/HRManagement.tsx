@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { UserCheck, Loader2, X, Plus, Pencil, Trash2, CalendarClock, Phone, MapPin, Lock, Check } from 'lucide-react';
 import { API_URL } from '../config';
+import { readJson, readList, errorMessage } from '../apiResponse';
 import { useAuth } from '../context/AuthContext';
 
 interface Employee {
@@ -60,12 +61,9 @@ export default function HRManagement() {
     setLoading(true);
     setCrudError('');
     Promise.all([
-      fetchWithAuth(`${API_URL}/api/usuarios`).then(res => {
-        if (!res.ok) throw new Error('No autorizado para ver la plantilla');
-        return res.json();
-      }),
-      fetchWithAuth(`${API_URL}/api/turnos`).then(res => res.json()),
-      fetchWithAuth(`${API_URL}/api/peticiones`).then(res => res.json())
+      fetchWithAuth(`${API_URL}/api/usuarios`).then(readList<Employee>),
+      fetchWithAuth(`${API_URL}/api/turnos`).then(readList<Turno>),
+      fetchWithAuth(`${API_URL}/api/peticiones`).then(readList<Peticion>)
     ])
     .then(([empData, turnosData, peticionesData]) => {
       setEmployees(empData.map((emp: Employee) => ({...emp, status: 'out'})));
@@ -176,7 +174,7 @@ export default function HRManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newShift)
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await readJson<{ error?: string }>(res);
       if (res.ok) {
         setShowShiftModal(false);
         setNewShift({ usuario_id: '', fecha: '', hora_inicio: '18:00', hora_fin: '02:00', local: 'Principal', compañeros: '' });
@@ -186,7 +184,7 @@ export default function HRManagement() {
       }
     } catch (err) {
       console.error(err);
-      setCrudError('Error de conexión al asignar el turno');
+      setCrudError(errorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -261,8 +259,8 @@ export default function HRManagement() {
         </div>
       </div>
 
-      {crudError && (
-        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-4 rounded-xl text-red-600 dark:text-red-400 text-sm">
+      {crudError && !showEmpModal && !showShiftModal && (
+        <div role="alert" className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-4 rounded-xl text-red-600 dark:text-red-400 text-sm">
           {crudError}
         </div>
       )}
@@ -330,7 +328,7 @@ export default function HRManagement() {
                         <button
                           onClick={() => handleEmpDelete(emp.id)}
                           className="p-2 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                          title="Eliminar empleado"
+                          title="Desactivar empleado"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -427,6 +425,7 @@ export default function HRManagement() {
             </div>
 
             <form onSubmit={handleEmpSubmit} className="space-y-4">
+              {crudError && <p role="alert" className="text-red-700">{crudError}</p>}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nombre Completo</label>
                 <input 
@@ -512,6 +511,7 @@ export default function HRManagement() {
             </div>
 
             <form onSubmit={handleAssignShift} className="space-y-4">
+              {crudError && <p role="alert" className="text-red-700">{crudError}</p>}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Empleado</label>
                 <select 

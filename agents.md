@@ -6,6 +6,7 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 
 - [README](README.md): requisitos, configuración y comandos.
 - [Recuperación](docs/architecture/recovery-foundation.md): decisiones, migración y límites.
+- [Módulos y flujos](docs/architecture/recovery-modules.md): organización vigente y contratos reforzados del segundo bloque.
 - `package.json`, `package-lock.json` y `.node-version`: dependencias y runtime.
 - `apps/api/database.js`: esquema y migraciones; `security.js`: autenticación; `operations.js`: transacciones.
 - Los informes anteriores y propuestas de arquitectura son históricos. No acreditan validación ni funcionalidades implementadas.
@@ -25,4 +26,4 @@ Esta guía sustituye las descripciones previas del arranque con usuarios de prue
 
 ## Arquitectura vigente
 
-React 18 + TypeScript, Tailwind y React Router para el ERP; Express para la API; SQLite local/persistente. Sesión cliente en memoria, API con sesiones revocables y PIN scrypt. La IA es opcional y no ejecuta escrituras. El resto de rutas heredadas se conserva durante la extracción progresiva por módulos.
+React 18 + TypeScript, Tailwind y React Router para el ERP; Express para la API; SQLite local/persistente. Sesión cliente en memoria, API con sesiones revocables y PIN scrypt. La IA es opcional y no ejecuta escrituras. El servidor se compone en `apps/api/index.js`; las rutas están distribuidas por áreas bajo `apps/api/modules`, junto a seguridad y operaciones transaccionales. Las URLs se conservan.

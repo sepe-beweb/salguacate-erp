@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ClipboardList, Plus, Trash2, Loader2, X, CheckCircle2, Circle, User, CalendarDays } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+import { readJson, readList, errorMessage } from '../apiResponse';
 
 interface Tarea {
   id: number;
@@ -27,19 +28,20 @@ export default function Tasks() {
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('pending');
   const [form, setForm] = useState({ titulo: '', descripcion: '', asignado_a: '', fecha: today, prioridad: 'normal', local: '' });
 
   const fetchData = () => {
-    setLoading(true);
+    setLoading(true); setError('');
     Promise.all([
-      fetchWithAuth(`${API_URL}/api/tareas`).then(r => r.json()),
-      fetchWithAuth(`${API_URL}/api/usuarios`).then(r => r.json()),
+      fetchWithAuth(`${API_URL}/api/tareas`).then(readList<Tarea>),
+      fetchWithAuth(`${API_URL}/api/usuarios`).then(readList<Employee>),
     ])
     .then(([t, e]) => { setTareas(t); setEmployees(e); setLoading(false); })
-    .catch(() => setLoading(false));
+    .catch(cause => { setError(errorMessage(cause)); setLoading(false); });
   };
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function Tasks() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.titulo) return;
-    setIsSubmitting(true);
+    setIsSubmitting(true); setError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/tareas`, {
         method: 'POST',
@@ -62,12 +64,11 @@ export default function Tasks() {
           asignado_a: form.asignado_a ? parseInt(form.asignado_a) : null
         })
       });
-      if (res.ok) {
-        setShowModal(false);
-        setForm({ titulo: '', descripcion: '', asignado_a: '', fecha: today, prioridad: 'normal', local: '' });
-        fetchData();
-      }
-    } catch (err) { console.error(err); }
+      await readJson(res);
+      setShowModal(false);
+      setForm({ titulo: '', descripcion: '', asignado_a: '', fecha: today, prioridad: 'normal', local: '' });
+      fetchData();
+    } catch (err) { setError(errorMessage(err)); }
     finally { setIsSubmitting(false); }
   };
 
@@ -78,16 +79,16 @@ export default function Tasks() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completada: !tarea.completada })
       });
-      if (!res.ok) throw new Error('No se pudo actualizar la tarea');
+      await readJson(res);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { setError(errorMessage(err)); }
   };
 
   const handleDelete = async (id: number) => {
     try {
-      await fetchWithAuth(`${API_URL}/api/tareas/${id}`, { method: 'DELETE' });
+      await readJson(await fetchWithAuth(`${API_URL}/api/tareas/${id}`, { method: 'DELETE' }));
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { setError(errorMessage(err)); }
   };
 
   const filtered = tareas.filter(t => {
@@ -109,6 +110,7 @@ export default function Tasks() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {error && !showModal && <div role="alert" className="rounded-lg bg-red-50 text-red-700 p-3">{error} <button type="button" onClick={fetchData} className="underline">Reintentar carga</button></div>}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <ClipboardList className="text-brand-500" />
@@ -147,6 +149,7 @@ export default function Tasks() {
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <p role="alert" className="text-red-700">{error}</p>}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tarea</label>
                 <input 

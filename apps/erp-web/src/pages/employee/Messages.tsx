@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Mail, Send, Loader2, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config';
+import { readJson, readList, errorMessage } from '../../apiResponse';
 
 interface Mensaje {
   id: number;
@@ -27,45 +28,28 @@ export default function Messages() {
   const [isComposing, setIsComposing] = useState(false);
   const [newMsg, setNewMsg] = useState({ destinatario_id: 0, asunto: '', cuerpo: '' });
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
 
   const fetchMessages = () => {
     if (!user) return;
-    setLoading(true);
-    fetchWithAuth(`${API_URL}/api/mensajes`)
-      .then(res => res.json())
-      .then(data => {
-        setMessages(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error cargando mensajes", err);
-        setLoading(false);
-      });
+    setLoading(true); setError('');
+    Promise.all([
+      fetchWithAuth(`${API_URL}/api/mensajes`).then(readList<Mensaje>),
+      fetch(`${API_URL}/api/usuarios/public`).then(readList<PublicUser>),
+    ]).then(([inbox, recipients]) => {
+      setMessages(inbox); setPublicUsers(recipients);
+      const firstOther = recipients.find(u => String(u.id) !== String(user.id));
+      if (firstOther) setNewMsg(previous => previous.destinatario_id ? previous : { ...previous, destinatario_id: firstOther.id });
+    }).catch(cause => setError(errorMessage(cause))).finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchMessages();
-
-    // Cargar destinatarios dinámicos
-    fetch(`${API_URL}/api/usuarios/public`)
-      .then(res => res.json())
-      .then(data => {
-        setPublicUsers(data);
-        if (user && data.length > 0) {
-          const firstOther = data.find((u: PublicUser) => String(u.id) !== String(user.id));
-          if (firstOther) {
-            setNewMsg(prev => ({ ...prev, destinatario_id: firstOther.id }));
-          }
-        }
-      })
-      .catch(err => console.error("Error cargando destinatarios públicos", err));
-  }, [user]);
+  useEffect(() => { fetchMessages(); }, [user]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newMsg.destinatario_id || !newMsg.asunto || !newMsg.cuerpo) return;
     
-    setSending(true);
+    setSending(true); setError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/mensajes`, {
         method: 'POST',
@@ -77,14 +61,13 @@ export default function Messages() {
         })
       });
       
-      if (res.ok) {
-        setIsComposing(false);
-        const firstOther = publicUsers.find(u => String(u.id) !== String(user.id));
-        setNewMsg({ destinatario_id: firstOther ? firstOther.id : 0, asunto: '', cuerpo: '' });
-        fetchMessages();
-      }
+      await readJson(res);
+      setIsComposing(false);
+      const firstOther = publicUsers.find(u => String(u.id) !== String(user.id));
+      setNewMsg({ destinatario_id: firstOther ? firstOther.id : 0, asunto: '', cuerpo: '' });
+      fetchMessages();
     } catch (err) {
-      console.error(err);
+      setError(errorMessage(err));
     } finally {
       setSending(false);
     }
@@ -111,9 +94,11 @@ export default function Messages() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {error && <div role="alert" className="rounded-lg bg-red-50 text-red-700 p-3">{error} <button type="button" onClick={fetchMessages} className="underline">Reintentar carga</button></div>}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Bandeja de Entrada</h2>
         <button 
+          aria-label={isComposing ? 'Cancelar mensaje' : 'Nuevo mensaje'}
           onClick={() => setIsComposing(!isComposing)}
           className="bg-brand-100 hover:bg-brand-200 dark:bg-brand-900/30 dark:hover:bg-brand-900/50 text-brand-700 dark:text-brand-400 p-2 rounded-full transition-colors"
         >
@@ -126,8 +111,8 @@ export default function Messages() {
           <h3 className="font-semibold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">Nuevo Mensaje Interno</h3>
           
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Destinatario</label>
-            <select 
+            <label htmlFor="message-recipient" className="block text-xs font-medium text-slate-500 mb-1">Destinatario</label>
+            <select id="message-recipient"
               value={newMsg.destinatario_id}
               onChange={e => setNewMsg({...newMsg, destinatario_id: Number(e.target.value)})}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-sm text-slate-900 dark:text-white"
@@ -145,9 +130,10 @@ export default function Messages() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Asunto</label>
-            <input 
+            <label htmlFor="message-subject" className="block text-xs font-medium text-slate-500 mb-1">Asunto</label>
+            <input id="message-subject"
               type="text" 
+              maxLength={160}
               value={newMsg.asunto}
               onChange={e => setNewMsg({...newMsg, asunto: e.target.value})}
               required
@@ -157,8 +143,9 @@ export default function Messages() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Mensaje</label>
-            <textarea 
+            <label htmlFor="message-body" className="block text-xs font-medium text-slate-500 mb-1">Mensaje</label>
+            <textarea id="message-body"
+              maxLength={10000}
               value={newMsg.cuerpo}
               onChange={e => setNewMsg({...newMsg, cuerpo: e.target.value})}
               required
@@ -180,7 +167,7 @@ export default function Messages() {
       )}
 
       <div className="space-y-3">
-        {messages.length === 0 ? (
+        {messages.length === 0 && !error ? (
           <div className="text-center py-10">
             <p className="text-slate-500">No tienes mensajes nuevos.</p>
           </div>

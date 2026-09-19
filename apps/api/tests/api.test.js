@@ -182,7 +182,7 @@ describe('Authentication and authorization', () => {
   });
   it('AI is disabled for every endpoint without contacting external providers', async () => {
     const token = await login();
-    for (const endpoint of ['chat', 'vision', 'generate-poster']) {
+    for (const endpoint of ['chat', 'vision', 'poster']) {
       const res = await request(app).post('/api/ai/' + endpoint).set(auth(token)).send({ message: 'test' }).expect(503);
       expect(res.body.code).toBe('AI_DISABLED');
     }
