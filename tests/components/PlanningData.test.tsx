@@ -13,6 +13,9 @@ beforeEach(() => { mocks.fetchWithAuth.mockReset().mockImplementation(async url 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('Validated planning lists and civil values', () => {
+  it.each([undefined, false, {}])('rejects missing or malformed employee local before offering assignments: %j', async local => {
+    await expect(readTaskWorkspace([response([]), response([{ id: 3, nombre: 'María', rol: 'employee', local }])])).rejects.toThrow('personas');
+  });
   it('sorts a copy of events by civil date/time/id and retains unknown historical event types', async () => {
     const rows = [{ ...event, id: 3, hora: '12:00', tipo: 'Histórico' }, { ...event, id: 2 }, event];
     expect((await readEvents([response(rows)])).map(row => row.id)).toEqual([1, 2, 3]);

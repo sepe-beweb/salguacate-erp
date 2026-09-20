@@ -3,8 +3,8 @@ import { formatCivilDate, isCivilDate } from './financialValues';
 import { localDate } from './localDate';
 
 export interface PlannedEvent { id: number; titulo: string; fecha: string; hora: string; descripcion: string | null; tipo: string; }
-export interface PlannedTask { id: number; titulo: string; descripcion: string | null; asignado_a: number | null; asignado_nombre: string | null; fecha: string; prioridad: string; completada: boolean; local: string | null; }
-interface Employee { id: number; nombre: string; rol: string; }
+export interface PlannedTask { id: number; titulo: string; descripcion: string | null; asignado_a: number | null; asignado_nombre: string | null; fecha: string; prioridad: string; completada: boolean; local: string | null; rutina_ejecucion_id?: number | null; }
+interface Employee { id: number; nombre: string; rol: string; local: string | null; }
 const id = (value: number) => Number.isSafeInteger(value) && value > 0;
 const nullableText = (value: unknown) => value === null || typeof value === 'string';
 export const isCivilTime = (value: unknown): value is string => typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -26,7 +26,7 @@ export async function readTasks(responses: Response[]): Promise<PlannedTask[]> {
   for (const task of tasks) {
     if (!task || !id(task.id) || ids.has(task.id) || !isCivilDate(task.fecha) || typeof task.titulo !== 'string' ||
       !nullableText(task.descripcion) || !nullableText(task.asignado_nombre) || !nullableText(task.local) ||
-      (task.asignado_a !== null && !id(task.asignado_a)) || !['baja', 'normal', 'alta'].includes(task.prioridad) ||
+      (task.asignado_a !== null && !id(task.asignado_a)) || (task.rutina_ejecucion_id != null && !id(task.rutina_ejecucion_id)) || !['baja', 'normal', 'alta'].includes(task.prioridad) ||
       ![true, false, 0, 1].includes(task.completada)) throw new Error('La lista de tareas contiene datos inválidos. No se muestran contadores parciales.');
     ids.add(task.id);
   }
@@ -36,7 +36,7 @@ export async function readTaskWorkspace(responses: Response[]): Promise<[Planned
   const [tasks, employees] = await Promise.all([readTasks([responses[0]]), readList<Employee>(responses[1])]);
   const ids = new Set<number>();
   for (const employee of employees) {
-    if (!employee || !id(employee.id) || ids.has(employee.id) || typeof employee.nombre !== 'string' || typeof employee.rol !== 'string') throw new Error('La lista de personas contiene datos inválidos.');
+    if (!employee || !id(employee.id) || ids.has(employee.id) || typeof employee.nombre !== 'string' || typeof employee.rol !== 'string' || !nullableText(employee.local)) throw new Error('La lista de personas contiene datos inválidos.');
     ids.add(employee.id);
   }
   return [tasks, employees];

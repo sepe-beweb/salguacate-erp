@@ -19,6 +19,11 @@ sin tarjeta guardada el 19 de septiembre de 2026. Esta comprobación no es un de
 
 ## Configuración de publicación
 
+Antes de publicar la evolución de relevo/rutinas, preparar explícitamente el
+[esquema 3](architecture/operational-handover.md) en la base remota. El arranque
+rechaza el esquema 2 existente y no lo actualiza automáticamente. Preservar el
+propietario y los recibos; no repetir el bootstrap sobre una base poblada.
+
 1. Crear un proyecto en el equipo personal Free y conectar únicamente este repositorio.
    Seleccionar `refactor/recovery-foundation`, no el `main` histórico, y comprobar CI.
 2. Usar la raíz y `netlify.toml`. No emplear el generador de aplicaciones, Netlify Database,

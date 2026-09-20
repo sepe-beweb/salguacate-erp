@@ -22,7 +22,7 @@ test('notes recover invalid pin flags, display the recorded UTC instant and pres
         await route.fulfill({ response: originalResponse, json: invalid ? body.map((note: { id: number }) => ({ ...note, fijada: 'false' })) : body });
       });
       await page.getByRole('button', { name: 'Abrir navegación' }).click();
-      await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Muro de Notas' }).click();
+      await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Notas' }).click();
       await expect(page.getByRole('alert')).toContainText('notas inválidas'); await expect(page.getByRole('button', { name: 'Fijar arriba' })).toHaveCount(0);
       invalid = false; await page.getByRole('button', { name: 'Reintentar carga' }).click();
       const card = page.getByText(content, { exact: true }).locator('..');

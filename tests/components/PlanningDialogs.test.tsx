@@ -13,6 +13,21 @@ beforeEach(() => { mocks.fetchWithAuth.mockReset().mockImplementation(async url 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('Native planning dialogs', () => {
+  it('preserves an incompatible assignee while explaining and blocking the task until its local is corrected', async () => {
+    mocks.fetchWithAuth.mockImplementation(async url => response(url.endsWith('/usuarios') ? [{ id: 3, nombre: 'María', rol: 'employee', local: 'Principal' }] : []));
+    render(<Tasks />); await waitFor(() => expect(screen.getByRole('button', { name: 'Nueva' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva' }));
+    fireEvent.change(screen.getByLabelText('Asignar a'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Local'), { target: { value: 'Segundo Local' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('no pertenece al local');
+    expect(screen.getByLabelText('Asignar a')).toHaveValue('3');
+    expect(screen.getByRole('option', { name: 'María · Aguacate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Crear Tarea' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Local'), { target: { value: 'Principal' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Crear Tarea' })).toBeEnabled();
+    expect(mocks.fetchWithAuth.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+  });
   it('focuses the designated field, blocks cancellation while busy, and preserves focus on rerender', () => {
     const close = vi.fn(); const view = render(<ModalDialog label="Editor" busy onClose={close}><input data-autofocus aria-label="Campo" /></ModalDialog>);
     expect(screen.getByLabelText('Campo')).toHaveFocus();

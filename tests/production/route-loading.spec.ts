@@ -21,7 +21,7 @@ test('compiled login defers feature screens and loads each selected route on dem
   page.on('request', req => { if (req.resourceType() === 'script') assets.push(new URL(req.url()).pathname); });
   await page.goto('/');
   await expect(page.getByRole('button', { name: /Jefe Admin/ })).toBeVisible();
-  for (const name of ['Dashboard', 'Inventory', 'Analytics', 'Reports', 'Expenses', 'employee/EmployeeDashboard']) expect(assets).not.toContain(routeAsset(name));
+  for (const name of ['Dashboard', 'Inventory', 'Analytics', 'Reports', 'Expenses', 'Handover', 'employee/EmployeeDashboard']) expect(assets).not.toContain(routeAsset(name));
   await page.getByRole('button', { name: /Jefe Admin/ }).click();
   await page.getByLabel('PIN de acceso').fill('246810');
   await page.getByRole('button', { name: 'Acceder' }).click();
@@ -29,25 +29,30 @@ test('compiled login defers feature screens and loads each selected route on dem
   expect(assets).toContain(routeAsset('Dashboard'));
   expect(assets).not.toContain(routeAsset('Analytics'));
   expect(assets.some(url => url.includes('jspdf'))).toBe(false);
-  await page.getByRole('button', { name: 'Analíticas Visuales' }).click();
+  await page.getByRole('button', { name: 'Evolución económica' }).click();
   await expect(page.getByText('No hay datos suficientes para generar gráficos.', { exact: true })).toBeVisible();
   expect(assets).toContain(routeAsset('Analytics'));
-  await page.getByRole('button', { name: 'Cierres de Caja', exact: true }).click();
+  await page.getByRole('button', { name: 'Cierres de caja', exact: true }).click();
   await page.getByLabel('Total Efectivo').fill('12.50');
   await page.getByLabel('Total Tarjeta').fill('7.50');
   await page.getByRole('button', { name: 'Guardar Cierre' }).click();
   await expect(page.getByText('Cierre registrado correctamente.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Analíticas Visuales' }).click();
-  await expect(page.getByRole('heading', { name: 'Analíticas Financieras' })).toBeVisible();
+  await page.getByRole('button', { name: 'Evolución económica' }).click();
+  await expect(page.getByRole('heading', { name: 'Evolución económica' })).toBeVisible();
   await expect(page.locator('.recharts-surface').first()).toBeVisible();
   expect(assets.filter(url => url === routeAsset('Analytics'))).toHaveLength(1);
   expect(assets).not.toContain(routeAsset('Expenses'));
   await page.getByRole('button', { name: 'Gastos', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Gastos', exact: true })).toBeVisible();
   expect(assets).toContain(routeAsset('Expenses'));
-  await page.getByRole('button', { name: 'Panel de Control' }).click();
+  await page.getByRole('button', { name: 'Inicio' }).click();
   await expect(page.getByText('Presencia registrada')).toBeVisible();
   expect(assets.filter(url => url === routeAsset('Dashboard'))).toHaveLength(1);
+  expect(assets).not.toContain(routeAsset('Handover'));
+  await page.getByRole('button', { name: 'Relevo y rutinas', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Relevo y rutinas', exact: true })).toBeVisible();
+  await expect(page.getByText('No hay avisos pendientes para este local.')).toBeVisible();
+  expect(assets).toContain(routeAsset('Handover'));
 });
 
 test('a missing compiled chunk leaves navigation usable and reload needs explicit confirmation', async ({ page }, testInfo) => {
@@ -61,7 +66,7 @@ test('a missing compiled chunk leaves navigation usable and reload needs explici
     if (req.method() !== 'GET' && req.url().includes('/api/')) writes.push(req.url());
   });
   await page.route(`**${inventory}`, route => { failures++; return route.fulfill({ status: 404, contentType: 'text/javascript', body: '' }); });
-  await page.getByRole('button', { name: 'Almacén y Stock' }).click();
+  await page.getByRole('button', { name: 'Inventario' }).click();
   await expect(page.getByRole('alert')).toContainText('No se pudo mostrar esta pantalla');
   expect(failures).toBe(1);
   expect(documents).toEqual([]);
@@ -77,7 +82,7 @@ test('a missing compiled chunk leaves navigation usable and reload needs explici
   expect(documents).toEqual([]);
   await page.getByRole('button', { name: 'Proveedores', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Nuevo proveedor' })).toBeVisible();
-  await page.getByRole('button', { name: 'Almacén y Stock' }).click();
+  await page.getByRole('button', { name: 'Inventario' }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   expect(failures).toBe(1);
   await page.unroute(`**${inventory}`);
@@ -97,7 +102,7 @@ test('a delayed chunk shows loading while the user can leave and late completion
   const pending = new Promise<void>(resolve => { release = resolve; });
   await page.route(`**${routeAsset('Notes')}`, async route => { await pending; await route.continue(); });
   try {
-    await page.getByRole('button', { name: 'Muro de Notas' }).click();
+    await page.getByRole('button', { name: 'Notas' }).click();
     await expect(page.getByRole('status')).toHaveText('Cargando pantalla...');
     await page.getByRole('button', { name: 'Proveedores', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Nuevo proveedor' })).toBeVisible();
@@ -106,7 +111,7 @@ test('a delayed chunk shows loading while the user can leave and late completion
     await lateResponse;
     await expect(page.getByRole('button', { name: 'Nuevo proveedor' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Notas', exact: true })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Muro de Notas' }).click();
+    await page.getByRole('button', { name: 'Notas' }).click();
     await expect(page.getByRole('heading', { name: 'Notas', exact: true })).toBeVisible();
   } finally { release(); }
 });
@@ -118,7 +123,11 @@ for (const path of ['/inventario', '/gastos']) test(`employee direct access to $
   await expect(page).toHaveURL('/');
   expect(assets).toContain(routeAsset('employee/EmployeeDashboard'));
   for (const name of ['Inventory', 'Dashboard', 'Analytics', 'HRManagement', 'Expenses']) expect(assets).not.toContain(routeAsset(name));
-  await page.getByRole('button', { name: 'Turnos Asignados' }).click();
+  await page.getByRole('button', { name: 'Mis turnos' }).click();
   await expect(page.getByRole('heading', { name: 'Mis Turnos' })).toBeVisible();
   expect(assets).toContain(routeAsset('employee/Calendar'));
+  await page.getByRole('button', { name: 'Relevo y rutinas', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Relevo y rutinas', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Preparar tareas del día' })).toHaveCount(0);
+  expect(assets).toContain(routeAsset('Handover'));
 });

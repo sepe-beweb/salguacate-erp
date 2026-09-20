@@ -13,7 +13,7 @@ async function enter(page: Page) {
 
 test('notes: native focus, Escape, mobile draft, create, pin and confirmed deletion reach the real API', async ({ page, request }, testInfo) => {
   const headers = await enter(page);
-  await page.getByRole('button', { name: 'Muro de Notas', exact: true }).click();
+  await page.getByRole('button', { name: 'Notas', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Notas', exact: true })).toBeVisible();
   const newButton = page.getByRole('button', { name: 'Nueva', exact: true });
   await newButton.click();
@@ -57,7 +57,7 @@ test('scanner keyboard selection and consent reach disabled local AI without ext
     const url = new URL(req.url());
     if (['http:', 'https:'].includes(url.protocol) && !['127.0.0.1', 'localhost'].includes(url.hostname)) external.push(req.url());
   });
-  await page.getByRole('button', { name: 'Escáner de Facturas' }).click();
+  await page.getByRole('button', { name: 'Escáner de facturas' }).click();
   await expect(page.getByRole('heading', { name: 'Escáner', exact: true })).toBeVisible();
   const png = await page.evaluate(() => {
     const canvas = document.createElement('canvas');

@@ -1,248 +1,135 @@
-import { TrendingUp, Users, FileText, Calendar as CalendarIcon, StickyNote, FileBarChart, ClipboardList, ClipboardCheck, Package, ArrowUpRight, ArrowDownRight, AlertTriangle, Music } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
 import { useAuth } from '../context/AuthContext';
+import { useLocalScope } from '../hooks/useLocalScope';
 import { useApiRead } from '../hooks/useApiLists';
 import RequestError from '../components/RequestError';
+import LocalFilter from '../components/LocalFilter';
 import { localDate } from '../localDate';
-import { dashboardFinancialSummary, readDashboardLists } from '../dashboardData';
+import { dashboardFinancialSummary, readDashboardLists, selectDashboardLocation } from '../dashboardData';
 import { formatCivilDate, formatEuroCents, toCents } from '../financialValues';
 import { formatPresenceTimestamp, presenceTimestamp } from '../presenceData';
+import { LOCATIONS, locationLabel } from '../locations';
 
-interface KPIs {
-  // Sales
-  ventasMes: number;
-  ventasMesAnterior: number;
-  ultimoCierre: number;
-  totalCierres: number;
-  // Expenses
-  gastosMes: number;
-  // Tasks
-  tareasPendientes: number;
-  tareasHoy: number;
-  // Events
-  proximoEvento: { titulo: string; fecha: string; tipo: string } | null;
-  // Stock
-  productosStock: number;
-  stockBajo: number;
-  // Employees
-  totalEmpleados: number;
-}
+const panel = 'rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-3';
+const action = 'block rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm font-medium hover:border-brand-500 focus-visible:outline-brand-500';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [selectedLocal, setSelectedLocal] = useLocalScope();
   const { data, loading, error, reload } = useApiRead([
-    '/api/cierres', '/api/gastos', '/api/tareas', '/api/eventos', '/api/inventario', '/api/usuarios', '/api/fichajes/presencia'
+    '/api/cierres', '/api/gastos', '/api/tareas', '/api/eventos', '/api/inventario', '/api/usuarios', '/api/fichajes/presencia', '/api/turnos', '/api/pedidos'
   ], readDashboardLists);
   if (loading) return <p role="status" className="p-8 text-center">Cargando resumen...</p>;
   if (error || !data) return <RequestError message={error || 'No se pudo cargar el resumen.'} onRetry={reload} />;
-  const [cierres, gastos, tareas, eventos, productos, usuarios, presencia] = data;
-  const now = new Date();
-  const today = localDate(now);
+  const [cierres, gastos, tareas, eventos, productos, usuarios, presencia, turnos, pedidos] = selectDashboardLocation(data, selectedLocal);
+  const today = localDate();
   const financial = dashboardFinancialSummary([cierres, gastos], today);
-  const ventasMes = financial.income;
-  const ventasMesAnterior = financial.previousIncome;
-  const ultimoCierre = financial.latest ? toCents(financial.latest.total) : 0;
-  const gastosMes = financial.expenses;
+  const pendingTasks = tareas.filter(task => !task.completada);
+  const dueTasks = pendingTasks.filter(task => task.fecha <= today).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id);
+  const todayTasks = dueTasks.filter(task => task.fecha === today);
+  const overdue = dueTasks.filter(task => task.fecha < today);
+  const lowStock = productos.filter(product => product.stock_actual <= product.stock_minimo);
+  const pendingOrders = pedidos.filter(order => order.estado === 'pendiente');
+  const todayShifts = turnos.filter(shift => shift.fecha === today);
+  const nextEvents = eventos.filter(event => event.fecha >= today).slice(0, 3);
+  const missingClosings = LOCATIONS.filter(location => (selectedLocal === 'Todos' || location.value === selectedLocal) && !cierres.some(row => row.local === location.value && row.fecha === today));
+  const staffNames = new Map(data[5].map(person => [person.id, person.nombre]));
 
-  const tareasPendientes = tareas.filter(t => !t.completada).length;
-  const tareasHoy = tareas.filter(t => !t.completada && t.fecha === today).length;
-
-  const futureEvents = eventos.filter(e => e.fecha >= today).sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const proximoEvento = futureEvents.length > 0 ? futureEvents[0] : null;
-
-  const stockBajo = productos.filter(p => p.stock_actual <= p.stock_minimo).length;
-
-  const kpis: KPIs = {
-    ventasMes, ventasMesAnterior, ultimoCierre,
-    totalCierres: financial.closingCount,
-    gastosMes, tareasPendientes, tareasHoy, proximoEvento,
-    productosStock: productos.length, stockBajo,
-    totalEmpleados: usuarios.length
-  };
-
-  const beneficio = financial.balance;
-  const tendencia = kpis.ventasMesAnterior > 0
-    ? ((kpis.ventasMes - kpis.ventasMesAnterior) / kpis.ventasMesAnterior * 100)
-    : 0;
-
-  const monthName = new Date().toLocaleDateString('es-ES', { month: 'long' });
-
-  return (
-    <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Greeting */}
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-          Hola, {user?.name?.split(' ')[0] || 'Jefe'} 👋
-        </h2>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
-          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
-        <button onClick={reload} className="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">Actualizar resumen</button>
-        <p className="mt-2 text-xs text-slate-500">Datos de la última carga. No se actualizan automáticamente.</p>
+  return <div className="space-y-6 [overflow-wrap:anywhere]">
+    <header className="space-y-3">
+      <p className="text-sm text-slate-500 dark:text-slate-400">Hola, {user?.name?.split(' ')[0] || 'equipo'} 👋</p>
+      <h2 className="text-2xl font-bold">{selectedLocal === 'Todos' ? 'Hoy en tus locales' : `Hoy en ${locationLabel(selectedLocal)}`}</h2>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+      <LocalFilter value={selectedLocal} onChange={setSelectedLocal} />
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={reload} className="rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm">Actualizar resumen</button>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Datos de la última carga. No se actualizan automáticamente.</p>
       </div>
+    </header>
 
-      {/* Revenue Hero Card */}
-      {financial.inconsistentHistory && <p role="alert" className="text-amber-700 dark:text-amber-400">Hay cierres cuyo total no coincide con efectivo más tarjeta. Se conservan los totales registrados; revisa el historial.</p>}
-      <section aria-label="Resumen financiero mensual" className="bg-gradient-to-br from-brand-600 to-brand-700 dark:from-brand-700 dark:to-brand-900 rounded-2xl p-5 text-white shadow-lg shadow-brand-500/20">
-        <div className="flex flex-wrap gap-3 justify-between items-start">
-          <div>
-            <p className="text-brand-100 text-xs font-medium uppercase tracking-wider">Ingresos — {monthName}</p>
-            <p className="text-3xl font-bold mt-1 break-all">{formatEuroCents(kpis.ventasMes)}</p>
-            {tendencia !== 0 && (
-              <div className={`flex items-center gap-1 mt-1.5 text-xs font-semibold ${tendencia > 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-                {tendencia > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                {Math.abs(tendencia).toFixed(1)}% vs mes anterior
-              </div>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-brand-200 text-xs">Saldo ingresos − gastos</p>
-            <p className={`text-xl font-bold break-all ${beneficio >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{formatEuroCents(beneficio)}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-4 mt-4 pt-3 border-t border-white/20 text-xs">
-          <div><span className="text-brand-200">Cierres:</span> <span className="font-bold">{kpis.totalCierres}</span></div>
-          <div><span className="text-brand-200">Gastos:</span> <span className="font-bold text-red-300">{formatEuroCents(kpis.gastosMes)}</span></div>
-          <div><span className="text-brand-200">Último cierre:</span> <span className="font-bold">{financial.latest ? `${formatEuroCents(kpis.ultimoCierre)} · ${formatCivilDate(financial.latest.fecha)} · ${financial.latest.local}` : 'Sin cierres'}</span></div>
-        </div>
+    <section aria-label="Necesita atención" className={panel}>
+      <h3 className="font-semibold text-lg">Necesita atención</h3>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {overdue.length > 0 && <Link to="/tareas" className={`${action} text-red-700 dark:text-red-400`}>{overdue.length} tarea{overdue.length === 1 ? '' : 's'} atrasada{overdue.length === 1 ? '' : 's'} →</Link>}
+        {todayTasks.length > 0 && <Link to="/tareas" className={action}>{todayTasks.length} tarea{todayTasks.length === 1 ? '' : 's'} para hoy</Link>}
+        {lowStock.length > 0 && <Link to="/inventario" className={`${action} text-amber-700 dark:text-amber-400`}>{lowStock.length} producto{lowStock.length === 1 ? '' : 's'} con stock bajo</Link>}
+        {pendingOrders.length > 0 && <Link to="/control-stock" className={action}>{pendingOrders.length} pedido{pendingOrders.length === 1 ? '' : 's'} pendiente{pendingOrders.length === 1 ? '' : 's'} de recepción →</Link>}
+      </div>
+      {dueTasks.length === 0 && lowStock.length === 0 && pendingOrders.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Sin tareas vencidas o de hoy, alertas de stock ni pedidos pendientes.</p>}
+      <p className="text-xs text-slate-500 dark:text-slate-400">Los pedidos muestran lo pendiente; todavía no tienen una fecha prevista de entrega.</p>
+    </section>
+
+    <nav aria-label="Acciones del día" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <Link to="/turno" className={action}>Relevo y rutinas</Link>
+      <Link to="/tareas" className={action}>Organizar tareas</Link>
+      <Link to="/control-stock" className={action}>Revisar pedidos</Link>
+      <Link to="/gastos" className={action}>Registrar gasto</Link>
+      <Link to="/ventas" className={action}>Registrar cierre</Link>
+    </nav>
+
+    <div className="grid lg:grid-cols-2 gap-5">
+      <section aria-label="Tareas del día" className={panel}>
+        <div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold text-lg">Tareas del día</h3><Link className="text-sm underline" to="/tareas">Ver todas ({pendingTasks.length} pendientes)</Link></div>
+        {dueTasks.length === 0 ? <p className="text-sm text-slate-500 dark:text-slate-400">No hay tareas pendientes para hoy ni atrasadas.</p> : <ul className="space-y-2">
+          {dueTasks.slice(0, 5).map(task => <li key={task.id} className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3">
+            <Link to="/tareas" className="font-medium text-sm underline">{task.titulo}</Link>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{task.fecha < today ? `Atrasada · ${formatCivilDate(task.fecha)}` : 'Hoy'} · {locationLabel(task.local, 'Ambos')} · {task.asignado_nombre || 'Equipo'}</p>
+          </li>)}
+        </ul>}
       </section>
-
-      {/* Quick Alerts */}
-      {(kpis.tareasHoy > 0 || kpis.stockBajo > 0 || kpis.proximoEvento) && (
-        <div className="space-y-2">
-          {kpis.tareasHoy > 0 && (
-            <Link to="/tareas" className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 transition-colors hover:bg-amber-100 dark:hover:bg-amber-900/30">
-              <div className="bg-amber-500 text-white p-2 rounded-lg"><ClipboardList size={16} /></div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{kpis.tareasHoy} tarea{kpis.tareasHoy > 1 ? 's' : ''} para hoy</p>
-              </div>
-              <ArrowUpRight size={16} className="text-amber-400" />
-            </Link>
-          )}
-          {kpis.stockBajo > 0 && (
-            <Link to="/inventario" className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 transition-colors hover:bg-red-100 dark:hover:bg-red-900/30">
-              <div className="bg-red-500 text-white p-2 rounded-lg"><AlertTriangle size={16} /></div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-red-800 dark:text-red-300">{kpis.stockBajo} producto{kpis.stockBajo > 1 ? 's' : ''} con stock bajo</p>
-              </div>
-              <ArrowUpRight size={16} className="text-red-400" />
-            </Link>
-          )}
-          {kpis.proximoEvento && (
-            <Link to="/agenda" className="flex items-center gap-3 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-xl p-3 transition-colors hover:bg-violet-100 dark:hover:bg-violet-900/30">
-              <div className="bg-violet-500 text-white p-2 rounded-lg"><Music size={16} /></div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-violet-800 dark:text-violet-300">{kpis.proximoEvento.titulo}</p>
-                <p className="text-xs text-violet-600 dark:text-violet-400">{formatCivilDate(kpis.proximoEvento.fecha)} · {kpis.proximoEvento.tipo}</p>
-              </div>
-              <ArrowUpRight size={16} className="text-violet-400" />
-            </Link>
-          )}
-        </div>
-      )}
-
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-3 gap-3">
-        <Link to="/tareas" className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-center transition-colors hover:border-teal-500">
-          <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">{kpis.tareasPendientes}</p>
-          <p className="text-xs text-slate-500 mt-0.5">Pendientes</p>
-        </Link>
-        <Link to="/rrhh" className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-center transition-colors hover:border-brand-500">
-          <p className="text-2xl font-bold text-brand-600 dark:text-brand-400">{kpis.totalEmpleados}</p>
-          <p className="text-xs text-slate-500 mt-0.5">Plantilla activa</p>
-        </Link>
-        <Link to="/inventario" className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-center transition-colors hover:border-emerald-500">
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{kpis.productosStock}</p>
-          <p className="text-xs text-slate-500 mt-0.5">Productos</p>
-        </Link>
-      </div>
-
-      {/* Navigation Grid */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Módulos</h3>
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { to: '/ventas', icon: <FileText size={22} />, label: 'Cierres', color: 'text-brand-500' },
-            { to: '/gastos', icon: <FileText size={22} />, label: 'Gastos', color: 'text-red-500' },
-            { to: '/rrhh', icon: <Users size={22} />, label: 'RRHH', color: 'text-brand-500' },
-            { to: '/agenda', icon: <CalendarIcon size={22} />, label: 'Agenda', color: 'text-brand-500' },
-            { to: '/inventario', icon: <Package size={22} />, label: 'Stock', color: 'text-emerald-500' },
-            { to: '/control-stock', icon: <ClipboardCheck size={22} />, label: 'Pedidos', color: 'text-orange-500' },
-            { to: '/notas', icon: <StickyNote size={22} />, label: 'Notas', color: 'text-amber-500' },
-            { to: '/informes', icon: <FileBarChart size={22} />, label: 'Informes', color: 'text-indigo-500' },
-            { to: '/tareas', icon: <ClipboardList size={22} />, label: 'Tareas', color: 'text-teal-500' },
-            { to: '/analiticas', icon: <TrendingUp size={22} />, label: 'Analytics', color: 'text-rose-500' },
-          ].map(item => (
-            <Link key={item.to} to={item.to} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center transition-all hover:shadow-md hover:scale-[1.02] active:scale-95">
-              <span className={item.color}>{item.icon}</span>
-              <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mt-1.5">{item.label}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Recorded presence from the latest successful read, not a live subscription. */}
-      <section aria-label="Presencia registrada" className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Presencia registrada</h3>
-        <div className="space-y-2">
-          {presencia.length === 0 ? (
-            <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">No hay información de turnos disponible.</p>
-          ) : (
-            presencia.map(emp => {
-              
-              let statusText = 'Fuera';
-              let statusColor = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
-              let indicatorColor = 'bg-slate-400';
-              const timestamp = emp.estado_presencia === 'fuera' ? emp.ultimo_fichaje_salida : emp.ultimo_fichaje_entrada;
-              const timeLabel = emp.estado_presencia === 'fuera' ? 'Salida' : 'Entrada';
-
-              if (emp.estado_presencia === 'trabajando') {
-                statusText = 'Trabajando';
-                statusColor = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400';
-                indicatorColor = 'bg-emerald-500 animate-pulse';
-              } else if (emp.estado_presencia === 'descanso') {
-                statusText = 'Descanso';
-                statusColor = 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400';
-                indicatorColor = 'bg-amber-500 animate-pulse';
-              }
-
-              return (
-                <div key={emp.usuario_id} className="flex flex-wrap gap-2 justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800/40 [overflow-wrap:anywhere]">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${indicatorColor}`}></span>
-                    <div>
-                      <p className="font-semibold text-sm text-slate-900 dark:text-white">{emp.usuario_nombre}</p>
-                      <p className="text-[10px] text-slate-500">{emp.usuario_local || 'Local no indicado'}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor}`}>
-                      {statusText}
-                    </span>
-                    <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 font-medium">{timestamp ? <>{timeLabel}: <time dateTime={presenceTimestamp(timestamp).toISOString()}>{formatPresenceTimestamp(timestamp)}</time></> : 'Sin fichajes registrados'}</p>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+      <section aria-label="Turnos de hoy" className={panel}>
+        <div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold text-lg">Turnos de hoy</h3><Link className="text-sm underline" to="/rrhh">Personal y turnos</Link></div>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Turnos que comienzan hoy. El horario programado no confirma presencia.</p>
+        {todayShifts.length === 0 ? <p className="text-sm text-slate-500 dark:text-slate-400">No hay turnos programados para hoy.</p> : <ul className="space-y-2">
+          {todayShifts.map(shift => <li key={shift.id} className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3 text-sm">
+            <p className="font-medium">{staffNames.get(shift.usuario_id) || `Persona #${shift.usuario_id}`}</p>
+            <p>{shift.hora_inicio}–{shift.hora_fin}{shift.hora_fin < shift.hora_inicio ? ' (termina mañana)' : ''} · {locationLabel(shift.local)}</p>
+          </li>)}
+        </ul>}
+        <p className="text-xs text-slate-500 dark:text-slate-400"><span>Plantilla activa</span>: {usuarios.length}</p>
       </section>
-
-      {/* Locales */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Locales</h3>
-        <div className="space-y-2.5">
-          <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-            <span className="text-slate-700 dark:text-slate-200 font-medium">Local Principal</span>
-            <span className="text-brand-700 dark:text-brand-400 text-xs font-semibold bg-brand-100 dark:bg-brand-400/10 px-2.5 py-1 rounded-full">Local configurado</span>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-700/50">
-            <span className="text-slate-700 dark:text-slate-200 font-medium">Segundo Local</span>
-            <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold bg-slate-200 dark:bg-slate-700/50 px-2.5 py-1 rounded-full">Local configurado</span>
-          </div>
-        </div>
-      </div>
     </div>
-  );
+
+    <section aria-label="Cierre de hoy" className={panel}>
+      <h3 className="font-semibold text-lg">Cierre de hoy</h3>
+      <p className="text-sm">{missingClosings.length ? `Sin registrar: ${missingClosings.map(location => location.label).join(' y ')}.` : 'El cierre de hoy está registrado en los locales seleccionados.'}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">Es un estado de registro, no un aviso de retraso. No hay horarios de cierre configurados.</p>
+      <Link to="/ventas" className="inline-block text-sm underline">Ver cierres de caja</Link>
+    </section>
+
+    <section aria-label="Presencia registrada" className={panel}>
+      <h3 className="font-semibold text-lg">Presencia registrada</h3>
+      {presencia.length === 0 ? <p className="text-sm text-slate-500 dark:text-slate-400">No hay información de turnos disponible.</p> : <ul className="grid gap-2 sm:grid-cols-2">
+        {presencia.map(person => {
+          const outside = person.estado_presencia === 'fuera';
+          const timestamp = outside ? person.ultimo_fichaje_salida : person.ultimo_fichaje_entrada;
+          return <li key={person.usuario_id} className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3 text-sm">
+            <p className="font-semibold">{person.usuario_nombre}</p>
+            <p><span>{locationLabel(person.usuario_local)}</span> · <span>{outside ? 'Fuera' : person.estado_presencia === 'descanso' ? 'Descanso' : 'Trabajando'}</span></p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{timestamp ? <>{outside ? 'Salida' : 'Entrada'}: <time dateTime={presenceTimestamp(timestamp).toISOString()}>{formatPresenceTimestamp(timestamp)}</time></> : 'Sin fichajes registrados'}</p>
+          </li>;
+        })}
+      </ul>}
+    </section>
+
+    <section aria-label="Próximos eventos" className={panel}>
+      <h3 className="font-semibold text-lg">Próximos eventos</h3>
+      <p className="text-xs text-slate-500 dark:text-slate-400">Agenda común: los eventos aún no tienen local asignado.</p>
+      {nextEvents.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">No hay próximos eventos registrados.</p>}
+      {nextEvents.map(event => <Link key={event.id} to="/agenda" className={action}>{event.titulo} · {formatCivilDate(event.fecha)} · {event.hora}</Link>)}
+      <Link to="/agenda" className="text-sm underline">Agenda</Link>
+    </section>
+
+    <section aria-label="Resumen financiero mensual" className={panel}>
+      <h3 className="font-semibold text-lg">Resumen económico · {new Date().toLocaleDateString('es-ES', { month: 'long' })}</h3>
+      {financial.inconsistentHistory && <p role="alert" className="text-amber-700 dark:text-amber-400">Hay cierres cuyo total no coincide con efectivo más tarjeta. Se conservan los totales registrados; revisa el historial.</p>}
+      <dl className="grid gap-4 sm:grid-cols-3">
+        <div><dt className="text-sm text-slate-500 dark:text-slate-400">Ingresos</dt><dd className="text-xl font-bold">{formatEuroCents(financial.income)}</dd></div>
+        <div><dt className="text-sm text-slate-500 dark:text-slate-400">Gastos</dt><dd className="text-xl font-bold">{formatEuroCents(financial.expenses)}</dd></div>
+        <div><dt className="text-sm text-slate-500 dark:text-slate-400">Saldo ingresos − gastos</dt><dd className="text-xl font-bold">{formatEuroCents(financial.balance)}</dd></div>
+      </dl>
+      <p className="text-xs text-slate-500 dark:text-slate-400">Cierres: {financial.closingCount} · Último cierre: {financial.latest ? `${formatEuroCents(toCents(financial.latest.total))} · ${formatCivilDate(financial.latest.fecha)} · ${locationLabel(financial.latest.local)}` : 'Sin cierres'}</p>
+      <div className="flex flex-wrap gap-4 text-sm underline"><Link to="/analiticas">Evolución económica</Link><Link to="/informes">Informe mensual</Link></div>
+    </section>
+  </div>;
 }

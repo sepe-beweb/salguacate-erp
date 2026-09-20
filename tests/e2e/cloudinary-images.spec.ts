@@ -20,7 +20,7 @@ test('mobile catalogue loads the configured CDN reference and blocks a different
     await page.getByRole('button', { name: /Jefe Admin/ }).click(); await page.getByLabel('PIN de acceso').fill('246810');
     await page.getByRole('button', { name: 'Acceder' }).click();
     await page.getByRole('button', { name: 'Abrir navegación' }).click();
-    await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Almacén y Stock' }).click();
+    await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Inventario' }).click();
   }
   await openCatalogue();
   const image = page.getByRole('img', { name: 'Foto CDN sintética' });

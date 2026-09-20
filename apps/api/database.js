@@ -48,7 +48,7 @@ function runQuery(database, sql, params = []) {
 function initializeDatabase(database) {
     const connection = database.connection;
     if (connection.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'schema_migrations'").get() &&
-      connection.prepare('SELECT 1 FROM schema_migrations WHERE version > 2').get()) throw new Error('Database schema is newer than this application.');
+      connection.prepare('SELECT 1 FROM schema_migrations WHERE version > 3').get()) throw new Error('Database schema is newer than this application.');
     // 1. Crear tabla usuarios
     runQuery(database, `CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -248,6 +248,63 @@ function initializeDatabase(database) {
         PRIMARY KEY (actor_id, operation, request_key)
       );
       INSERT INTO schema_migrations VALUES (2, CURRENT_TIMESTAMP);
+    `);
+  }
+  if (!connection.prepare('SELECT 1 FROM schema_migrations WHERE version = 3').get()) {
+    connection.exec(`
+      CREATE TABLE rutinas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        local TEXT NOT NULL CHECK (local IN ('Principal', 'Segundo Local')),
+        titulo TEXT NOT NULL,
+        fase TEXT NOT NULL CHECK (fase IN ('apertura', 'cierre')),
+        frecuencia TEXT NOT NULL CHECK (frecuencia IN ('diaria', 'laborables', 'fin_semana')),
+        pasos_json TEXT NOT NULL,
+        activa INTEGER NOT NULL DEFAULT 1 CHECK (activa IN (0, 1)),
+        autor_id INTEGER NOT NULL REFERENCES usuarios(id),
+        creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE rutina_ejecuciones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rutina_id INTEGER NOT NULL REFERENCES rutinas(id),
+        fecha TEXT NOT NULL,
+        preparado_por INTEGER NOT NULL REFERENCES usuarios(id),
+        creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (rutina_id, fecha)
+      );
+      ALTER TABLE tareas ADD COLUMN rutina_ejecucion_id INTEGER REFERENCES rutina_ejecuciones(id);
+      ALTER TABLE tareas ADD COLUMN completado_por INTEGER REFERENCES usuarios(id);
+      ALTER TABLE tareas ADD COLUMN completado_en TEXT;
+      CREATE TABLE relevos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        local TEXT NOT NULL CHECK (local IN ('Principal', 'Segundo Local')),
+        fecha TEXT NOT NULL,
+        contenido TEXT NOT NULL,
+        autor_id INTEGER NOT NULL REFERENCES usuarios(id),
+        creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        resuelto_por INTEGER REFERENCES usuarios(id),
+        resuelto_en TEXT,
+        CHECK ((resuelto_por IS NULL) = (resuelto_en IS NULL))
+      );
+      CREATE TABLE relevo_lecturas (
+        relevo_id INTEGER NOT NULL REFERENCES relevos(id),
+        usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+        leido_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (relevo_id, usuario_id)
+      );
+      CREATE TABLE idempotency_requests_v3 (
+        actor_id INTEGER NOT NULL REFERENCES usuarios(id),
+        operation TEXT NOT NULL CHECK (operation IN ('note.create', 'expense.create', 'routine.create', 'handover.create')),
+        request_key TEXT NOT NULL,
+        request_hash TEXT NOT NULL,
+        status INTEGER NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (actor_id, operation, request_key)
+      );
+      INSERT INTO idempotency_requests_v3 SELECT * FROM idempotency_requests;
+      DROP TABLE idempotency_requests;
+      ALTER TABLE idempotency_requests_v3 RENAME TO idempotency_requests;
+      INSERT INTO schema_migrations VALUES (3, CURRENT_TIMESTAMP);
     `);
   }
   if (connection.prepare('PRAGMA foreign_key_check').all().length) throw new Error('Database contains orphaned references; reconcile before migration.');

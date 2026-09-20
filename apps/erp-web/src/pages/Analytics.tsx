@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { locationLabel } from '../locations';
+import { useLocalScope } from '../hooks/useLocalScope';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, PieChart, Pie, Cell, Legend
@@ -12,7 +13,7 @@ import { formatEuroCents } from '../financialValues';
 
 export default function Analytics() {
   const { data: lists, loading, error, reload } = useApiRead(['/api/cierres', '/api/gastos'], readFinancialLists);
-  const [filterLocal, setFilterLocal] = useState('Todos');
+  const [filterLocal, setFilterLocal] = useLocalScope();
   if (loading) return <p role="status" className="p-8 text-center text-slate-500">Cargando analíticas...</p>;
   if (error || !lists) return <RequestError message={error || 'No se pudieron cargar las analíticas.'} onRetry={reload} />;
   const [filteredData, filteredGastosForLocal] = selectFinancialPeriod(lists, filterLocal);
@@ -32,7 +33,7 @@ export default function Analytics() {
           <div className="bg-brand-100 dark:bg-brand-900/30 p-2 rounded-xl text-brand-600 dark:text-brand-400">
             <TrendingUp size={24} />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Analíticas Financieras</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Evolución económica</h2>
         </div>
       </div>
 
@@ -42,7 +43,7 @@ export default function Analytics() {
           <button key={l} aria-pressed={filterLocal === l} onClick={() => setFilterLocal(l)}
             className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${filterLocal === l ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}
           >
-            <MapPin size={12} />{l}
+            <MapPin size={12} />{locationLabel(l)}
           </button>
         ))}
       </div>

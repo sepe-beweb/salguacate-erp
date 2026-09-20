@@ -25,7 +25,7 @@ test('catalogue and provider creation, stock adjustment, explicit order registra
   await page.getByRole('button', { name: 'Guardar Proveedor' }).click();
   await expect(page.getByRole('heading', { name: providerName })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Almacén y Stock' }).click();
+  await page.getByRole('button', { name: 'Inventario' }).click();
   await page.getByRole('button', { name: 'Nuevo producto' }).click();
   await page.getByLabel('Nombre del Producto').fill(productName);
   await page.getByLabel('Stock Actual').fill('2');
@@ -40,8 +40,8 @@ test('catalogue and provider creation, stock adjustment, explicit order registra
   const inventory = async () => (await (await request.get('http://127.0.0.1:3101/api/inventario', { headers })).json()).find((p: { id: number }) => p.id === productId);
   await expect.poll(async () => (await inventory()).stock_actual).toBe(3);
 
-  await page.getByRole('button', { name: 'Pedidos de Reposición' }).click();
-  await expect(page.getByRole('heading', { name: 'Control de Stock', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Pedidos' }).click();
+  await expect(page.getByRole('heading', { name: 'Pedidos', exact: true })).toBeVisible();
   await page.getByRole('button', { name: new RegExp(`^${productName}`) }).click();
   await page.getByRole('button', { name: /Generar Pedido/ }).click();
   const orderResponse = page.waitForResponse(r => r.url().endsWith('/api/pedidos') && r.request().method() === 'POST');
@@ -75,7 +75,7 @@ test('catalogue and provider creation, stock adjustment, explicit order registra
 
 test('cash closing accepts blank optional amounts, rejects a duplicate without losing draft, and feeds financial views', async ({ page }) => {
   await enter(page);
-  await page.getByRole('button', { name: 'Cierres de Caja', exact: true }).click();
+  await page.getByRole('button', { name: 'Cierres de caja', exact: true }).click();
   const date = await page.getByLabel('Fecha del Cierre').inputValue();
   await page.getByLabel('Local', { exact: true }).selectOption('Segundo Local');
   await page.getByLabel('Total Efectivo').fill('31.25');
@@ -96,22 +96,22 @@ test('cash closing accepts blank optional amounts, rejects a duplicate without l
   await expect(page.getByLabel('Local', { exact: true })).toHaveValue('Segundo Local');
   await expect(page.getByLabel('Fecha del Cierre')).toHaveValue(date);
 
-  await page.getByRole('button', { name: 'Informes Mensuales' }).click();
-  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
+  await page.getByRole('button', { name: 'Informe mensual' }).click();
+  await page.getByRole('button', { name: 'Salmón', exact: true }).click();
   await expect(page.getByText('51,75 €', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Exportar Informe PDF/ })).toBeEnabled();
-  await page.getByRole('button', { name: 'Analíticas Visuales' }).click();
-  await expect(page.getByRole('heading', { name: 'Analíticas Financieras' })).toBeVisible();
-  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
+  await page.getByRole('button', { name: 'Evolución económica' }).click();
+  await expect(page.getByRole('heading', { name: 'Evolución económica' })).toBeVisible();
+  await page.getByRole('button', { name: 'Salmón', exact: true }).click();
   await expect(page.getByRole('paragraph').filter({ hasText: /^Saldo ingresos − gastos$/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Panel de Control' }).click();
+  await page.getByRole('button', { name: 'Inicio' }).click();
   await expect(page.getByText('Presencia registrada')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
 test('agenda creates and edits an event, cancelling deletion preserves it', async ({ page }) => {
   await enter(page);
-  await page.getByRole('button', { name: 'Agenda de Eventos' }).click();
+  await page.getByRole('button', { name: 'Agenda' }).click();
   await page.getByRole('button', { name: 'Nuevo', exact: true }).click();
   await page.getByLabel('Título', { exact: true }).fill('Reunión recorrido');
   await page.getByLabel('Fecha', { exact: true }).fill('2026-12-15');

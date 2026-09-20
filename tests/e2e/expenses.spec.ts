@@ -21,7 +21,7 @@ test('manual expense needs no image or AI, validates input, and appears with exa
     if (req.url().includes('/api/ai/')) ai.push(req.url());
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.getByRole('link', { name: 'Registrar gasto', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Gastos', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Registrar gasto', exact: true }).click();
   expect(writes).toHaveLength(0);
@@ -41,7 +41,7 @@ test('manual expense needs no image or AI, validates input, and appears with exa
   await page.getByLabel('Buscar proveedor, concepto o número').fill(provider);
   const card = page.getByRole('listitem').filter({ hasText: `Gasto n.º ${id} · ${provider}` });
   await expect(card).toBeVisible();
-  await expect(card).toContainText('02/01/2020 · Segundo Local');
+  await expect(card).toContainText('02/01/2020 · Salmón');
   await expect(card).toContainText('0,30');
   await expect(card).toContainText('Sin concepto');
   await page.getByLabel('Local de consulta').selectOption('Principal');

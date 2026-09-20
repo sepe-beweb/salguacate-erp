@@ -73,6 +73,25 @@ describe('Workforce flows', () => {
 });
 
 describe('Communications and task permissions', () => {
+  it('rejects inaccessible employee assignments without inserting a task or widening local permissions', async () => {
+    for (const token of [owner, manager]) {
+      const rejected = await request(app).post('/api/tareas').set(auth(token)).send({ ...task, local: 'Segundo Local' }).expect(400);
+      expect(rejected.body.error).toContain('no pertenece al local');
+    }
+    expect(db.connection.prepare('SELECT count(*) AS n FROM tareas').get().n).toBe(0);
+  });
+  it.each(['Principal', 'Ambos', '', undefined])('allows accessible employee assignment for local %s', async local => {
+    const created = await request(app).post('/api/tareas').set(auth(manager)).send({ ...task, local }).expect(200);
+    const own = await request(app).get('/api/tareas').set(auth(employee)).expect(200);
+    expect(own.body.some(row => row.id === created.body.id)).toBe(true);
+    await request(app).put(`/api/tareas/${created.body.id}/completada`).set(auth(employee)).send({ completada: true }).expect(200);
+  });
+  it('checks the current employee local on each assignment inside the write transaction', async () => {
+    db.connection.prepare("UPDATE usuarios SET local = 'Segundo Local' WHERE id = 3").run();
+    await request(app).post('/api/tareas').set(auth(owner)).send(task).expect(400);
+    await request(app).post('/api/tareas').set(auth(owner)).send({ ...task, local: 'Segundo Local' }).expect(200);
+    await request(app).post('/api/tareas').set(auth(owner)).send({ ...task, asignado_a: 2, local: 'Segundo Local' }).expect(200);
+  });
   it('delivers a message only to its recipient and prevents sender impersonation', async () => {
     const message = { destinatario_id: 1, asunto: 'Cambio', cuerpo: 'Solicitud de cambio' };
     await request(app).post('/api/mensajes').set(auth(employee)).send({ ...message, remitente_id: 2 }).expect(403);
@@ -129,7 +148,7 @@ describe('Communications and task permissions', () => {
     expect(db.connection.prepare('SELECT fijada FROM notas WHERE id=?').get(id).fijada).toBe(0);
   });
   it('filters employee tasks by both assignment and location and enforces the same rule on writes', async () => {
-    for (const data of [task, { ...task, asignado_a: 2 }, { ...task, local: 'Segundo Local' }, { ...task, asignado_a: null, local: 'Ambos' }]) {
+    for (const data of [task, { ...task, asignado_a: 2 }, { ...task, asignado_a: null, local: 'Segundo Local' }, { ...task, asignado_a: null, local: 'Ambos' }]) {
       await request(app).post('/api/tareas').set(auth(manager)).send(data).expect(200);
     }
     const own = await request(app).get('/api/tareas?local=Segundo%20Local').set(auth(employee)).expect(200);

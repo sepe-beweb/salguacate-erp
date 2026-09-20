@@ -29,7 +29,7 @@ test('lost note response is explicitly confirmed with one persisted note', async
   const headers = await enter(page);
   const text = `Nota respuesta perdida ${testInfo.retry}`;
   const writes = await loseFirstResponse(page, '/api/notas');
-  await page.getByRole('button', { name: 'Muro de Notas' }).click();
+  await page.getByRole('button', { name: 'Notas' }).click();
   await expect(page.getByRole('heading', { name: 'Notas', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Nueva', exact: true }).click();
   await page.getByLabel('Contenido de la nota').fill(text);
@@ -66,7 +66,7 @@ test('reviewed expense keeps image and fields after a lost response and confirms
   // Synthetic extraction only; no Gemini request leaves this test.
   await page.route('**/api/ai/vision', route => route.fulfill({ json: { success: true, proveedor: provider, total: 7.25, concepto: 'Prueba aislada', rawText: '' } }));
   const writes = await loseFirstResponse(page, '/api/gastos');
-  await page.getByRole('button', { name: 'Escáner de Facturas' }).click();
+  await page.getByRole('button', { name: 'Escáner de facturas' }).click();
   await expect(page.getByRole('heading', { name: 'Escáner', exact: true })).toBeVisible();
   const image = await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 10; canvas.height = 10;
@@ -126,7 +126,7 @@ test('note success arriving after navigation is consumed on return without a sec
     await hold;
     await route.fulfill({ response: saved });
   });
-  await page.getByRole('button', { name: 'Muro de Notas' }).click();
+  await page.getByRole('button', { name: 'Notas' }).click();
   await page.getByRole('button', { name: 'Nueva', exact: true }).click();
   await page.getByLabel('Contenido de la nota').fill(text);
   await page.getByRole('button', { name: 'Guardar Nota' }).click();
@@ -149,7 +149,7 @@ test('note success arriving after navigation is consumed on return without a sec
 test('logout cancellation preserves a pending note and confirmed logout clears recovery on next login', async ({ page }, testInfo) => {
   await enter(page);
   const writes = await loseFirstResponse(page, '/api/notas');
-  await page.getByRole('button', { name: 'Muro de Notas' }).click();
+  await page.getByRole('button', { name: 'Notas' }).click();
   await page.getByRole('button', { name: 'Nueva', exact: true }).click();
   await page.getByLabel('Contenido de la nota').fill(`Nota salida ${testInfo.retry}`);
   await page.getByRole('button', { name: 'Guardar Nota' }).click();

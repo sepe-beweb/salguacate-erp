@@ -1,3 +1,5 @@
+import { locationLabel } from '../locations';
+import { useLocalScope } from '../hooks/useLocalScope';
 import { useState } from 'react';
 import { Calendar, Euro, CreditCard, Gift, AlertCircle, Save, TrendingUp, Loader2, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -17,10 +19,10 @@ export default function Sales() {
   const cierres = data ?? [];
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [filterLocal, setFilterLocal] = useState('Todos');
+  const [filterLocal, setFilterLocal] = useLocalScope();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [newCierre, setNewCierre] = useState(emptyClosing);
+  const [newCierre, setNewCierre] = useState(() => ({ ...emptyClosing(), local: filterLocal === 'Todos' ? 'Principal' : filterLocal }));
   const preview = closingPreview(newCierre);
   const history = closingHistory(cierres, filterLocal);
 
@@ -37,7 +39,8 @@ export default function Sales() {
         body: JSON.stringify({ ...newCierre, invitaciones: newCierre.invitaciones || '0', descuadre: newCierre.descuadre || '0' })
       });
       await readJson(res);
-      setNewCierre(emptyClosing());
+      setFilterLocal(newCierre.local);
+      setNewCierre({ ...emptyClosing(), local: newCierre.local });
       setSuccess('Cierre registrado correctamente.');
       void fetchCierres();
       setActiveTab('history');
@@ -100,8 +103,8 @@ export default function Sales() {
                 onChange={e => setNewCierre({...newCierre, local: e.target.value})}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-4 py-2 focus:outline-none focus:border-brand-500 transition-colors"
               >
-                <option value="Principal">Local Principal</option>
-                <option value="Segundo Local">Segundo Local</option>
+                <option value="Principal">{locationLabel('Principal')}</option>
+                <option value="Segundo Local">{locationLabel('Segundo Local')}</option>
               </select>
             </div>
 
@@ -205,7 +208,7 @@ export default function Sales() {
               <button key={l} onClick={() => setFilterLocal(l)} aria-pressed={filterLocal === l}
                 className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${filterLocal === l ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}
               >
-                <MapPin size={12} />{l}
+                <MapPin size={12} />{locationLabel(l)}
               </button>
             ))}
           </div>
@@ -217,7 +220,7 @@ export default function Sales() {
             <div className="text-center py-10 text-slate-500">No hay cierres registrados para este filtro.</div>
           ) : (
             history.map(item => (
-              <article key={item.id} aria-label={`Cierre ${formatCivilDate(item.fecha)} · ${item.local}`} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 transition-colors duration-200">
+              <article key={item.id} aria-label={`Cierre ${formatCivilDate(item.fecha)} · ${locationLabel(item.local)}`} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 transition-colors duration-200">
               <div className="flex flex-wrap gap-3 items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="bg-brand-100 dark:bg-brand-900/30 p-2 rounded-lg text-brand-600 dark:text-brand-400">
@@ -225,7 +228,7 @@ export default function Sales() {
                   </div>
                   <div>
                     <p className="font-medium text-slate-900 dark:text-white">{formatCivilDate(item.fecha)}</p>
-                    <p className="text-xs text-slate-500">{item.local}</p>
+                    <p className="text-xs text-slate-500">{locationLabel(item.local)}</p>
                   </div>
                 </div>
                 <div className="text-right">

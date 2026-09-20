@@ -31,7 +31,7 @@ describe('Fresh installation bootstrap with disposable databases', () => {
       const owners = db.connection.prepare('SELECT * FROM usuarios').all(); expect(owners).toHaveLength(1);
       expect(owners[0]).toMatchObject({ nombre: 'First Owner', rol: 'owner', local: 'Todos', must_change_pin: 0, active: 1 });
       expect(owners[0].pin).toMatch(/^scrypt\$/); expect(await verifyPin(TEST_PIN, owners[0].pin)).toBe(true);
-      for (const table of ['fichajes','proveedores','inventario','turnos','mensajes','eventos','notas','cierres','gastos','tareas','pedidos','peticiones','idempotency_requests']) expect(db.connection.prepare(`SELECT count(*) AS n FROM ${table}`).get().n).toBe(0);
+      for (const table of ['fichajes','proveedores','inventario','turnos','mensajes','eventos','notas','cierres','gastos','tareas','pedidos','peticiones','idempotency_requests','rutinas','rutina_ejecuciones','relevos','relevo_lecturas']) expect(db.connection.prepare(`SELECT count(*) AS n FROM ${table}`).get().n).toBe(0);
       const app = createApp({ db }); const login = await request(app).post('/api/login').send({ usuario_id: 1, pin: TEST_PIN }).expect(200);
       expect(login.body.user).toMatchObject({ rol: 'owner', must_change_pin: false });
       await request(app).get('/api/inventario').set('Authorization', `Bearer ${login.body.token}`).expect(200, []);

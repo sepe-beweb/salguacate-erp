@@ -10,6 +10,8 @@ import ScreenBoundary from './components/ScreenBoundary';
 import PendingCreatesNotice from './components/PendingCreatesNotice';
 import NavigationLinks from './components/NavigationLinks';
 import MobileNavigation from './components/MobileNavigation';
+import { LocalScopeProvider } from './context/LocalScopeContext';
+import { locationLabel } from './locations';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inventory = lazy(() => import('./pages/Inventory'));
@@ -24,6 +26,7 @@ const ManagerCalendar = lazy(() => import('./pages/ManagerCalendar'));
 const Notes = lazy(() => import('./pages/Notes'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Tasks = lazy(() => import('./pages/Tasks'));
+const Handover = lazy(() => import('./pages/Handover'));
 const StockControl = lazy(() => import('./pages/StockControl'));
 const EmployeeDashboard = lazy(() => import('./pages/employee/EmployeeDashboard'));
 const Calendar = lazy(() => import('./pages/employee/Calendar'));
@@ -74,7 +77,7 @@ function BottomNav({ role }: { role: Role }) {
         </button>
         <button onClick={() => navigate('/inventario')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentPath === '/inventario' ? 'text-brand-600 dark:text-brand-400 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}>
           <Package size={20} />
-          <span className="text-[10px] font-medium">Stock</span>
+          <span className="text-[10px] font-medium">Inventario</span>
         </button>
         <button onClick={() => navigate('/proveedores')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentPath === '/proveedores' ? 'text-brand-600 dark:text-brand-400 font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}>
           <Truck size={20} />
@@ -116,7 +119,7 @@ function Sidebar({ role, isDarkMode, toggleTheme, logout }: SidebarProps) {
             <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest font-bold mt-0.5">ERP Restauración</p>
           </div>
           <span className="bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">
-            {role === 'owner' ? 'Owner' : role === 'manager' ? 'Manager' : 'Staff'}
+            {role === 'owner' ? 'Propietario' : role === 'manager' ? 'Encargado/a' : 'Personal'}
           </span>
         </div>
 
@@ -127,7 +130,7 @@ function Sidebar({ role, isDarkMode, toggleTheme, logout }: SidebarProps) {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.name}</p>
-            <p className="text-xs text-slate-400 truncate">{user?.location || 'Todos los locales'}</p>
+            <p className="text-xs text-slate-400 truncate">{locationLabel(user?.location, 'Todos los locales')}</p>
           </div>
         </div>
 
@@ -193,6 +196,7 @@ function MainLayout() {
   if (user.mustChangePin) return <ChangePin />;
 
   return (
+    <LocalScopeProvider key={`${user.id}:${user.role}`} initialLocal={user.role === 'manager' ? user.location : 'Todos'}>
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 lg:flex">
       
       {/* Sidebar for Desktop */}
@@ -236,10 +240,11 @@ function MainLayout() {
 
         {/* Content View */}
         <main className="p-4 lg:p-8 flex-1 max-w-[1600px] w-full mx-auto pb-24 lg:pb-8">
-          {user.role !== 'employee' && <PendingCreatesNotice />}
+          <PendingCreatesNotice />
           <ScreenBoundary key={`${user.id}:${user.role}:${location.pathname}`} onHome={() => navigate('/')}>
             <Suspense fallback={<p role="status" className="p-8 text-center text-slate-600 dark:text-slate-300">Cargando pantalla...</p>}>
               <Routes>
+                <Route path="/turno" element={<Handover />} />
                 {user.role === 'employee' ? (
                   <>
                     <Route path="/" element={<EmployeeDashboard />} />
@@ -272,16 +277,15 @@ function MainLayout() {
               </Routes>
             </Suspense>
           </ScreenBoundary>
+          <div className="mt-6"><AIChatbot /></div>
         </main>
         
       </div>
 
-      {/* Asistente de IA (Controla internamente si se muestra según el rol) */}
-      <AIChatbot />
-
       {/* Bottom Nav for Mobile */}
       <BottomNav role={user.role} />
     </div>
+    </LocalScopeProvider>
   );
 }
 

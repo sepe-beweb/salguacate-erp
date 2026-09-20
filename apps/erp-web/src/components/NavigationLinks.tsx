@@ -4,33 +4,37 @@ import type { Role } from '../context/AuthContext';
 
 interface NavigationItem { path: string; label: string; icon: LucideIcon; }
 interface NavigationGroup { label: string; items: NavigationItem[]; }
-const personal: NavigationGroup[] = [{ label: 'Panel Personal', items: [
+const personal: NavigationGroup[] = [{ label: 'Mi jornada', items: [
   { path: '/', label: 'Inicio', icon: Home },
-  { path: '/calendario', label: 'Turnos Asignados', icon: Calendar },
-  { path: '/fichaje', label: 'Control Horario', icon: Clock },
-  { path: '/correos', label: 'Buzón Interno', icon: Mail },
+  { path: '/turno', label: 'Relevo y rutinas', icon: ClipboardList },
+  { path: '/calendario', label: 'Mis turnos', icon: Calendar },
+  { path: '/fichaje', label: 'Fichar', icon: Clock },
+  { path: '/correos', label: 'Buzón', icon: Mail },
   { path: '/peticiones', label: 'Solicitudes', icon: Sparkles },
 ] }];
 const management: NavigationGroup[] = [
-  { label: 'Operaciones', items: [
-    { path: '/', label: 'Panel de Control', icon: Home },
-    { path: '/inventario', label: 'Almacén y Stock', icon: Package },
-    { path: '/control-stock', label: 'Pedidos de Reposición', icon: ClipboardList },
+  { label: 'Hoy', items: [
+    { path: '/', label: 'Inicio', icon: Home },
+    { path: '/turno', label: 'Relevo y rutinas', icon: ClipboardList },
+    { path: '/tareas', label: 'Tareas', icon: ClipboardList },
+    { path: '/agenda', label: 'Agenda', icon: Music },
+  ] },
+  { label: 'Operativa', items: [
+    { path: '/inventario', label: 'Inventario', icon: Package },
+    { path: '/control-stock', label: 'Pedidos', icon: ClipboardList },
     { path: '/proveedores', label: 'Proveedores', icon: Truck },
-    { path: '/escaner', label: 'Escáner de Facturas', icon: Camera },
+    { path: '/escaner', label: 'Escáner de facturas', icon: Camera },
   ] },
-  { label: 'Gestión y Equipo', items: [
-    { path: '/rrhh', label: 'Recursos Humanos', icon: User },
-    { path: '/tareas', label: 'Lista de Checklists', icon: ClipboardList },
-    { path: '/agenda', label: 'Agenda de Eventos', icon: Music },
-    { path: '/correos', label: 'Buzón de Mensajes', icon: Mail },
-    { path: '/notas', label: 'Muro de Notas', icon: StickyNote },
+  { label: 'Equipo', items: [
+    { path: '/rrhh', label: 'Personal y turnos', icon: User },
+    { path: '/correos', label: 'Buzón', icon: Mail },
+    { path: '/notas', label: 'Notas', icon: StickyNote },
   ] },
-  { label: 'Finanzas', items: [
-    { path: '/ventas', label: 'Cierres de Caja', icon: CreditCard },
+  { label: 'Gestión', items: [
+    { path: '/ventas', label: 'Cierres de caja', icon: CreditCard },
     { path: '/gastos', label: 'Gastos', icon: FileSpreadsheet },
-    { path: '/analiticas', label: 'Analíticas Visuales', icon: BarChart3 },
-    { path: '/informes', label: 'Informes Mensuales', icon: FileSpreadsheet },
+    { path: '/analiticas', label: 'Evolución económica', icon: BarChart3 },
+    { path: '/informes', label: 'Informe mensual', icon: FileSpreadsheet },
   ] },
 ];
 const preferences: NavigationGroup = { label: 'Cuenta', items: [{ path: '/ajustes', label: 'Ajustes', icon: Settings }] };

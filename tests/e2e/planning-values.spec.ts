@@ -8,7 +8,7 @@ test('task lifecycle and agenda retain civil dates on mobile in western and east
       await page.clock.setFixedTime(new Date(timezoneId === 'America/Los_Angeles' ? '2024-02-29T23:30:00-08:00' : '2024-02-29T00:30:00+14:00'));
       await page.goto('/'); await page.getByRole('button', { name: /Jefe Admin/ }).click();
       await page.getByLabel('PIN de acceso').fill('246810'); await page.getByRole('button', { name: 'Acceder' }).click();
-      await page.getByRole('link', { name: 'Tareas', exact: true }).click();
+      await page.getByRole('link', { name: 'Organizar tareas', exact: true }).click();
       await page.getByRole('button', { name: 'Nueva', exact: true }).click();
       await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('2024-02-29');
       const title = `Tarea civil ${timezoneId} ${testInfo.retry}`;

@@ -91,12 +91,12 @@ describe('Closing editor and history', () => {
   it('shows civil dates, recorded totals, breakdown and inconsistency only for the selected history', async () => {
     mocks.fetchWithAuth.mockImplementation(async () => response([{ ...closing, fecha: '2024-02-29', total: 5 }, { ...closing, id: 2, local: 'Segundo Local' }]));
     render(<Sales />); fireEvent.click(screen.getByRole('button', { name: 'Historial' }));
-    const row = await screen.findByRole('article', { name: 'Cierre 29/02/2024 · Principal' });
+    const row = await screen.findByRole('article', { name: 'Cierre 29/02/2024 · Aguacate' });
     expect(within(row).getByText('5,00 €')).toBeVisible();
     expect(within(row).getByText('0,10 €')).toBeVisible();
     expect(within(row).getByText('Descuadre: -0,01 €')).toBeVisible();
     expect(within(row).getByRole('alert')).toHaveTextContent('Se conserva el histórico');
-    fireEvent.click(screen.getByRole('button', { name: 'Segundo Local', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salmón', exact: true }));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getAllByRole('article')).toHaveLength(1);
   });
@@ -119,9 +119,9 @@ describe('Dashboard boundaries', () => {
     render(<MemoryRouter><Dashboard /></MemoryRouter>);
     const summary = await screen.findByRole('region', { name: 'Resumen financiero mensual' });
     expect(summary).toHaveTextContent('5,00 €'); expect(summary).toHaveTextContent('4,95 €');
-    expect(summary).toHaveTextContent('5,00 € · 01/01/2026 · Principal');
+    expect(summary).toHaveTextContent('5,00 € · 01/01/2026 · Aguacate');
     expect(screen.getByRole('alert')).toHaveTextContent('Se conservan los totales registrados');
-    expect(screen.getByText('16/01/2026 · Evento')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Próximo evento · 16/01/2026 · 10:00' })).toBeVisible();
   });
   it.each(['invalid closing', 'failed expenses', 'invalid event'])('blocks the entire dashboard on %s and can reload', async failure => {
     mocks.fetchWithAuth.mockImplementation(async url => url.endsWith('/gastos') && failure === 'failed expenses' ? response({ error: 'Gastos pendientes' }, 503) : response(url.endsWith('/cierres') ? [{ ...closing, ...(failure === 'invalid closing' ? { total: null } : {}) }] : url.endsWith('/eventos') && failure === 'invalid event' ? [{ fecha: '2026-02-30' }] : []));

@@ -17,10 +17,10 @@ test('mobile order draft keeps its local, focus and quantities and registers sam
     expect(created.ok()).toBe(true); providers.push({ id, name, product, productId: (await created.json()).id });
   }
   await page.getByRole('button', { name: 'Abrir navegación' }).click();
-  await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Pedidos de Reposición' }).click();
+  await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Pedidos' }).click();
   await page.getByRole('button', { name: 'Seleccionar stock bajo' }).click();
   const generate = page.getByRole('button', { name: /Generar Pedido/ }); await generate.click();
-  const dialog = page.getByRole('dialog', { name: 'Pedido de Principal' });
+  const dialog = page.getByRole('dialog', { name: 'Pedido de Aguacate' });
   await expect(dialog.getByRole('button', { name: 'Cerrar pedido' })).toBeFocused();
   await expect(dialog.getByRole('region')).toHaveCount(3);
   for (let index = 0; index < 8; index++) {
@@ -30,9 +30,9 @@ test('mobile order draft keeps its local, focus and quantities and registers sam
   await dialog.getByRole('button', { name: `Sumar unidades de ${providers[0].product}` }).click();
   const date = await dialog.getByText(/^Fecha del pedido:/).textContent();
   await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect(generate).toBeFocused();
-  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
+  await page.getByRole('button', { name: 'Salmón', exact: true }).click();
   await expect(page.getByText('No hay productos en')).toBeVisible();
-  await page.getByRole('button', { name: 'Retomar pedido de Principal' }).click();
+  await page.getByRole('button', { name: 'Retomar pedido de Aguacate' }).click();
   await expect(dialog).toBeVisible(); await expect(dialog.getByText(date!, { exact: true })).toBeVisible();
   const first = dialog.getByRole('region', { name: `${providers[0].name} · proveedor ${providers[0].id}`, exact: true });
   await expect(first.getByText('4', { exact: true })).toBeVisible();
@@ -68,6 +68,6 @@ test('mobile order draft keeps its local, focus and quantities and registers sam
   expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('order-draft-mobile.png'), fullPage: true });
   await dialog.getByRole('button', { name: 'Cerrar pedido' }).click();
-  await page.getByRole('button', { name: 'Retomar pedido de Principal' }).click();
+  await page.getByRole('button', { name: 'Retomar pedido de Aguacate' }).click();
   await expect(dialog.getByRole('button', { name: 'Pedido registrado' })).toHaveCount(3);
 });

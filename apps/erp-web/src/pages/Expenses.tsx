@@ -1,3 +1,5 @@
+import { locationLabel } from '../locations';
+import { useLocalScope } from '../hooks/useLocalScope';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useApiRead } from '../hooks/useApiLists';
@@ -10,17 +12,17 @@ import { localDate } from '../localDate';
 export default function Expenses() {
   const { data, loading, error, reload } = useApiRead(['/api/gastos'], readExpenses);
   const { payload, locked, inFlight, confirmedId, recoveryError, submit, discard } = useIdempotentCreate<ExpenseDraft>('/api/gastos');
-  const [draft, setDraft] = useState(() => payload ?? emptyExpense());
+  const [local, setLocal] = useLocalScope();
+  const [draft, setDraft] = useState(() => payload ?? { ...emptyExpense(), local: local === 'Todos' ? 'Principal' : local });
   const [success, setSuccess] = useState('');
   const [month, setMonth] = useState(() => localDate().slice(0, 7));
-  const [local, setLocal] = useState('Todos');
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!confirmedId) return;
     setSuccess(`Gasto registrado correctamente (n.º ${confirmedId}).`);
-    setMonth(payload?.fecha.slice(0, 7) ?? ''); setLocal('Todos'); setSearch('');
-    setDraft(emptyExpense()); discard(); void reload();
+    setMonth(payload?.fecha.slice(0, 7) ?? ''); setLocal(payload?.local ?? 'Todos'); setSearch('');
+    setDraft({ ...emptyExpense(), local: payload?.local ?? 'Principal' }); discard(); void reload();
   }, [confirmedId, discard, reload]);
 
   const save = async (event: FormEvent) => {
@@ -51,7 +53,7 @@ export default function Expenses() {
       <button type="submit" disabled={inFlight} className="w-full rounded-lg bg-brand-600 text-white p-3 disabled:opacity-50">{inFlight ? 'Registrando...' : locked ? 'Confirmar guardado pendiente' : 'Registrar gasto'}</button>
       {payload && <button type="button" disabled={inFlight} className="text-sm underline" onClick={() => {
         if (locked && !window.confirm('El servidor puede haber registrado el gasto. Descartar elimina este intento y su protección frente a duplicados. Comprueba los gastos antes de crear otro. ¿Continuar?')) return;
-        discard(); setDraft(emptyExpense()); setSuccess('');
+        discard(); setDraft({ ...emptyExpense(), local: local === 'Todos' ? 'Principal' : local }); setSuccess('');
       }}>Descartar intento pendiente</button>}
       <p className="text-xs text-slate-500">Los borradores sin enviar no se conservan al salir. La recuperación de intentos enviados solo dura esta sesión.</p>
     </form>
@@ -62,7 +64,7 @@ export default function Expenses() {
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <label>Mes de consulta<input type="month" value={month} onChange={e => setMonth(e.target.value)} className="block w-full p-2 border rounded-lg bg-white dark:bg-slate-900" /></label>
-        <label>Local de consulta<select value={local} onChange={e => setLocal(e.target.value)} className="block w-full p-2 border rounded-lg bg-white dark:bg-slate-900"><option>Todos</option>{[...new Set(['Principal', 'Segundo Local', ...(data ?? []).map(row => row.local)])].map(name => <option key={name}>{name}</option>)}</select></label>
+        <label>Local de consulta<select value={local} onChange={e => setLocal(e.target.value)} className="block w-full p-2 border rounded-lg bg-white dark:bg-slate-900"><option>Todos</option>{[...new Set(['Principal', 'Segundo Local', ...(data ?? []).map(row => row.local)])].map(name => <option key={name} value={name}>{locationLabel(name)}</option>)}</select></label>
         <label>Buscar proveedor, concepto o número<input value={search} onChange={e => setSearch(e.target.value)} className="block w-full p-2 border rounded-lg bg-white dark:bg-slate-900" /></label>
       </div>
       <button className="underline text-sm" onClick={() => { setMonth(''); setLocal('Todos'); setSearch(''); }}>Ver todos los gastos</button>
@@ -71,7 +73,7 @@ export default function Expenses() {
         {visible.length === 0 ? <p>{data.length === 0 ? 'Todavía no hay gastos registrados.' : 'No hay gastos que coincidan con los filtros.'}</p> :
           <ul className="grid gap-3 sm:grid-cols-2">{visible.map(row => <li key={row.id} className="rounded-xl border bg-white dark:bg-slate-900 p-4 space-y-2 min-w-0 break-words">
             <h4 className="font-semibold">Gasto n.º {row.id} · {row.proveedor_nombre}</h4>
-            <p>{expenseDate(row.fecha)} · {row.local}</p>
+            <p>{expenseDate(row.fecha)} · {locationLabel(row.local)}</p>
             <p className="text-lg font-bold">{formatExpenseCents(expenseCents(row.total))}</p>
             <p className="whitespace-pre-wrap">{row.concepto || 'Sin concepto'}</p>
           </li>)}</ul>}

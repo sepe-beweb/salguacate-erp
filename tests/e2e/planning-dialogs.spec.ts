@@ -4,7 +4,7 @@ test('planning dialogs own keyboard focus, retain drafts and block Escape during
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/'); await page.getByRole('button', { name: /Jefe Admin/ }).click();
   await page.getByLabel('PIN de acceso').fill('246810'); await page.getByRole('button', { name: 'Acceder' }).click();
-  await page.getByRole('link', { name: 'Tareas', exact: true }).click();
+  await page.getByRole('link', { name: 'Organizar tareas', exact: true }).click();
   const open = page.getByRole('button', { name: 'Nueva', exact: true }); await open.click();
   await expect(page.getByRole('dialog', { name: 'Nueva Tarea' })).toBeVisible();
   await expect(page.getByLabel('Tarea', { exact: true })).toBeFocused();

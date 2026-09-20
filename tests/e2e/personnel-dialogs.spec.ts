@@ -4,7 +4,7 @@ test('mobile personnel dialogs preserve drafts, clear closed PINs and save a rea
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/'); await page.getByRole('button', { name: /Jefe Admin/ }).click();
   await page.getByLabel('PIN de acceso').fill('246810'); await page.getByRole('button', { name: 'Acceder' }).click();
-  await page.getByRole('link', { name: 'RRHH', exact: true }).click();
+  await page.getByRole('link', { name: 'Personal y turnos', exact: true }).click();
   const open = page.getByRole('button', { name: 'Empleado', exact: true }); await open.click();
   await expect(page.getByLabel('Nombre Completo')).toBeFocused();
   const name = `Personal móvil ${testInfo.retry}`;

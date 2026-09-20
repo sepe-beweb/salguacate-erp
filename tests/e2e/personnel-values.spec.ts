@@ -20,7 +20,7 @@ test('employee and reviewer agree on civil request dates in both time zones', as
       const ownCard = employee.getByText(`"${comment}"`, { exact: true }).locator('../..');
       await expect(ownCard).toContainText('29/02/2024 al 01/03/2024');
       await enter(reviewer, 'Encargado Principal');
-      await reviewer.getByRole('link', { name: 'RRHH', exact: true }).click();
+      await reviewer.getByRole('link', { name: 'Personal y turnos', exact: true }).click();
       await reviewer.getByRole('button', { name: /Peticiones de Personal/ }).click();
       const reviewCard = reviewer.getByText(`"${comment}"`, { exact: true }).locator('../..');
       await expect(reviewCard).toContainText('29/02/2024'); await expect(reviewCard).toContainText('01/03/2024');

@@ -1,3 +1,6 @@
+import { locationLabel, matchesLocation } from '../locations';
+import { useLocalScope } from '../hooks/useLocalScope';
+import LocalFilter from '../components/LocalFilter';
 import { useState, useEffect } from 'react';
 import { ClipboardList, Plus, Trash2, Loader2, X, CheckCircle2, Circle, User, CalendarDays } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -13,7 +16,9 @@ import ModalDialog from '../components/ModalDialog';
 export default function Tasks() {
   const { fetchWithAuth } = useAuth();
   const { data, loading, error: loadError, reload: fetchData } = useApiRead(['/api/tareas', '/api/usuarios'], readTaskWorkspace);
-  const [tareas, employees] = data ?? [[], []];
+  const [selectedLocal, setSelectedLocal] = useLocalScope();
+  const [allTasks, employees] = data ?? [[], []];
+  const tareas = allTasks.filter(task => matchesLocation(task.local, selectedLocal, true));
   const today = localDate();
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -22,6 +27,8 @@ export default function Tasks() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('pending');
   const [form, setForm] = useState(emptyTask);
   const [hasDraft, setHasDraft] = useState(false);
+  const assignee = employees.find(employee => String(employee.id) === form.asignado_a);
+  const incompatibleLocal = !!assignee && assignee.rol === 'employee' && !!form.local && form.local !== 'Ambos' && assignee.local !== form.local;
 
   useEffect(() => {
     const handleAiAction = () => fetchData();
@@ -33,6 +40,7 @@ export default function Tasks() {
     e.preventDefault();
     if (isSubmitting || busy || loading || loadError) return;
     if (!form.titulo.trim() || !isCivilDate(form.fecha)) { setError('Revisa el título y la fecha de la tarea.'); return; }
+    if (incompatibleLocal) { setError('El empleado no pertenece al local de la tarea. Elige su local o Ambos.'); return; }
     setIsSubmitting(true); setError('');
     try {
       const res = await fetchWithAuth(`${API_URL}/api/tareas`, {
@@ -105,7 +113,7 @@ export default function Tasks() {
         </h2>
         <button 
           disabled={loading || !!loadError || busy || isSubmitting}
-          onClick={() => { setError(''); if (!hasDraft) setForm(emptyTask()); setShowModal(true); }}
+          onClick={() => { setError(''); if (!hasDraft) setForm({ ...emptyTask(), local: selectedLocal === 'Todos' ? '' : selectedLocal }); setShowModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-full transition-colors shadow-md flex items-center gap-1 px-4"
         >
           <Plus size={18} /> <span className="font-semibold text-sm">Nueva</span>
@@ -113,6 +121,7 @@ export default function Tasks() {
       </div>
 
       {/* Counters + Filters */}
+      <LocalFilter value={selectedLocal} onChange={setSelectedLocal} />
       {!loading && !loadError && <div className="flex gap-2">
         <button onClick={() => setFilter('pending')} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${filter === 'pending' ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}>
           Pendientes <span className="ml-1 bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded-full text-xs">{pendingCount}</span>
@@ -169,7 +178,7 @@ export default function Tasks() {
                   >
                     <option value="">Todos</option>
                     {employees.filter(e => e.rol === 'employee').map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                      <option key={emp.id} value={emp.id} disabled={!!form.local && form.local !== 'Ambos' && emp.local !== form.local}>{emp.nombre} · {locationLabel(emp.local, 'Sin local')}</option>
                     ))}
                   </select>
                 </div>
@@ -203,16 +212,17 @@ export default function Tasks() {
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                 >
                   <option value="">Ambos</option>
-                  <option value="Principal">Principal</option>
-                  <option value="Segundo Local">Segundo Local</option>
+                  <option value="Principal">{locationLabel('Principal')}</option>
+                  <option value="Segundo Local">{locationLabel('Segundo Local')}</option>
                 </select>
               </div>
               <button 
-                type="submit" disabled={isSubmitting}
+                type="submit" disabled={isSubmitting || incompatibleLocal}
                 className="w-full mt-2 bg-brand-600 hover:bg-brand-700 text-white font-medium py-3 rounded-lg flex justify-center items-center transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : "Crear Tarea"}
               </button>
+              {incompatibleLocal && <p role="alert" className="text-sm text-red-700 dark:text-red-400">El empleado no pertenece al local de la tarea. Elige su local o Ambos. La asignación se conserva para que puedas corregirla.</p>}
               </fieldset>
               {hasDraft && <button type="button" disabled={isSubmitting} onClick={() => {
                 if (window.confirm('¿Descartar el borrador de esta tarea?')) { setForm(emptyTask()); setHasDraft(false); setError(''); }
@@ -266,6 +276,7 @@ export default function Tasks() {
                     <p className="text-xs text-slate-500 mt-0.5 truncate">{tarea.descripcion}</p>
                   )}
                   <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-xs text-slate-500">{locationLabel(tarea.local, 'Ambos')}</span>
                     {/* Priority badge */}
                     <span className={`flex items-center gap-1.5 text-xs font-semibold ${prio.text} ${prio.bg} px-2 py-0.5 rounded-full`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${prio.dot}`}></span>
@@ -287,12 +298,12 @@ export default function Tasks() {
                 </div>
 
                 {/* Delete */}
-                <button 
+                {!tarea.rutina_ejecucion_id && <button
                   disabled={busy || isSubmitting} aria-label={`Eliminar tarea: ${tarea.titulo}`} onClick={() => handleDelete(tarea)}
                   className="text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors p-1 flex-shrink-0"
                 >
                   <Trash2 size={14} />
-                </button>
+                </button>}
               </div>
             );
           })}

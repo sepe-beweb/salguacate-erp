@@ -1,3 +1,4 @@
+import { locationLabel } from '../../locations';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, CalendarDays, Bell, CheckCircle2, Circle } from 'lucide-react';
@@ -47,6 +48,7 @@ export default function EmployeeDashboard() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <RequestError message={error} />
+      <button className="rounded-xl border border-brand-300 px-4 py-3 text-sm font-medium" onClick={() => navigate('/turno')}>Relevo y rutinas del local</button>
       {/* Saludo */}
       <div className="flex justify-between items-start">
         <div>
@@ -54,7 +56,7 @@ export default function EmployeeDashboard() {
           <p className="text-slate-500 dark:text-slate-400 capitalize">{dateStr}</p>
         </div>
         <div className="bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 px-3 py-1 rounded-full text-xs font-semibold">
-          {user?.location}
+          {locationLabel(user?.location)}
         </div>
       </div>
 
@@ -73,7 +75,7 @@ export default function EmployeeDashboard() {
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <CalendarDays size={16} className="text-brand-500" />
-              Hoy en <strong>{turnoHoy.local || 'Local no indicado'}</strong>
+              Hoy en <strong>{locationLabel(turnoHoy.local, 'Local no indicado')}</strong>
             </p>
             {turnoHoy.compañeros && (
               <p className="text-xs text-slate-400 mt-1">Con: {turnoHoy.compañeros}</p>
@@ -119,7 +121,7 @@ export default function EmployeeDashboard() {
           <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 text-center text-slate-500">
             <CheckCircle2 className="text-emerald-500 mx-auto mb-2" size={32} />
             <p className="font-medium text-slate-800 dark:text-slate-300">Sin tareas para hoy</p>
-            <p className="text-xs mt-0.5">No tienes tareas asignadas pendientes en {user?.location}.</p>
+            <p className="text-xs mt-0.5">No tienes tareas asignadas pendientes en {locationLabel(user?.location)}.</p>
           </div>
         ) : (
           <div className="space-y-2">

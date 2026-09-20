@@ -9,7 +9,7 @@ test('synthetic PNG and JPEG photos persist through the catalogue API and load a
   };
   const openInventory = async () => {
     await page.getByRole('button', { name: 'Abrir navegación' }).click();
-    await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Almacén y Stock' }).click();
+    await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Inventario' }).click();
     await expect(page.getByRole('button', { name: 'Nuevo producto' })).toBeVisible();
   };
   await page.goto('/'); const token = await login(); await openInventory();

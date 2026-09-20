@@ -1,3 +1,4 @@
+import { locationLabel } from './locations';
 import { readList } from './apiResponse';
 import { readStock, type StockItem } from './stockData';
 
@@ -46,7 +47,7 @@ export function groupStockAlerts(items: CatalogItem[]) {
   return [...groups.values()];
 }
 export function stockAlertText(name: string, local: string, items: CatalogItem[]) {
-  return `Alertas de stock — Salguacate — ${local}\nProveedor: ${name}\n\n` + items.map(item =>
+  return `Alertas de stock — Salguacate — ${locationLabel(local)}\nProveedor: ${name}\n\n` + items.map(item =>
     `• ${item.producto}: ${item.stock_actual} en stock; mínimo ${item.stock_minimo}; hasta el mínimo: ${Math.max(0, item.stock_minimo - item.stock_actual)}.`
   ).join('\n') + '\n\nLista informativa. No registra un pedido ni confirma un envío.';
 }

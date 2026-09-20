@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { readOrders, readStock, readStockWorkspace } from '../../apps/erp-web/src/stockData';
 import StockControl from '../../apps/erp-web/src/pages/StockControl';
@@ -10,6 +10,23 @@ const product = { id: 1, producto: 'Agua', stock_actual: 2, stock_minimo: 5, loc
 const line = { producto_id: 1, nombre: 'Agua', cantidad: 3 };
 const order = { id: 1, fecha: '2024-02-29', local: 'Segundo Local', proveedor_id: null, proveedor_nombre: 'Distribuidor', productos: JSON.stringify([line]), estado: 'pendiente' };
 beforeEach(() => { mocks.fetchWithAuth.mockReset(); });
+
+it('makes every old pending order reachable without dropping previously displayed orders', async () => {
+  const orders = Array.from({ length: 23 }, (_, index) => ({ ...order, id: index + 1, proveedor_nombre: `Proveedor ${index + 1}` }));
+  mocks.fetchWithAuth.mockImplementation(async url => response(url.includes('/inventario') ? [product] : orders));
+  render(<StockControl />);
+  await screen.findByRole('button', { name: /\bAgua\b/ });
+  fireEvent.click(screen.getByRole('button', { name: 'Historial' }));
+  expect(screen.getAllByRole('group', { name: /^Pedido \d+ de / })).toHaveLength(10);
+  fireEvent.click(screen.getByRole('button', { name: 'Mostrar más pedidos' }));
+  expect(screen.getAllByRole('group', { name: /^Pedido \d+ de / })).toHaveLength(20);
+  fireEvent.click(screen.getByRole('button', { name: 'Mostrar más pedidos' }));
+  const oldest = screen.getByRole('group', { name: 'Pedido 1 de Proveedor 1', exact: true });
+  expect(within(oldest).getByRole('button', { name: '✓ Recibir' })).toBeEnabled();
+  expect(screen.getAllByRole('group', { name: /^Pedido \d+ de / })).toHaveLength(23);
+  expect(screen.getByText('Mostrando 23 de 23 pedidos.')).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Mostrar más pedidos' })).not.toBeInTheDocument();
+});
 
 it.each([
   { id: '1' }, { producto: ' ' }, { stock_actual: -1 }, { stock_actual: '2' }, { stock_actual: 1.2 },
@@ -50,12 +67,12 @@ it('does not expose stock or receipt controls when order data is invalid; retry 
   mocks.fetchWithAuth.mockImplementation(async url => response(url.includes('/inventario') ? [product] : [{ ...order, estado: corrupt ? 'desconocido' : 'pendiente' }]));
   render(<StockControl />);
   expect(await screen.findByRole('alert')).toHaveTextContent('historial contiene pedidos inválidos');
-  expect(screen.queryByRole('button', { name: /Agua/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /\bAgua\b/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Historial' }));
   expect(screen.queryByRole('button', { name: '✓ Recibir' })).not.toBeInTheDocument();
   expect(screen.queryByText('✓ Recibido')).not.toBeInTheDocument();
   corrupt = false; fireEvent.click(screen.getByRole('button', { name: 'Reintentar carga' }));
-  expect(await screen.findByText('Segundo Local · 29/02/2024')).toBeVisible();
+  expect(await screen.findByText('Salmón · 29/02/2024')).toBeVisible();
   expect(screen.getByText('Agua ×3')).toBeVisible();
   expect(screen.getByRole('button', { name: '✓ Recibir' })).toBeEnabled();
   expect(mocks.fetchWithAuth.mock.calls.every(([, options]) => !options.method)).toBe(true);
@@ -63,7 +80,7 @@ it('does not expose stock or receipt controls when order data is invalid; retry 
 it('labels missing categories and exposes selection state', async () => {
   mocks.fetchWithAuth.mockImplementation(async url => response(url.includes('/inventario') ? [product] : []));
   render(<StockControl />);
-  const row = await screen.findByRole('button', { name: /Agua/ });
+  const row = await screen.findByRole('button', { name: /\bAgua\b/ });
   expect(row).toHaveTextContent('Sin categoría'); expect(row).toHaveAttribute('aria-pressed', 'false');
   fireEvent.click(row); expect(row).toHaveAttribute('aria-pressed', 'true');
 });

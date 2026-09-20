@@ -44,9 +44,9 @@ it('retains quantities, date and original local after Escape and a local change'
   fireEvent.click(screen.getByRole('button', { name: 'Sumar unidades de Agua' }));
   cancel(); expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   vi.setSystemTime(new Date(2024, 2, 1, 0, 1));
-  fireEvent.click(screen.getByRole('button', { name: 'Segundo Local', exact: true }));
-  fireEvent.click(screen.getByRole('button', { name: 'Retomar pedido de Principal' }));
-  expect(screen.getByRole('dialog', { name: 'Pedido de Principal' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Salmón', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Retomar pedido de Aguacate' }));
+  expect(screen.getByRole('dialog', { name: 'Pedido de Aguacate' })).toBeVisible();
   expect(screen.getByText('Fecha del pedido: 29/02/2024')).toBeVisible();
   expect(within(screen.getByRole('region', { name: 'Distribuidor · proveedor 1' })).getByText('4', { exact: true })).toBeVisible();
 });
@@ -54,9 +54,9 @@ it('requires explicit discard and refuses replacement when confirmation is cance
   await open(); const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
   fireEvent.click(screen.getByRole('button', { name: 'Descartar borrador de pedido' })); expect(screen.getByRole('dialog')).toBeVisible();
   cancel(); fireEvent.click(screen.getByRole('button', { name: /Generar Pedido/ })); expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Retomar pedido de Principal' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Retomar pedido de Aguacate' }));
   confirm.mockReturnValue(true); fireEvent.click(screen.getByRole('button', { name: 'Descartar borrador de pedido' }));
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Retomar pedido de Principal' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Retomar pedido de Aguacate' })).not.toBeInTheDocument();
 });
 it('locks a pending registration, preserves a rejected draft and independently records same-name suppliers', async () => {
   let finish!: (value: Response) => void;
@@ -107,7 +107,7 @@ it('ignores late clipboard confirmation after closing and reopening the draft', 
   try {
     await open();
     fireEvent.click(within(screen.getByRole('region', { name: 'Distribuidor · proveedor 1' })).getByRole('button', { name: 'Copiar' }));
-    cancel(); fireEvent.click(screen.getByRole('button', { name: 'Retomar pedido de Principal' }));
+    cancel(); fireEvent.click(screen.getByRole('button', { name: 'Retomar pedido de Aguacate' }));
     await act(async () => finish());
     expect(screen.queryByText('Copiado')).not.toBeInTheDocument();
   } finally {

@@ -24,7 +24,7 @@ test('receiving from the screen updates stock once on the API', async ({ page, r
   });
   expect(order.ok()).toBe(true);
   const orderId = (await order.json()).id;
-  await page.getByRole('button', { name: 'Pedidos de Reposición' }).click();
+  await page.getByRole('button', { name: 'Pedidos' }).click();
   await page.getByRole('button', { name: 'Historial' }).click();
   await page.getByRole('button', { name: '✓ Recibir', exact: true }).click();
   await page.getByRole('button', { name: 'Recibir y sumar stock', exact: true }).click();
@@ -39,7 +39,7 @@ test('scanner creates a real local PDF without contacting AI', async ({ page }) 
   await enter(page);
   const aiRequests: string[] = [];
   page.on('request', req => { if (req.url().includes('/api/ai/')) aiRequests.push(req.url()); });
-  await page.getByRole('button', { name: 'Escáner de Facturas' }).click();
+  await page.getByRole('button', { name: 'Escáner de facturas' }).click();
   const png = await page.evaluate(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 10; canvas.height = 10;

@@ -20,6 +20,9 @@ Entrada vigente: [estado de recuperación y puertas de salida](recovery-status.m
 
 ## Finanzas, planificación y personal
 
+- [Inicio operativo y locales](operational-home.md): primera entrega de evolución, nombres visibles, local de consulta por sesión y límites del relevo pendiente.
+- [Relevo y rutinas](operational-handover.md): segunda entrega, avisos con lectura, listas recurrentes, tareas diarias sin duplicados y migración local al esquema 3.
+
 - [9. Gastos manuales](recovery-manual-expenses.md): alta y consulta sin IA.
 - [10. Valores financieros](recovery-financial-values.md): fechas civiles y sumas en céntimos.
 - [11. Panel y cierres](recovery-dashboard-closings.md): resumen e historial.

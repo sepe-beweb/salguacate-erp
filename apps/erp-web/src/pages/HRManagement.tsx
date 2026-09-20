@@ -1,3 +1,4 @@
+import { locationLabel } from '../locations';
 import { useState, useEffect } from 'react';
 import { UserCheck, Loader2, X, Plus, Pencil, Trash2, CalendarClock, Phone, MapPin, Lock, Check } from 'lucide-react';
 import { API_URL } from '../config';
@@ -196,7 +197,7 @@ export default function HRManagement() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Recursos Humanos</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Personal y turnos</h2>
         <button 
           disabled={busy || isSubmitting || isEmpSubmitting} onClick={openNewEmp}
           className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-full transition-colors shadow-md flex items-center gap-1 px-4"
@@ -272,7 +273,7 @@ export default function HRManagement() {
                         {emp.telefono && (
                           <span className="flex items-center gap-1"><Phone size={12} /> {emp.telefono}</span>
                         )}
-                        <span className="flex items-center gap-1"><MapPin size={12} /> {emp.local || 'Local no indicado'}</span>
+                        <span className="flex items-center gap-1"><MapPin size={12} /> {locationLabel(emp.local, 'Local no indicado')}</span>
                         <span className="flex items-center gap-0.5 text-slate-400">
                           <Lock size={11} className={emp.has_pin ? "text-emerald-500" : "text-amber-500"} />
                           {emp.has_pin ? 'PIN configurado' : 'PIN no configurado'}
@@ -319,7 +320,7 @@ export default function HRManagement() {
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-semibold text-slate-900 dark:text-white text-base">{p.empleado_nombre}</h4>
-                      <p className="text-xs text-slate-400 mt-0.5">{getRolLabel(p.empleado_rol).label} · {p.empleado_local}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{getRolLabel(p.empleado_rol).label} · {locationLabel(p.empleado_local)}</p>
                     </div>
                     
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${typeLabel.style}`}>
@@ -423,8 +424,8 @@ export default function HRManagement() {
                     onChange={e => setEmpForm({...empForm, local: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   >
-                    <option value="Principal">Principal</option>
-                    <option value="Segundo Local">Segundo Local</option>
+                    <option value="Principal">{locationLabel('Principal')}</option>
+                    <option value="Segundo Local">{locationLabel('Segundo Local')}</option>
                     <option value="Todos">Todos</option>
                     {!['Principal', 'Segundo Local', 'Todos'].includes(empForm.local) && <option value={empForm.local}>{empForm.local || 'Selecciona local...'}</option>}
                   </select>
@@ -512,8 +513,8 @@ export default function HRManagement() {
                     onChange={e => setNewShift({...newShift, local: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white"
                   >
-                    <option value="Principal">Principal</option>
-                    <option value="Segundo Local">Segundo Local</option>
+                    <option value="Principal">{locationLabel('Principal')}</option>
+                    <option value="Segundo Local">{locationLabel('Segundo Local')}</option>
                   </select>
                 </div>
               </div>

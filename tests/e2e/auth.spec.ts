@@ -46,7 +46,7 @@ test.describe('Salguacate ERP - Integración local con datos desechables', () =>
     await page.click('text=Acceder');
 
     // Navegar a la pantalla de Fichar
-    await page.click('text=Control Horario');
+    await page.click('text=Fichar');
     await expect(page.locator('text=Fichar Entrada')).toBeVisible();
 
     // Fichar Entrada
@@ -80,19 +80,19 @@ test.describe('Salguacate ERP - Integración local con datos desechables', () =>
 
     // Debería iniciar sesión y ver elementos exclusivos del Dashboard de Administrador
     await expect(page.getByText('Saldo ingresos − gastos', { exact: true })).toBeVisible();
-    await expect(page.locator('text=Módulos')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Necesita atención' })).toBeVisible();
 
     // Debería mostrar la sección premium del Dashboard: "Presencia registrada"
     await expect(page.locator('text=Presencia registrada')).toBeVisible();
 
     // En pantallas de escritorio (la por defecto en Playwright Chromium), el Sidebar lateral premium debe ser visible
-    // El sidebar contiene el texto "ERP Restauración" y la etiqueta del rol "Owner"
+    // El sidebar mantiene la identidad y el rol del propietario.
     await expect(page.locator('text=ERP Restauración')).toBeVisible();
-    await expect(page.locator('text=Owner')).toBeVisible();
+    await expect(page.getByText('Propietario', { exact: true })).toBeVisible();
 
-    // El sidebar debe contener enlaces del dueño como "Almacén y Stock" y "Recursos Humanos"
-    await expect(page.locator('text=Almacén y Stock')).toBeVisible();
-    await expect(page.locator('text=Recursos Humanos')).toBeVisible();
+    // El sidebar debe contener enlaces del dueño como "Inventario" y "Personal y turnos"
+    await expect(page.getByRole('navigation', { name: 'Navegación principal' }).getByRole('button', { name: 'Inventario', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Navegación principal' }).getByRole('button', { name: 'Personal y turnos', exact: true })).toBeVisible();
   });
 
 });

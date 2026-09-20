@@ -106,7 +106,7 @@ describe('Management loading and mutation recovery', () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(null);
     mocks.fetchWithAuth.mockImplementation(async url => response(url.includes('/api/inventario') ? [{ ...product, proveedor_nombre: 'Distribuidor', proveedor_telefono: '+34 600 123 456' }] : []));
     render(<StockControl />);
-    fireEvent.click(await screen.findByRole('button', { name: /Agua/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /\bAgua\b/ }));
     fireEvent.click(screen.getByRole('button', { name: /Generar Pedido/ }));
     fireEvent.click(screen.getByRole('button', { name: 'WhatsApp', exact: true }));
     expect(open).toHaveBeenCalledWith(expect.stringContaining('https://wa.me/34600123456?text='), '_blank', 'noopener,noreferrer');
@@ -120,7 +120,7 @@ describe('Management loading and mutation recovery', () => {
     try {
       mocks.fetchWithAuth.mockImplementation(async url => response(url.includes('/api/inventario') ? [product] : []));
       render(<StockControl />);
-      fireEvent.click(await screen.findByRole('button', { name: /Agua/ }));
+      fireEvent.click(await screen.findByRole('button', { name: /\bAgua\b/ }));
       fireEvent.click(screen.getByRole('button', { name: /Generar Pedido/ }));
       fireEvent.click(screen.getByRole('button', { name: 'Copiar', exact: true }));
       expect(await screen.findByRole('alert')).toHaveTextContent('Portapapeles bloqueado');

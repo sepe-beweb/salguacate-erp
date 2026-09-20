@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Sparkles, Loader2, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
+import ModalDialog from './ModalDialog';
 
 interface Message {
   id: string;
@@ -92,19 +93,22 @@ export default function AIChatbot() {
 
   return (
     <>
-      {/* Botón Flotante */}
-      {!isOpen && (
+      {/* Secondary action in document flow: never covers the day's work. */}
         <button
+          type="button"
+          aria-label="Abrir asistente"
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white p-4 rounded-full shadow-xl shadow-brand-500/30 transition-all hover:scale-110 z-50 flex items-center justify-center animate-bounce-slow"
+          className="rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-4 py-3 text-sm flex items-center gap-2 hover:border-brand-500"
         >
-          <Sparkles size={24} />
+          <Sparkles size={18} aria-hidden="true" /> Consultar asistente
         </button>
-      )}
 
       {/* Ventana de Chat Overlay */}
       {isOpen && (
-        <div className="fixed inset-x-0 bottom-16 lg:bottom-24 lg:right-6 lg:left-auto lg:w-[400px] h-[60vh] lg:h-[600px] max-h-[800px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl lg:rounded-3xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
+        <ModalDialog label="Asistente ERP" onClose={() => setIsOpen(false)}>
+        <div className="h-[70dvh] max-h-[700px] flex flex-col overflow-hidden">
           
           {/* Header */}
           <div className="bg-gradient-to-r from-brand-600 to-indigo-600 p-4 flex items-center justify-between text-white shrink-0">
@@ -116,6 +120,7 @@ export default function AIChatbot() {
               </div>
             </div>
             <button 
+              type="button" aria-label="Cerrar asistente"
               onClick={() => setIsOpen(false)}
               className="p-2 hover:bg-white/20 rounded-full transition-colors"
             >
@@ -124,7 +129,7 @@ export default function AIChatbot() {
           </div>
 
           {/* Area de Mensajes */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/50">
+          <div role="log" aria-label="Conversación del asistente" className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/50">
             {messages.map(msg => (
               <div 
                 key={msg.id} 
@@ -160,6 +165,7 @@ export default function AIChatbot() {
           <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
             <div className="relative flex items-center">
               <input
+                aria-label="Consulta de stock" data-autofocus
                 type="text"
                 maxLength={2000}
                 value={input}
@@ -169,6 +175,7 @@ export default function AIChatbot() {
                 className="w-full pl-4 pr-12 py-3 bg-slate-100 dark:bg-slate-800 border-none rounded-full text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 transition-all outline-none"
               />
               <button
+                type="button" aria-label="Enviar consulta"
                 onClick={sendMessage}
                 disabled={!input.trim() || isLoading}
                 className="absolute right-2 p-2 bg-brand-600 text-white rounded-full hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:hover:bg-brand-600"
@@ -178,6 +185,7 @@ export default function AIChatbot() {
             </div>
           </div>
         </div>
+        </ModalDialog>
       )}
     </>
   );

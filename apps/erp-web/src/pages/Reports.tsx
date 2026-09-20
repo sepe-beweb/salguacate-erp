@@ -1,3 +1,5 @@
+import { locationLabel } from '../locations';
+import { useLocalScope } from '../hooks/useLocalScope';
 import { useState } from 'react';
 import { FileBarChart, Download, Loader2, CalendarDays, TrendingUp, TrendingDown, Wallet, MapPin } from 'lucide-react';
 import { useApiRead } from '../hooks/useApiLists';
@@ -24,7 +26,7 @@ export default function Reports() {
   const [exportError, setExportError] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedLocal, setSelectedLocal] = useState('Todos');
+  const [selectedLocal, setSelectedLocal] = useLocalScope();
 
   const monthStr = `${String(selectedYear).padStart(4, '0')}-${String(selectedMonth + 1).padStart(2, '0')}`;
   const [filteredCierres, filteredGastos] = selectFinancialPeriod([cierres, gastos], selectedLocal, monthStr);
@@ -39,7 +41,7 @@ export default function Reports() {
     const cierresRows = filteredCierres.map(c => `
       <tr>
         <td>${formatCivilDate(c.fecha)}</td>
-        <td>${escapeHTML(c.local)}</td>
+        <td>${escapeHTML(locationLabel(c.local))}</td>
         <td class="num">${formatEuroCents(toCents(c.efectivo))}</td>
         <td class="num">${formatEuroCents(toCents(c.tarjeta))}</td>
         <td class="num">${formatEuroCents(toCents(c.invitaciones))}</td>
@@ -201,7 +203,7 @@ export default function Reports() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <FileBarChart className="text-brand-500" />
-          Informes
+          Informe mensual
         </h2>
       </div>
 
@@ -235,7 +237,7 @@ export default function Reports() {
           </label>
           <div className="flex gap-2">
             {['Todos', 'Principal', 'Segundo Local'].map(l => (
-              <button key={l} onClick={() => setSelectedLocal(l)} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${selectedLocal === l ? 'bg-brand-600 text-white' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}>{l}</button>
+              <button key={l} onClick={() => setSelectedLocal(l)} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${selectedLocal === l ? 'bg-brand-600 text-white' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}>{locationLabel(l)}</button>
             ))}
           </div>
         </div>

@@ -10,6 +10,7 @@ const require = createRequire(import.meta.url);
 const { createApp } = require('../index');
 const { createDatabase } = require('../database');
 const { seedTestUsers, TEST_PIN } = require('../../../tests/fixtures/users.cjs');
+const { schemaV2 } = require('../../../tests/fixtures/schema-v2.cjs');
 let db, app, token;
 beforeEach(async () => {
   db = createDatabase(':memory:'); await db.ready; await seedTestUsers(db);
@@ -162,12 +163,13 @@ describe('Atomic creation receipts', () => {
     try {
       const file = path.join(dir, 'test.sqlite');
       persistent = createDatabase(file); await persistent.ready; await seedTestUsers(persistent);
+      schemaV2(persistent.connection);
       persistent.connection.exec("INSERT INTO notas (id,usuario_id,contenido,color) VALUES (40,1,'Histórica','pink'); DROP TABLE idempotency_requests; DELETE FROM schema_migrations WHERE version=2;");
       persistent.close(); persistent = null;
       persistent = createDatabase(file); await persistent.ready;
       expect(persistent.connection.prepare('SELECT id,contenido FROM notas').get()).toEqual({ id: 40, contenido: 'Histórica' });
       expect(persistent.connection.prepare('SELECT count(*) n FROM idempotency_requests').get().n).toBe(0);
-      expect(persistent.connection.prepare('SELECT max(version) v FROM schema_migrations').get().v).toBe(2);
+      expect(persistent.connection.prepare('SELECT max(version) v FROM schema_migrations').get().v).toBe(3);
     } finally { persistent?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -177,6 +179,7 @@ describe('Atomic creation receipts', () => {
     let persistent, raw;
     try {
       persistent = createDatabase(file); await persistent.ready; await seedTestUsers(persistent);
+      schemaV2(persistent.connection);
       persistent.connection.exec("INSERT INTO notas (id,usuario_id,contenido,color) VALUES (40,1,'Conservar','pink'); DELETE FROM schema_migrations WHERE version=2;");
       persistent.close(); persistent = null;
       // Existing unexpected table makes CREATE TABLE fail. No repair by deletion.

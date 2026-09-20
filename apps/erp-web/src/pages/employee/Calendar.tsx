@@ -1,3 +1,4 @@
+import { locationLabel } from '../../locations';
 import { Users, Loader2, CalendarX2 } from 'lucide-react';
 import { useApiRead } from '../../hooks/useApiLists';
 import RequestError from '../../components/RequestError';
@@ -47,7 +48,7 @@ export default function Calendar() {
                     {shift.hora_inicio} - {shift.hora_fin}
                   </p>
                   <p className="text-xs text-brand-600 dark:text-brand-400 font-medium mb-1">
-                    {shift.local || 'Local no indicado'}
+                    {locationLabel(shift.local, 'Local no indicado')}
                   </p>
                   
                   {shift.compañeros && (

@@ -26,8 +26,8 @@ test('mobile supplier and product dialogs retain drafts, reject decimal quantiti
   } finally { release(); }
   await expect(providerDialog).toHaveCount(0); await expect(page.getByRole('heading', { name: 'Distribuidor formulario' })).toBeVisible();
   await page.getByRole('button', { name: 'Abrir navegación' }).click();
-  await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Almacén y Stock' }).click();
-  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click(); await page.getByRole('button', { name: 'Nuevo producto' }).click();
+  await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Inventario' }).click();
+  await page.getByRole('button', { name: 'Salmón', exact: true }).click(); await page.getByRole('button', { name: 'Nuevo producto' }).click();
   const productDialog = page.getByRole('dialog', { name: 'Nuevo Producto' });
   await expect(productDialog.getByLabel('Nombre del Producto')).toBeFocused(); await expect(productDialog.getByLabel('Local', { exact: true })).toHaveValue('Segundo Local');
   await productDialog.getByLabel('Nombre del Producto').fill('Producto formulario'); await productDialog.getByLabel('Stock Actual').fill('1.5');
@@ -39,7 +39,7 @@ test('mobile supplier and product dialogs retain drafts, reject decimal quantiti
   const png = await page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 4; canvas.height = 4; canvas.getContext('2d')!.fillRect(0, 0, 4, 4); return canvas.toDataURL('image/png').split(',')[1]; });
   await productDialog.getByLabel('Imagen (Opcional)').setInputFiles({ name: 'product.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
   await expect(productDialog.getByAltText('Vista previa del producto')).toBeVisible();
-  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Principal', exact: true }).click();
+  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Aguacate', exact: true }).click();
   await page.getByRole('button', { name: 'Nuevo producto' }).click();
   await expect(productDialog.getByLabel('Local', { exact: true })).toHaveValue('Segundo Local');
   await expect(productDialog.getByAltText('Vista previa del producto')).toBeVisible();
@@ -57,7 +57,7 @@ test('mobile supplier and product dialogs retain drafts, reject decimal quantiti
   await page.screenshot({ path: testInfo.outputPath('product-draft-mobile.png'), fullPage: true });
   await productDialog.getByRole('button', { name: 'Retirar imagen' }).click(); await productDialog.getByRole('button', { name: 'Guardar Producto' }).click();
   await expect(productDialog).toHaveCount(0);
-  await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
+  await page.getByRole('button', { name: 'Salmón', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Producto formulario' })).toBeVisible();
   const products = await (await request.get('http://127.0.0.1:3101/api/inventario', { headers })).json();
   expect(products).toHaveLength(1); expect(products[0]).toMatchObject({ producto: 'Producto formulario', stock_actual: 2, stock_minimo: 5, local: 'Segundo Local', imagen_url: null });

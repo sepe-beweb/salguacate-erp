@@ -1,4 +1,4 @@
-const { runWrite, writeAsActor } = require('../authorization');
+const { writeAsActor } = require('../authorization');
 const { asyncRoute } = require('../security');
 const { sendDatabaseError, canManageStaff, HttpError } = require('../http');
 const { LOCALS, validDate, text, boolean, requireValid, activeUser } = require('../validation');
@@ -36,7 +36,11 @@ function registerTasks(app, { db, requireAuth, requireRole }) {
       ['baja', 'normal', 'alta'].includes(prioridad ?? 'normal') && [...LOCALS, 'Ambos', ''].includes(local ?? 'Ambos'),
       'Título, fecha, prioridad, local o descripción de tarea inválidos.');
     const result = await writeAsActor(db, req, async sql => {
-      if (asignado_a !== null && asignado_a !== undefined && asignado_a !== '') await activeUser({ connection: sql }, asignado_a);
+      if (asignado_a !== null && asignado_a !== undefined && asignado_a !== '') {
+        const assignee = await activeUser({ connection: sql }, asignado_a);
+        requireValid(assignee.rol !== 'employee' || !local || local === 'Ambos' || assignee.local === local,
+          'El empleado no pertenece al local de la tarea. Elige su local o Ambos.');
+      }
       return sql.prepare('INSERT INTO tareas (titulo, descripcion, asignado_a, fecha, prioridad, local, completada) VALUES (?, ?, ?, ?, ?, ?, 0)').run(titulo, descripcion || '', asignado_a || null, fecha, prioridad || 'normal', local || 'Ambos');
     });
     res.json({ id: result.lastInsertRowid, mensaje: 'Tarea añadida' });
@@ -54,18 +58,23 @@ function registerTasks(app, { db, requireAuth, requireRole }) {
         const localMismatch = tarea.local && tarea.local !== 'Ambos' && tarea.local !== req.user.local;
         if (assignedToOther || localMismatch) throw new HttpError(403, 'No puedes modificar esta tarea');
       }
-      await sql.prepare('UPDATE tareas SET completada = ? WHERE id = ?').run(completada ? 1 : 0, id);
+      const result = await sql.prepare('UPDATE tareas SET completada = ?, completado_por = ?, completado_en = ? WHERE id = ? AND completada != ?')
+        .run(completada ? 1 : 0, completada ? req.user.id : null, completada ? new Date().toISOString() : null, id, completada ? 1 : 0);
+      if (result.changes) await sql.prepare('INSERT INTO audit_events (actor_id, action, entity_id) VALUES (?, ?, ?)')
+        .run(req.user.id, completada ? 'task.completed' : 'task.reopened', String(id));
     });
     res.json({ mensaje: 'Estado de tarea actualizado' });
   }));
 
   app.delete('/api/tareas/:id', requireAuth, requireRole(['owner', 'manager']), asyncRoute(async (req, res) => {
     const { id } = req.params;
-    (await runWrite(db, req, `DELETE FROM tareas WHERE id = ?`, [id], function(err) {
-      if (err) return sendDatabaseError(res, err);
-      if (!this.changes) return res.status(404).json({ error: 'Tarea no encontrada.' });
-      res.json({ id, mensaje: 'Tarea eliminada' });
-    }));
+    await writeAsActor(db, req, async sql => {
+      const task = await sql.prepare('SELECT rutina_ejecucion_id FROM tareas WHERE id = ?').get(id);
+      if (!task) throw new HttpError(404, 'Tarea no encontrada.');
+      if (task.rutina_ejecucion_id !== null) throw new HttpError(409, 'Las tareas de rutina se conservan en el historial. Puedes archivar la rutina para días futuros.');
+      await sql.prepare('DELETE FROM tareas WHERE id = ?').run(id);
+    });
+    res.json({ id, mensaje: 'Tarea eliminada' });
   }));
 }
 

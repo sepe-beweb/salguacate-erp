@@ -1,3 +1,5 @@
+import { locationLabel } from '../locations';
+import { useLocalScope } from '../hooks/useLocalScope';
 import { useState, useEffect, useRef } from 'react';
 import { Search, Plus, Loader2, X, AlertTriangle, Send, CheckCircle2, MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -16,7 +18,7 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeMainTab, setActiveMainTab] = useState<'inventario' | 'alertas'>('inventario');
   const [activeTab, setActiveTab] = useState<'todas' | 'Bebida' | 'Comida'>('todas');
-  const [filterLocal, setFilterLocal] = useState('Todos');
+  const [filterLocal, setFilterLocal] = useLocalScope();
   const suffix = filterLocal === 'Todos' ? '' : `?local=${encodeURIComponent(filterLocal)}`;
   const { data, loading, error: loadError, reload: fetchInventory } = useApiRead([
     `/api/inventario${suffix}`, '/api/proveedores'
@@ -134,7 +136,7 @@ export default function Inventory() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Inventario Crítico</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Inventario</h2>
         <button 
           aria-label="Nuevo producto" disabled={Boolean(loadError) || updatingStock || isSubmitting} onClick={() => { setError(''); if (!hasDraft) { setNewItem(emptyProduct(filterLocal === 'Todos' ? 'Principal' : filterLocal)); image.clear(); } setShowAddModal(true); }}
           className="bg-brand-600 hover:bg-brand-700 dark:hover:bg-brand-500 text-white p-2 rounded-full transition-colors shadow-md dark:shadow-brand-500/20"
@@ -151,7 +153,7 @@ export default function Inventory() {
           <button key={l} aria-pressed={filterLocal === l} onClick={() => setFilterLocal(l)}
             className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${filterLocal === l ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}
           >
-            <MapPin size={12} />{l}
+            <MapPin size={12} />{locationLabel(l)}
           </button>
         ))}
       </div>
@@ -244,8 +246,8 @@ export default function Inventory() {
                   onChange={e => setNewItem({...newItem, local: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-brand-500"
                 >
-                  <option value="Principal">Principal</option>
-                  <option value="Segundo Local">Segundo Local</option>
+                  <option value="Principal">{locationLabel('Principal')}</option>
+                  <option value="Segundo Local">{locationLabel('Segundo Local')}</option>
                 </select>
               </div>
 
@@ -346,16 +348,16 @@ export default function Inventory() {
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0 flex gap-3">
                   {item.imagen_url ? (
-                    <img src={catalogImageSource(item.imagen_url, API_URL)} referrerPolicy="no-referrer" alt={item.producto} className="w-12 h-12 object-cover rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    <img src={catalogImageSource(item.imagen_url, API_URL)} referrerPolicy="no-referrer" alt={item.producto} className="w-12 h-12 shrink-0 object-cover rounded-lg bg-slate-100 dark:bg-slate-800" />
                   ) : (
                     <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shrink-0">
-                      <span className="text-slate-400 text-xs font-medium">No img</span>
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium text-center">Sin foto</span>
                     </div>
                   )}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col items-start gap-1 mb-1">
                       <h4 className="text-slate-900 dark:text-white font-medium">{item.producto}</h4>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                      <span className={`shrink-0 whitespace-nowrap text-xs px-2 py-0.5 rounded-full font-medium ${
                         item.categoria === 'Comida'
                           ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' 
                           : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
@@ -363,10 +365,10 @@ export default function Inventory() {
                         {item.categoria || 'Sin categoría'}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">{item.local}</p>
+                    <p className="text-xs text-slate-500">{locationLabel(item.local)}</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 pl-3 text-right">
                   <span className={`text-xl font-bold ${isLowStock ? 'text-red-500 dark:text-red-400' : 'text-brand-600 dark:text-brand-400'}`}>
                     {item.stock_actual}
                   </span>
@@ -410,7 +412,7 @@ export default function Inventory() {
           ) : (
             groupStockAlerts(alertas).map(({ key, name: proveedor, local, providerId, items: prodList }) => {
               return (
-              <section key={key} aria-label={`Alertas de ${proveedor} · ${local} · ${providerId ?? 'sin proveedor'}`} className="bg-white dark:bg-slate-900 rounded-xl border border-red-200 dark:border-red-900/30 overflow-hidden shadow-sm [overflow-wrap:anywhere]">
+              <section key={key} aria-label={`Alertas de ${proveedor} · ${locationLabel(local)} · ${providerId ?? 'sin proveedor'}`} className="bg-white dark:bg-slate-900 rounded-xl border border-red-200 dark:border-red-900/30 overflow-hidden shadow-sm [overflow-wrap:anywhere]">
                 <div className="bg-red-50 dark:bg-red-900/10 px-4 py-3 border-b border-red-100 dark:border-red-900/20 flex justify-between items-center">
                   <h3 className="font-bold text-red-800 dark:text-red-400 flex items-center gap-2">
                     <AlertTriangle size={18} />
@@ -420,7 +422,7 @@ export default function Inventory() {
                 </div>
                 
                 <div className="p-4 space-y-3">
-                  <p className="text-sm">{local} · {providerId === null ? 'Sin proveedor asignado' : `Proveedor #${providerId}`}</p>
+                  <p className="text-sm">{locationLabel(local)} · {providerId === null ? 'Sin proveedor asignado' : `Proveedor #${providerId}`}</p>
                   {prodList.map(p => (
                     <div key={p.id} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 last:border-0 pb-2 last:pb-0">
                       <div className="flex items-center gap-3">

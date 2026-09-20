@@ -18,10 +18,10 @@ test('order history keeps civil dates and recorded lines in western and eastern 
       const orderResponse = await request.post('http://127.0.0.1:3101/api/pedidos', { headers, data: { fecha: '2024-02-29', local: 'Segundo Local', proveedor_nombre: timezoneId, productos: lines } });
       expect(orderResponse.ok()).toBe(true); const orderId = (await orderResponse.json()).id;
       await page.getByRole('button', { name: 'Abrir navegación' }).click();
-      await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Pedidos de Reposición' }).click();
+      await page.getByRole('dialog', { name: 'Navegación' }).getByRole('button', { name: 'Pedidos' }).click();
       await page.getByRole('button', { name: 'Historial', exact: true }).click();
       const card = page.getByText(timezoneId, { exact: true }).locator('../../..');
-      await expect(card).toContainText('Segundo Local · 29/02/2024');
+      await expect(card).toContainText('Salmón · 29/02/2024');
       await expect(card).toContainText(`${name} ×3`);
       await card.getByRole('button', { name: '✓ Recibir', exact: true }).click();
       await page.getByRole('dialog').getByRole('button', { name: 'Recibir sin cambiar stock' }).click();

@@ -13,6 +13,7 @@ const { registerFinance } = require('./modules/finance');
 const { registerCommunications } = require('./modules/communications');
 const { registerEvents } = require('./modules/events');
 const { registerTasks } = require('./modules/tasks');
+const { registerHandover } = require('./modules/handover');
 const { registerAi } = require('./modules/ai');
 
 function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5173'], uploadsDir, imageStore, aiEnabled = false }) {
@@ -60,6 +61,7 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
   registerCommunications(app, context);
   registerEvents(app, context);
   registerTasks(app, context);
+  registerHandover(app, context);
   registerAi(app, context);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Recurso no encontrado.' }));

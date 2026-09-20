@@ -12,8 +12,8 @@ test('a malformed authentication reply cannot open the ERP and a subsequent real
   await page.goto('/'); await page.getByRole('button', { name: /María García/ }).click();
   await page.getByLabel('PIN de acceso').fill('246810'); await page.getByRole('button', { name: 'Acceder' }).click();
   await expect(page.getByRole('alert')).toContainText('Respuesta inválida del servidor');
-  await expect(page.getByText('Hola, María')).toHaveCount(0); await expect(page.getByRole('button', { name: 'Recursos Humanos', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Hola, María')).toHaveCount(0); await expect(page.getByRole('button', { name: 'Personal y turnos', exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => ({ local: localStorage.getItem('token'), session: sessionStorage.getItem('token') }))).toEqual({ local: null, session: null });
   corrupt = false; await page.getByLabel('PIN de acceso').fill('246810'); await page.getByRole('button', { name: 'Acceder' }).click();
-  await expect(page.getByText('Hola, María')).toBeVisible(); await expect(page.getByRole('button', { name: 'Recursos Humanos', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Hola, María')).toBeVisible(); await expect(page.getByRole('button', { name: 'Personal y turnos', exact: true })).toHaveCount(0);
 });

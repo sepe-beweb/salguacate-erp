@@ -22,7 +22,7 @@ it('converts only valid form values and enforces name/provider limits', () => {
   expect(readProviderForm({ ...emptyProvider(), nombre: ' Distribuidor ' }).nombre).toBe('Distribuidor');
 });
 it('opens an untouched product for the selected local and preserves the edited draft after closing or changing filters', async () => {
-  render(<Inventory />); fireEvent.click(await screen.findByRole('button', { name: 'Segundo Local', exact: true }));
+  render(<Inventory />); fireEvent.click(await screen.findByRole('button', { name: 'Salmón', exact: true }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Nuevo producto' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Nuevo producto' }));
   expect(screen.getByLabelText('Local')).toHaveValue('Segundo Local'); expect(screen.getByLabelText('Nombre del Producto')).toHaveFocus();
@@ -30,7 +30,7 @@ it('opens an untouched product for the selected local and preserves the edited d
   fireEvent.change(screen.getByLabelText('Stock Actual'), { target: { value: '1.5' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Guardar Producto' }).closest('form')!);
   expect(await screen.findByRole('alert')).toHaveTextContent('cantidades enteras'); expect(screen.getByLabelText('Stock Actual')).toHaveValue(1.5);
-  cancel(); fireEvent.click(screen.getByRole('button', { name: 'Principal', exact: true }));
+  cancel(); fireEvent.click(screen.getByRole('button', { name: 'Aguacate', exact: true }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Nuevo producto' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Nuevo producto' })); expect(screen.getByLabelText('Local')).toHaveValue('Segundo Local'); expect(screen.getByLabelText('Nombre del Producto')).toHaveValue('Borrador');
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);

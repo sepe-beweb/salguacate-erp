@@ -12,6 +12,18 @@ vi.mock('../../apps/erp-web/src/context/AuthContext', () => {
 });
 
 describe('🤖 Asistente de IA (AIChatbot) - Componente React', () => {
+  it('labels controls, focuses the query and closes with native cancellation while restoring focus', () => {
+    render(<AIChatbot />);
+    const opener = screen.getByRole('button', { name: 'Abrir asistente' });
+    opener.focus(); fireEvent.click(opener);
+    expect(screen.getByRole('dialog', { name: 'Asistente ERP' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Consulta de stock' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Cerrar asistente' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Enviar consulta' })).toBeDisabled();
+    fireEvent(screen.getByRole('dialog'), new Event('cancel', { bubbles: true, cancelable: true }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
   
   it('Debería renderizar el botón flotante del asistente de IA para administradores', () => {
     render(<AIChatbot />);

@@ -66,7 +66,7 @@ describe('Startup and migration', () => {
       persisted.close(); persisted = null;
       persisted = createDatabase(path.join(dir, 'test.sqlite')); await persisted.ready;
       expect(persisted.connection.prepare('SELECT nombre, must_change_pin FROM usuarios').all()).toEqual([{ nombre: 'Existing', must_change_pin: 1 }]);
-      expect(persisted.connection.prepare('SELECT count(*) AS n FROM schema_migrations').get().n).toBe(2);
+      expect(persisted.connection.prepare('SELECT count(*) AS n FROM schema_migrations').get().n).toBe(3);
     } finally { persisted?.close(); rmSync(dir, { recursive: true, force: true }); }
   });
   it('refuses an unavailable database rather than reporting ready', async () => {

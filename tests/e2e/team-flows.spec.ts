@@ -27,7 +27,7 @@ test('employee request is reviewed by a manager and the employee sees the decisi
   await logout(page);
 
   await login(page, 'Encargado Principal');
-  await page.getByRole('button', { name: 'Recursos Humanos', exact: true }).click();
+  await page.getByRole('button', { name: 'Personal y turnos', exact: true }).click();
   await page.getByRole('button', { name: /Peticiones de Personal/ }).click();
   await expect(page.getByText('"Solicitud integrada de vacaciones"')).toBeVisible();
   await page.getByRole('button', { name: 'Aprobar', exact: true }).click();
@@ -41,7 +41,7 @@ test('employee request is reviewed by a manager and the employee sees the decisi
 
 test('an internal message reaches the selected recipient with the correct sender', async ({ page }) => {
   await login(page, 'María García');
-  await page.getByRole('button', { name: 'Buzón Interno', exact: true }).click();
+  await page.getByRole('button', { name: 'Buzón', exact: true }).click();
   await page.getByRole('button', { name: 'Nuevo mensaje' }).click();
   await page.getByLabel('Destinatario').selectOption('1');
   await page.getByLabel('Asunto', { exact: true }).fill('Consulta integrada del turno');
@@ -51,7 +51,7 @@ test('an internal message reaches the selected recipient with the correct sender
   await logout(page);
 
   await login(page, 'Jefe Admin');
-  await page.getByRole('button', { name: 'Buzón de Mensajes', exact: true }).click();
+  await page.getByRole('button', { name: 'Buzón', exact: true }).click();
   await expect(page.getByText('Consulta integrada del turno', { exact: true })).toBeVisible();
   await expect(page.getByText('¿Confirmamos el turno del viernes?', { exact: true })).toBeVisible();
   await expect(page.getByText('María García', { exact: true })).toBeVisible();

@@ -39,9 +39,9 @@ test('financial screens and printable report agree on cents and civil dates in w
       const dashboard = page.getByRole('region', { name: 'Resumen financiero mensual' });
       await expect(dashboard).toContainText('1,00 €');
       await expect(dashboard).toContainText('0,85 €');
-      await expect(dashboard).toContainText('0,70 € · 29/02/2024 · Segundo Local');
+      await expect(dashboard).toContainText('0,70 € · 29/02/2024 · Salmón');
       await page.screenshot({ path: testInfo.outputPath(`dashboard-${timezoneId.split('/')[1]}.png`), fullPage: true, animations: 'disabled' });
-      await page.getByRole('link', { name: 'Cierres', exact: true }).click();
+      await page.getByRole('link', { name: 'Registrar cierre', exact: true }).click();
       await expect(page.getByLabel('Fecha del Cierre')).toHaveValue('2024-02-29');
       await page.getByLabel('Total Efectivo').fill('0.10');
       await page.getByLabel('Total Tarjeta').fill('0.20');
@@ -57,20 +57,20 @@ test('financial screens and printable report agree on cents and civil dates in w
       await expect(page.getByLabel('Invitaciones (Valor)')).toHaveValue('2.50');
       await expect(page.getByLabel('Descuadre de Caja')).toHaveValue('-0.01');
       await page.getByRole('button', { name: 'Historial', exact: true }).click();
-      await page.getByRole('button', { name: 'Principal', exact: true }).click();
-      await expect(page.getByRole('button', { name: 'Principal', exact: true })).toHaveAttribute('aria-pressed', 'true');
-      const history = page.getByRole('article', { name: 'Cierre 29/02/2024 · Principal' });
+      await page.getByRole('button', { name: 'Aguacate', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Aguacate', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      const history = page.getByRole('article', { name: 'Cierre 29/02/2024 · Aguacate' });
       await expect(history).toContainText('0,30 €');
       await expect(history).toContainText('Descuadre: -0,01 €');
       await expect(history).toContainText('0,10 €');
       await expect(history).toContainText('2,50 €');
       await page.screenshot({ path: testInfo.outputPath(`closing-history-${timezoneId.split('/')[1]}.png`), fullPage: true, animations: 'disabled' });
       await page.getByRole('button', { name: 'Inicio', exact: true }).click();
-      await page.getByRole('link', { name: 'Informes', exact: true }).click();
+      await page.getByRole('link', { name: 'Informe mensual', exact: true }).click();
       await expect(page.getByRole('button', { name: /Exportar Informe/ })).toBeVisible();
       await page.getByLabel('Año del informe').selectOption('2024');
       await page.getByLabel('Mes del informe').selectOption('1');
-      await page.getByRole('button', { name: 'Principal', exact: true }).click();
+      await page.getByRole('button', { name: 'Aguacate', exact: true }).click();
       await expect(page.getByText('0,30 €', { exact: true })).toBeVisible();
       await expect(page.getByText('0,15 €', { exact: true })).toHaveCount(2); // Expense and balance.
       const popupEvent = page.waitForEvent('popup');
@@ -84,8 +84,8 @@ test('financial screens and printable report agree on cents and civil dates in w
       await popup.close();
       await page.getByRole('button', { name: 'Inicio', exact: true }).click();
       await page.setViewportSize({ width: 1280, height: 900 });
-      await page.getByRole('button', { name: 'Analíticas Visuales' }).click();
-      await page.getByRole('button', { name: 'Principal', exact: true }).click();
+      await page.getByRole('button', { name: 'Evolución económica' }).click();
+      await page.getByRole('button', { name: 'Aguacate', exact: true }).click();
       await expect(page.getByText('Ingresos Brutos').locator('..')).toContainText('0,30');
       await expect(page.getByText('Gastos Detectados').locator('..')).toContainText(expectedPrincipalExpenses);
       await expect(page.getByText('Descuadre Total').locator('..')).toContainText('-0,01');
@@ -97,7 +97,7 @@ test('financial screens and printable report agree on cents and civil dates in w
       // Lines may overlap; move the real pointer to the shared date rather than require one circle to be on top.
       await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
       await expect(page.locator('.recharts-tooltip-wrapper').first()).toContainText('0,30');
-      await page.getByRole('button', { name: 'Segundo Local', exact: true }).click();
+      await page.getByRole('button', { name: 'Salmón', exact: true }).click();
       await expect(page.getByText('Ingresos Brutos').locator('..')).toContainText('0,70');
       await expect(page.locator('.recharts-xAxis').first()).toContainText('01/03/2024');
       await page.setViewportSize({ width: 390, height: 844 });

@@ -40,7 +40,7 @@ it('labels the query honestly, preserves missing local and refreshes counts only
   expect(screen.getByText('Datos de la última carga. No se actualizan automáticamente.')).toBeVisible();
   mocks.fetchWithAuth.mockImplementation(async () => response([])); fireEvent.click(screen.getByRole('button', { name: 'Actualizar resumen' }));
   expect(await screen.findByText('No hay información de turnos disponible.')).toBeVisible(); expect(screen.queryByText('1 producto con stock bajo')).not.toBeInTheDocument();
-  expect(mocks.fetchWithAuth.mock.calls).toHaveLength(14); expect(mocks.fetchWithAuth.mock.calls.every(([, options]) => !options?.method)).toBe(true);
+  expect(mocks.fetchWithAuth.mock.calls).toHaveLength(18); expect(mocks.fetchWithAuth.mock.calls.every(([, options]) => !options?.method)).toBe(true);
 });
 it('does not label unknown presence as outside or show financial totals while it fails', async () => {
   mocks.fetchWithAuth.mockImplementation(async url => response(url.endsWith('/presencia') ? [{ ...presence, estado_presencia: 'invisible' }] : []));

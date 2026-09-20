@@ -1,3 +1,6 @@
+import { locationLabel } from '../locations';
+import { useLocalScope } from '../hooks/useLocalScope';
+import LocalFilter from '../components/LocalFilter';
 import { useState, useEffect, useRef } from 'react';
 import { ClipboardCheck, Send, Copy, CheckCircle2, Package, MapPin, ShoppingCart, History } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -16,11 +19,13 @@ const LOCALES = ['Principal', 'Segundo Local'];
 
 export default function StockControl() {
   const { fetchWithAuth } = useAuth();
-  const [selectedLocal, setSelectedLocal] = useState(LOCALES[0]);
+  const [localScope, setSelectedLocal] = useLocalScope('Todos');
+  const selectedLocal = localScope === 'Todos' ? LOCALES[0] : localScope;
   const { data, loading, error: loadError, reload: fetchData } = useApiRead([
     `/api/inventario?local=${encodeURIComponent(selectedLocal)}`, '/api/pedidos'
   ], readStockWorkspace);
-  const [items, pedidos] = data ?? [[], []];
+  const [items, allOrders] = data ?? [[], []];
+  const pedidos = allOrders.filter(order => localScope === 'Todos' || order.local === selectedLocal);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
@@ -32,6 +37,7 @@ export default function StockControl() {
   const [showOrder, setShowOrder] = useState(false);
   const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [visibleOrders, setVisibleOrders] = useState(10);
   const [copiedProv, setCopiedProv] = useState<string | null>(null);
 
   useEffect(() => { setCheckedIds(new Set()); }, [selectedLocal]);
@@ -79,7 +85,7 @@ export default function StockControl() {
   };
 
   const generateWhatsAppText = (provName: string, lines: OrderLine[]) => {
-    const header = `📦 *Pedido Salguacate — ${draft!.local}*\n📅 ${formatCivilDate(draft!.fecha)}\n\nHola ${provName}, necesitamos:\n`;
+    const header = `📦 *Pedido Salguacate — ${locationLabel(draft!.local)}*\n📅 ${formatCivilDate(draft!.fecha)}\n\nHola ${provName}, necesitamos:\n`;
     const body = lines.map(l => `• ${l.nombre} — *${l.cantidad} uds*`).join('\n');
     return header + body + '\n\n¡Gracias!';
   };
@@ -149,7 +155,7 @@ export default function StockControl() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <ClipboardCheck className="text-brand-500" />
-          Control de Stock
+          Pedidos
         </h2>
         <button onClick={() => setShowHistory(!showHistory)} className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${showHistory ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
           <History size={14} className="inline mr-1" /> Historial
@@ -160,11 +166,11 @@ export default function StockControl() {
       {!showOrder && success && <p role="status" className="text-emerald-700 dark:text-emerald-400">{success}</p>}
       {!showOrder && loadError && <RequestError message={loadError} onRetry={fetchData} />}
       {loading && <p role="status">Cargando stock y pedidos...</p>}
-      {!showOrder && draft && <button disabled={busy} onClick={() => { setCopiedProv(null); setShowOrder(true); }} className="rounded-lg border p-3 text-sm">Retomar pedido de {draft.local}</button>}
+      {!showOrder && draft && <button disabled={busy} onClick={() => { setCopiedProv(null); setShowOrder(true); }} className="rounded-lg border p-3 text-sm">Retomar pedido de {locationLabel(draft.local)}</button>}
       {receiving && <ModalDialog label={`Recibir pedido de ${receiving.proveedor_nombre}`} busy={busy} onClose={() => { setReceiving(null); setError(''); }}>
         <div className="space-y-4 p-6 [overflow-wrap:anywhere]">
           <h3 id="receipt-title" className="text-lg font-bold">Recibir pedido de {receiving.proveedor_nombre}</h3>
-          <p>Local: {receiving.local}. Elige si esta recepción debe modificar el inventario. Solo se puede recibir una vez.</p>
+          <p>Local: {locationLabel(receiving.local)}. Elige si esta recepción debe modificar el inventario. Solo se puede recibir una vez.</p>
           <RequestError message={error} />
           <button data-autofocus disabled={busy} onClick={() => { setReceiving(null); setError(''); }} className="block w-full rounded-lg border p-3">Cancelar</button>
           <button disabled={busy} onClick={() => markReceived(true)} className="block w-full rounded-lg bg-brand-600 p-3 text-white">Recibir y sumar stock</button>
@@ -172,27 +178,28 @@ export default function StockControl() {
         </div>
       </ModalDialog>}
       {/* Local selector */}
-      <div className="flex gap-2">
+      {showHistory ? <LocalFilter value={localScope} onChange={setSelectedLocal} /> : <div className="flex gap-2">
         {LOCALES.map(l => (
           <button key={l} aria-pressed={selectedLocal === l} onClick={() => setSelectedLocal(l)} className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${selectedLocal === l ? 'bg-brand-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'}`}>
-            <MapPin size={14} /> {l}
+            <MapPin size={14} /> {locationLabel(l)}
           </button>
         ))}
-      </div>
+      </div>}
+      {!showHistory && localScope === 'Todos' && <p className="text-xs text-slate-500">Preparando pedido para {locationLabel(selectedLocal)}. El historial muestra ambos locales hasta que selecciones uno.</p>}
 
       {/* History view */}
       {showHistory && !loading && !loadError && (
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pedidos recientes · todos los locales</h3>
+          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pedidos recientes · {localScope === 'Todos' ? 'todos los locales' : locationLabel(localScope)}</h3>
           {pedidos.length === 0 ? (
             <p className="text-slate-400 text-center py-4 text-sm">Sin pedidos registrados.</p>
-          ) : pedidos.slice(0, 10).map(p => {
+          ) : pedidos.slice(0, visibleOrders).map(p => {
             return (
-              <div key={p.id} className={`bg-white dark:bg-slate-900 p-3 rounded-xl border shadow-sm ${p.estado === 'recibido' ? 'border-emerald-200 dark:border-emerald-800 opacity-60' : 'border-slate-200 dark:border-slate-800'}`}>
+              <div key={p.id} role="group" aria-label={`Pedido ${p.id} de ${p.proveedor_nombre}`} className={`bg-white dark:bg-slate-900 p-3 rounded-xl border shadow-sm ${p.estado === 'recibido' ? 'border-emerald-200 dark:border-emerald-800 opacity-60' : 'border-slate-200 dark:border-slate-800'}`}>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-slate-900 dark:text-white text-sm">{p.proveedor_nombre}</p>
-                    <p className="text-xs text-slate-400">{p.local} · {formatCivilDate(p.fecha)}</p>
+                    <p className="text-xs text-slate-400">{locationLabel(p.local)} · {formatCivilDate(p.fecha)}</p>
                   </div>
                   {p.estado === 'pendiente' ? (
                     <button disabled={busy} onClick={() => { setError(''); setReceiving(p); }} className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full font-semibold hover:bg-emerald-200 transition-colors">
@@ -210,6 +217,8 @@ export default function StockControl() {
               </div>
             );
           })}
+          {pedidos.length > 0 && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">Mostrando {Math.min(visibleOrders, pedidos.length)} de {pedidos.length} pedidos.</p>}
+          {visibleOrders < pedidos.length && <button type="button" onClick={() => setVisibleOrders(count => count + 10)} className="w-full rounded-xl border border-slate-300 dark:border-slate-600 p-3 font-medium">Mostrar más pedidos</button>}
         </div>
       )}
 
@@ -219,7 +228,7 @@ export default function StockControl() {
           {items.length === 0 ? (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-sm">
               <Package size={32} className="text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500">No hay productos en <strong>{selectedLocal}</strong></p>
+              <p className="text-slate-500">No hay productos en <strong>{locationLabel(selectedLocal)}</strong></p>
             </div>
           ) : (
             <>
@@ -277,10 +286,10 @@ export default function StockControl() {
 
       {/* Order modal */}
       {showOrder && draft && (
-        <ModalDialog label={`Pedido de ${draft.local}`} busy={busy} onClose={closeOrder} wide>
+        <ModalDialog label={`Pedido de ${locationLabel(draft.local)}`} busy={busy} onClose={closeOrder} wide>
           <div className="p-6 [overflow-wrap:anywhere]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">📦 Pedido — {draft.local}</h3>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">📦 Pedido — {locationLabel(draft.local)}</h3>
               <button data-autofocus aria-label="Cerrar pedido" disabled={busy} onClick={closeOrder} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
 

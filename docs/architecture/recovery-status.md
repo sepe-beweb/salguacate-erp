@@ -56,7 +56,38 @@ Los recorridos combinan operaciones contra una API desechable e inyección expl�
 | Aceptación operativa y seguridad de exposición | Pendiente | Reglas por local, acceso público, dispositivos y operación descritos abajo |
 | Merge, activación y despliegue | No realizados | Decisión específica, instalación aceptada y procedimiento de copia/vuelta |
 
-## Siguiente paso: publicar el piloto gratuito
+## Revisión local y correcciones
+
+El 20/09/2026 se priorizó una instancia local sintética y una revisión de código/funcionalidad seguida de UI/UX mientras se resuelve el acceso al alojamiento. Se han aplicado las [correcciones de la revisión local](recovery-local-review-fixes.md): acceso a pedidos más antiguos, validación de local al asignar tareas, diálogo accesible del asistente y tarjetas móviles legibles. Ajustes aclara sus opciones sin editor. No hay cambios de esquema, datos remotos ni publicación asociados a este bloque.
+
+Validación local final: 670 pruebas en 41 archivos, lint/TypeScript/compilación, 43 recorridos E2E y 5 sobre archivos compilados correctos. Se conservan los datos sintéticos de la instancia local; no se corrigen automáticamente asignaciones históricas ni se implementa una política de traslado de empleados.
+
+## Evolución local: inicio operativo
+
+La [primera entrega de evolución](operational-home.md) incorpora Aguacate y Salmón
+como etiquetas de los identificadores existentes, inicio operativo por local,
+navegación agrupada y preferencia de consulta solo durante la sesión. Felipe y
+Dora se han renombrado únicamente en la instalación local de revisión, sin
+cambiar sus identificadores, permisos o PIN. El relevo y las tareas recurrentes
+siguen pendientes; no hay migración, publicación ni cambios remotos en esta entrega.
+
+Validación local: 677 pruebas en 42 archivos, lint, TypeScript y compilación
+correctos; 44 recorridos E2E en 28 archivos y 5 de archivos compilados correctos.
+La revisión del nuevo inicio incluye móvil de 320/390 px y escritorio de 1280 px.
+Los resultados 670/43/5 anteriores pertenecen al bloque de correcciones.
+
+## Publicación del piloto gratuito: pendiente
+
+La [segunda entrega de evolución local](operational-handover.md) incorpora relevo,
+lecturas confirmadas y rutinas de apertura/cierre que generan tareas por fecha sin
+duplicados. El esquema local pasa a 3, con backup y ensayo de migración previos;
+**Turso permanece sin modificar y requiere migración explícita antes de publicar
+esta versión**. Los recuentos del inicio operativo anterior son históricos.
+
+Validación de esta segunda entrega: 707 pruebas en 45 archivos, lint/TypeScript/
+compilación, 45 recorridos E2E en 29 archivos y cinco de archivos compilados,
+todos correctos. La instancia local muestra dos rutinas y un aviso de ejemplo;
+los datos remotos y las credenciales permanecen sin cambios.
 
 La creación del servicio Render se bloqueó por verificación de tarjeta; no se creó
 una URL operativa. Se continúa con [Netlify Free](../netlify-deploy.md): equipo personal
@@ -64,7 +95,7 @@ Salguacate creado, 300 créditos y sin tarjeta comprobados en el panel. El enví
 credenciales se ha autorizado para Netlify en lugar de Render. El adaptador Lambda
 y el TOML tienen validación local: 658 pruebas, lint, compilación y paquete importable
 con el empaquetador predeterminado; no acreditan publicación remota. La sesión del
-panel volvió a solicitar login antes de conectar un repositorio o crear un proyecto.
+panel volvió a solicitar login antes de conectar un repositorio o crear un proyecto. Posteriormente el acceso indicó cuenta suspendida; se envió la solicitud de recuperación por el soporte oficial. Su resolución no está comprobada y no existe despliegue Netlify operativo.
 
 La [API asíncrona](recovery-async-api.md) conserva transacciones, autorización y
 recibos y ya tiene evidencia HTTP con Turso. Las fotos tienen evidencia real

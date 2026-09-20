@@ -194,7 +194,7 @@ describe('Probe SQL using local asynchronous contract double', () => {
   it('derives the same schema version, constraints and indexes from current migrations', async () => {
     const statements = await freshSchemaStatements();
     expect(statements.some(sql => typeof sql === 'string' && sql.includes('one_active_shift'))).toBe(true);
-    expect(statements.filter(sql => typeof sql === 'object').map(sql => sql.args[0])).toEqual([1, 2]);
+    expect(statements.filter(sql => typeof sql === 'object').map(sql => sql.args[0])).toEqual([1, 2, 3]);
     expect(statements.some(sql => typeof sql === 'string' && /INSERT INTO usuarios/.test(sql))).toBe(false);
   });
   it('runs all checks with synthetic inactive users and retains evidence', async () => {

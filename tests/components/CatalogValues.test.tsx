@@ -91,7 +91,7 @@ it('copies an informational minimum alert without registering or opening an exte
     render(<Inventory />); fireEvent.click(await screen.findByRole('button', { name: /Alertas de Stock/ }));
     fireEvent.click(within(screen.getByRole('region')).getByRole('button', { name: 'Copiar lista de alertas' }));
     expect(await screen.findByRole('status')).toHaveTextContent('No se ha registrado un pedido ni enviado un mensaje');
-    expect(copy).toHaveBeenCalledWith(expect.stringContaining('Principal'));
+    expect(copy).toHaveBeenCalledWith(expect.stringContaining('Aguacate'));
     expect(open).not.toHaveBeenCalled(); expect(mocks.fetchWithAuth.mock.calls.every(([, options]) => !options?.method)).toBe(true);
   } finally { if (previous) Object.defineProperty(navigator, 'clipboard', previous); else Reflect.deleteProperty(navigator, 'clipboard'); }
 });

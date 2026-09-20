@@ -1,4 +1,4 @@
-export type CreatePath = '/api/notas' | '/api/gastos';
+export type CreatePath = '/api/notas' | '/api/gastos' | '/api/rutinas' | '/api/relevos';
 export interface CreateAttempt {
   readonly key: string;
   readonly body: string;
