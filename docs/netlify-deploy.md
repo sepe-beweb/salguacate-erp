@@ -19,10 +19,16 @@ sin tarjeta guardada el 19 de septiembre de 2026. Esta comprobación no es un de
 
 ## Configuración de publicación
 
-Antes de publicar la evolución de relevo/rutinas, preparar explícitamente el
-[esquema 3](architecture/operational-handover.md) en la base remota. El arranque
-rechaza el esquema 2 existente y no lo actualiza automáticamente. Preservar el
-propietario y los recibos; no repetir el bootstrap sobre una base poblada.
+El árbol actual requiere el **esquema 6**. Preparar la migración remota de forma
+explícita sobre una copia y preservar propietario, sesiones y recibos; el arranque
+no actualiza esquemas antiguos ni autoriza repetir bootstrap sobre una base poblada.
+
+**Archivo documental pendiente de adaptación remota:** la configuración actual
+solo dispone de un almacén privado local para SQLite. No configurar DOCUMENTS_DIR
+en Netlify ni usar su disco efímero o Cloudinary público para originales privados.
+Sin adaptador privado, las rutas documentales responden 503: este procedimiento
+histórico no permite publicar el módulo completo. Revisar además los límites de
+petición/respuesta del proveedor frente a los PDF y paquetes ZIP antes de activarlo.
 
 1. Crear un proyecto en el equipo personal Free y conectar únicamente este repositorio.
    Seleccionar `refactor/recovery-foundation`, no el `main` histórico, y comprobar CI.

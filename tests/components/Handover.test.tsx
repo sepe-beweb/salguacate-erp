@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import HandoverPage from '../../apps/erp-web/src/pages/Handover';
@@ -9,10 +9,11 @@ vi.mock('../../apps/erp-web/src/context/AuthContext', () => ({ useAuth: () => mo
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 const timestamp = '2026-09-20 10:00:00';
 const fixture = (): Workday => ({ local: 'Principal', fecha: '2026-09-20',
+  responsables: [{ id: 2, nombre: 'Dora' }, { id: 3, nombre: 'María' }],
   rutinas: [{ id: 1, local: 'Principal', titulo: 'Apertura sala', fase: 'apertura', frecuencia: 'diaria', pasos: ['Revisar mesas'], activa: 1, autor_id: 2, creado_en: timestamp }],
   ejecuciones: [{ id: 1, rutina_id: 1, fecha: '2026-09-20', preparado_por: 2, creado_en: timestamp }],
   tareas: [{ id: 1, titulo: 'Revisar mesas', local: 'Principal', fecha: '2026-09-20', rutina_ejecucion_id: 1, rutina_titulo: 'Apertura sala', fase: 'apertura', completada: 0, completado_por: null, completado_nombre: null, completado_en: null }],
-  relevos: [{ id: 1, local: 'Principal', fecha: '2026-09-19', contenido: 'Aviso pendiente anterior', autor_id: 2, autor_nombre: 'Dora', creado_en: timestamp, resuelto_por: null, resuelto_en: null, resuelto_nombre: null, lecturas: [] }]
+  relevos: [{ id: 1, local: 'Principal', fecha: '2026-09-19', contenido: 'Aviso pendiente anterior', autor_id: 2, autor_nombre: 'Dora', creado_en: timestamp, resuelto_por: null, resuelto_en: null, resuelto_nombre: null, lecturas: [], responsable_id: null, responsable_nombre: null, responsable_disponible: 0, prioridad: 'normal', estado: 'pendiente', revision: 1, cambios: [] }]
 });
 const mount = () => render(<MemoryRouter><HandoverPage /></MemoryRouter>);
 beforeEach(() => {
@@ -21,6 +22,32 @@ beforeEach(() => {
   mocks.fetchWithAuth.mockReset().mockImplementation(async () => response(fixture()));
 });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+it('preserves management draft on conflict and sends the observed revision', async () => {
+  mocks.fetchWithAuth.mockImplementation(async (_url, options) => options?.method === 'PUT' ? response({ error: 'El aviso ha cambiado' }, 409) : response(fixture()));
+  mount(); fireEvent.click(await screen.findByRole('button', { name: 'Gestionar aviso' }));
+  const dialog = screen.getByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText('Responsable'), { target: { value: '3' } });
+  fireEvent.change(within(dialog).getByLabelText('Prioridad del aviso'), { target: { value: 'alta' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar gestión' }));
+  await waitFor(() => expect(within(dialog).getByRole('alert')).toHaveTextContent('El aviso ha cambiado'));
+  expect(within(dialog).getByLabelText('Responsable')).toHaveValue('3');
+  const call = mocks.fetchWithAuth.mock.calls.find(([, options]) => options?.method === 'PUT');
+  expect(JSON.parse(call![1].body)).toEqual({ responsable_id: 3, prioridad: 'alta', estado: 'pendiente', revision: 1 });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cerrar y conservar' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continuar gestión del aviso #1' }));
+  expect(screen.getByLabelText('Responsable')).toHaveValue('3');
+});
+it('filters mine, unassigned and resolved while reading remains distinct from resolution', async () => {
+  const data = fixture(); data.relevos.push({ ...data.relevos[0], id: 2, contenido: 'Asignado a Dora', responsable_id: 2, responsable_nombre: 'Dora', responsable_disponible: 1 });
+  mocks.fetchWithAuth.mockResolvedValue(response(data)); mount(); await screen.findByText('Asignado a Dora');
+  fireEvent.change(screen.getByLabelText('Ver avisos'), { target: { value: 'mios' } });
+  expect(screen.getByText('Asignado a Dora')).toBeVisible(); expect(screen.queryByText('Aviso pendiente anterior')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Ver avisos'), { target: { value: 'sin_responsable' } });
+  expect(screen.getByText('Aviso pendiente anterior')).toBeVisible(); expect(screen.queryByText('Asignado a Dora')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Ver avisos'), { target: { value: 'resueltos' } });
+  expect(screen.getByText('No hay avisos con este filtro.')).toBeVisible();
+  expect(mocks.fetchWithAuth).toHaveBeenCalledTimes(1);
+});
 it('loads complete workday without producing writes and keeps previous-day notices', async () => {
   mount(); await screen.findByText('Aviso pendiente anterior');
   expect(screen.getByRole('checkbox', { name: /Revisar mesas/ })).not.toBeChecked();

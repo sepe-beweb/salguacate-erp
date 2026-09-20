@@ -2,7 +2,7 @@ const { asyncRoute } = require('./security');
 const { LOCALS, validDate } = require('./validation');
 const { createOnce } = require('./idempotency');
 const { writeAsActor } = require('./authorization');
-const { sendDatabaseError } = require('./http');
+const { sendDatabaseError, HttpError } = require('./http');
 
 function money(value, negative = false) {
   if ((typeof value !== 'string' && typeof value !== 'number') || !/^-?\d+(\.\d{1,2})?$/.test(String(value))) return null;
@@ -47,6 +47,9 @@ function registerOperations(app, db, { requireAuth, requireRole }) {
     const { increment } = req.body;
     if (!Number.isSafeInteger(increment) || Math.abs(increment) > 1000000) return res.status(400).json({ error: 'La cantidad debe ser un entero entre -1000000 y 1000000.' });
     const changed = (await writeAsActor(db, req, async sql => {
+      const item = await sql.prepare('SELECT stock_actual FROM inventario WHERE id = ?').get(req.params.id);
+      if (!item) return 0;
+      if (!Number.isSafeInteger(item.stock_actual) || item.stock_actual < 0 || !Number.isSafeInteger(item.stock_actual + increment)) throw new HttpError(409, 'El stock resultante no es una cantidad exacta válida. No se ha modificado.');
       const result = (await sql.prepare('UPDATE inventario SET stock_actual = max(0, stock_actual + ?) WHERE id = ?').run(increment, req.params.id));
       if (result.changes) (await audit(sql, req, 'stock.adjusted', req.params.id));
       return result.changes;
@@ -70,9 +73,15 @@ function registerOperations(app, db, { requireAuth, requireRole }) {
           for (const item of products) {
             if (!item || !Number.isSafeInteger(item.producto_id) || !Number.isSafeInteger(item.cantidad) || item.cantidad <= 0 || item.cantidad > 1000000) return 422;
           }
-          const rows = await sql.prepare(`SELECT id FROM inventario WHERE local = ? AND id IN (${products.map(() => '?').join(',')})`).all(order.local, ...products.map(item => item.producto_id));
+          const rows = await sql.prepare(`SELECT id, stock_actual FROM inventario WHERE local = ? AND id IN (${products.map(() => '?').join(',')})`).all(order.local, ...products.map(item => item.producto_id));
           const ids = new Set(rows.map(row => row.id));
           if (products.some(item => !ids.has(item.producto_id))) return 422;
+          const totals = new Map(rows.map(row => [row.id, row.stock_actual]));
+          for (const item of products) {
+            const stock = totals.get(item.producto_id);
+            if (!Number.isSafeInteger(stock) || stock < 0 || !Number.isSafeInteger(stock + item.cantidad)) return 422;
+            totals.set(item.producto_id, stock + item.cantidad);
+          }
           await sql.batch(products.map(item => ({ sql: 'UPDATE inventario SET stock_actual = stock_actual + ? WHERE id = ?', args: [item.cantidad, item.producto_id] })));
         }
         (await sql.prepare("UPDATE pedidos SET estado = 'recibido' WHERE id = ?").run(order.id));

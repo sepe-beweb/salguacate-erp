@@ -76,7 +76,8 @@ test('financial screens and printable report agree on cents and civil dates in w
       const popupEvent = page.waitForEvent('popup');
       await page.getByRole('button', { name: /Exportar Informe/ }).click();
       const popup = await popupEvent;
-      await expect(popup.getByText('Informe Mensual de Gestión', { exact: true })).toBeVisible();
+      await expect(popup.getByText('Informe Mensual de Gestión · Aguacate', { exact: true })).toBeVisible();
+      await expect(popup.getByText(/Invitaciones registradas:/)).toContainText('no es un cobro');
       await expect(popup.locator('body')).toContainText('29/02/2024');
       await expect(popup.locator('body')).not.toContainText('28/02/2024');
       await expect(popup.locator('body')).toContainText('-0,01');
@@ -87,7 +88,7 @@ test('financial screens and printable report agree on cents and civil dates in w
       await page.getByRole('button', { name: 'Evolución económica' }).click();
       await page.getByRole('button', { name: 'Aguacate', exact: true }).click();
       await expect(page.getByText('Ingresos Brutos').locator('..')).toContainText('0,30');
-      await expect(page.getByText('Gastos Detectados').locator('..')).toContainText(expectedPrincipalExpenses);
+      await expect(page.getByText('Gastos registrados', { exact: true }).locator('..')).toContainText(expectedPrincipalExpenses);
       await expect(page.getByText('Descuadre Total').locator('..')).toContainText('-0,01');
       await expect(page.locator('.recharts-xAxis').first()).toContainText('29/02/2024');
       const point = page.locator('.recharts-line-dots .recharts-dot').first();

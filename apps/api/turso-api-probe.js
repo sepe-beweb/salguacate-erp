@@ -13,7 +13,7 @@ async function runTursoApiProbe(database, onStep = () => {}) {
       !/^Synthetic (compatibility probe|API probe [a-f0-9-]+ (owner|employee))$/.test(user.nombre))) {
     throw new Error('API probe requires an inactive synthetic compatibility database, without real users or PINs.');
   }
-  assert.deepEqual((await db.all('SELECT version FROM schema_migrations ORDER BY version')).map(row => row.version), [1, 2, 3]);
+  assert.deepEqual((await db.all('SELECT version FROM schema_migrations ORDER BY version')).map(row => row.version), [1, 2, 3, 4, 5, 6]);
   const run = randomUUID();
   const names = [`Synthetic API probe ${run} owner`, `Synthetic API probe ${run} employee`];
   const tokens = names.map(() => randomBytes(32).toString('hex'));

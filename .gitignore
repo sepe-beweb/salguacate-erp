@@ -17,6 +17,7 @@ apps/api/persistent/
 # Uploads
 server/uploads/
 apps/api/uploads/
+apps/api/documents/
 
 # Logs
 server/server.log

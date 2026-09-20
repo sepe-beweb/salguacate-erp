@@ -4,6 +4,7 @@ import { useIdempotentCreate } from '../../apps/erp-web/src/hooks/useIdempotentC
 import Notes from '../../apps/erp-web/src/pages/Notes';
 import Scanner from '../../apps/erp-web/src/pages/Scanner';
 import { createPendingCreates } from '../../apps/erp-web/src/pendingCreates';
+import { MemoryRouter } from 'react-router-dom';
 const mocks = vi.hoisted(() => ({ fetchWithAuth: vi.fn(), user: { id: '1', name: 'Jefe', role: 'owner' } }));
 let pendingCreates: ReturnType<typeof createPendingCreates>;
 vi.mock('../../apps/erp-web/src/context/AuthContext', () => ({ useAuth: () => ({ ...mocks, pendingCreates }) }));
@@ -70,7 +71,7 @@ describe('One immutable creation attempt', () => {
     const first = renderHook(() => useIdempotentCreate('/api/gastos'));
     await act(async () => { await expect(first.result.current.submit(expense)).rejects.toThrow(); });
     first.unmount();
-    render(<Scanner />);
+    render(<MemoryRouter><Scanner /></MemoryRouter>);
     expect(screen.getByLabelText('Proveedor')).toHaveValue(expense.proveedor_nombre);
     expect(screen.getByLabelText('Fecha')).toHaveValue(expense.fecha);
     expect(screen.getByLabelText('Local')).toHaveValue(expense.local);
@@ -89,7 +90,7 @@ describe('One immutable creation attempt', () => {
   it('retains a success received while away until the screen consumes it without resending', async () => {
     mocks.fetchWithAuth.mockResolvedValue(response({ id: 25 }));
     await pendingCreates.submit('/api/gastos', { total: '7' }, mocks.fetchWithAuth);
-    render(<Scanner />);
+    render(<MemoryRouter><Scanner /></MemoryRouter>);
     expect(await screen.findByText('Gasto registrado correctamente.')).toBeVisible();
     expect(mocks.fetchWithAuth).toHaveBeenCalledOnce();
     expect(pendingCreates.get('/api/gastos')).toBeNull();

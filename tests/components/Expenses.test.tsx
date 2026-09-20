@@ -21,6 +21,13 @@ beforeEach(() => { pendingCreates = createPendingCreates(); mocks.fetchWithAuth.
 afterEach(() => vi.restoreAllMocks());
 
 describe('Manual expense registration and read-only reconciliation', () => {
+  it('opens the exact linked expense even when its local is different from the previous scope', async () => {
+    mocks.fetchWithAuth.mockResolvedValue(response([{ ...row, id: 2, local: 'Segundo Local' }, { ...row, id: 20, local: 'Segundo Local' }]));
+    render(<MemoryRouter initialEntries={['/gastos?gasto=2&local=Segundo%20Local']}><Expenses /></MemoryRouter>);
+    await screen.findByRole('heading', { name: /Gasto n.º 2 ·/ });
+    expect(screen.queryByRole('heading', { name: /Gasto n.º 20 ·/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Local de consulta')).toHaveValue('Segundo Local');
+  });
   it('filters by month, local and text and sums integer cents without writes', async () => {
     mocks.fetchWithAuth.mockImplementation(async () => response([row, { ...row, id: 11, total: 0.20, local: 'Segundo Local', proveedor_nombre: 'Proveedor dos' }, { ...row, id: 12, fecha: '2020-01-01', total: 4 }]));
     mount();
@@ -95,7 +102,7 @@ describe('Manual expense registration and read-only reconciliation', () => {
     const view = mount(); await screen.findByLabelText('Resumen de gastos'); fill();
     fireEvent.click(screen.getByRole('button', { name: 'Registrar gasto', exact: true }));
     await screen.findByRole('alert'); view.unmount();
-    render(<Scanner />);
+    render(<MemoryRouter><Scanner /></MemoryRouter>);
     expect(screen.getByLabelText('Proveedor', { exact: true })).toHaveValue('Proveedor manual');
     expect(screen.getByLabelText('Total Detectado (€)')).toHaveValue(12.5);
     expect(screen.getByLabelText('Proveedor', { exact: true })).toBeDisabled();

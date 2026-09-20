@@ -1,6 +1,16 @@
 # Estado de recuperación y puertas de salida
 
-Consolidación documental del bloque 28, actualizada con fotos, [alta de instalación nueva del bloque 30](recovery-fresh-install.md) y [ensayo de alojamiento gratuito del bloque 31](recovery-free-hosting.md). Decisión vigente: no hay datos anteriores que conservar; no se realizará migración histórica. Se aprueba preparar el piloto Render + Turso/libSQL + Cloudinary, empezando por compatibilidad remota. No se han borrado instalaciones ni habilitado despliegues. Rama de trabajo: `refactor/recovery-foundation`; `main` no se ha fusionado desde esta continuación.
+## Estado local vigente — 20/09/2026
+
+La instancia de demostración local usa el esquema **6**, con inicio operativo, relevo/rutinas, gestión de avisos y archivo documental privado con revisión, responsables, vencimientos y paquete mensual. La [revisión global en dos pasadas](global-review.md) documenta las correcciones transversales y sus límites. Los datos sintéticos y originales de la demo se conservan; la decisión previa de no importar históricos no autoriza a eliminar esta instalación.
+
+Rama de trabajo: `refactor/recovery-foundation`. Esta revisión tiene cambios locales sin commit ni push; no hay merge ni despliegue asociados. No se ha vuelto a comprobar el estado de cuentas o credenciales remotas. La aplicación disponible para revisión es local; el módulo documental requiere un almacén remoto privado y la migración explícita de la base antes de una publicación.
+
+Los apartados y cifras de bloques que siguen son **evidencia histórica**, no el estado acumulado del árbol actual. Para la validación más reciente consultar [revisión global](global-review.md); no atribuir resultados locales nuevos a una CI antigua.
+
+## Antecedentes de recuperación
+
+Consolidación documental del bloque 28, actualizada con fotos, [alta de instalación nueva del bloque 30](recovery-fresh-install.md) y [ensayo de alojamiento gratuito del bloque 31](recovery-free-hosting.md). Se decidió no importar datos anteriores y preparar un piloto Render + Turso/libSQL + Cloudinary; el intento posterior de Netlify se recoge más abajo. Estas decisiones y ensayos no acreditan un despliegue operativo.
 
 ## Evidencia de la base candidata
 
@@ -121,7 +131,7 @@ Si más adelante cambia la decisión y aparece una base que deba conservarse, re
 - **Personal y locales:** se conserva el alcance actual de los gestores. No se inventan políticas multilocal, solapamientos de turnos ni reglas de jornada. La salida de plantilla debe conciliar fichajes abiertos sin inventar horas. El panel muestra la última lectura, no presencia en tiempo real.
 - **Históricos financieros:** columnas REAL heredadas, cálculos cliente/servidor protegidos en céntimos donde se han recuperado; esto no es contabilidad fiscal. No se corrigen totales históricos discrepantes para hacerlos cuadrar.
 - **Exposición del servicio:** el selector público revela nombres y roles. Hay que decidir si se mantiene antes de exponerlo en Internet. Las cuotas de login por IP no confían en proxies arbitrarios; revisar proxy/topología y usuarios compartiendo IP antes de producción.
-- **SQLite y runtime:** esquema actual 2, una instancia con volumen persistente; no es arquitectura distribuida. SQLite sigue siendo experimental en Node 22 y ESLint 8 requiere una actualización planificada. La consulta de dependencias del primer bloque fue puntual, no una auditoría permanente de seguridad.
+- **SQLite y runtime:** esquema local actual 6, una instancia con almacenamiento persistente; no es arquitectura distribuida. La base remota no se ha migrado en esta revisión. SQLite sigue siendo experimental en Node 22 y ESLint 8 requiere una actualización planificada. La consulta de dependencias del primer bloque fue puntual, no una auditoría permanente de seguridad.
 - **Fotos:** son públicas por URL; no almacenar documentos personales. El lector cliente, los rechazos y la subida/lectura real de PNG y JPEG sintéticos están cubiertos mediante almacenamiento temporal aislado. Sigue pendiente la aceptación en la nueva instalación y con la infraestructura aprobada; no se ha validado el volumen remoto.
 - **IA, voz y comunicaciones externas:** siguen sin validación integrada activada. PDF local no prueba extracción IA. No se han enviado documentos reales, usado micrófono ni enviado pedidos por WhatsApp. Consentimiento y destinos requieren revisión específica.
 - **Ajustes, Android, TPV y fiscalidad:** varias filas de Ajustes son informativas sin editor. El wrapper antiguo y los planes TPV/TicketBAI no son producto recuperado ni cumplimiento certificado. Requieren definir alcance antes de continuar esas funciones.

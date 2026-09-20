@@ -48,7 +48,7 @@ function runQuery(database, sql, params = []) {
 function initializeDatabase(database) {
     const connection = database.connection;
     if (connection.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'schema_migrations'").get() &&
-      connection.prepare('SELECT 1 FROM schema_migrations WHERE version > 3').get()) throw new Error('Database schema is newer than this application.');
+      connection.prepare('SELECT 1 FROM schema_migrations WHERE version > 6').get()) throw new Error('Database schema is newer than this application.');
     // 1. Crear tabla usuarios
     runQuery(database, `CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -305,6 +305,66 @@ function initializeDatabase(database) {
       DROP TABLE idempotency_requests;
       ALTER TABLE idempotency_requests_v3 RENAME TO idempotency_requests;
       INSERT INTO schema_migrations VALUES (3, CURRENT_TIMESTAMP);
+    `);
+  }
+  if (!connection.prepare('SELECT 1 FROM schema_migrations WHERE version = 4').get()) {
+    connection.exec(`
+      CREATE TABLE relevo_gestion (
+        relevo_id INTEGER PRIMARY KEY REFERENCES relevos(id),
+        responsable_id INTEGER REFERENCES usuarios(id),
+        prioridad TEXT NOT NULL DEFAULT 'normal' CHECK (prioridad IN ('normal', 'alta')),
+        estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'en_curso')),
+        revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0)
+      );
+      CREATE TABLE relevo_cambios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        relevo_id INTEGER NOT NULL REFERENCES relevos(id),
+        actor_id INTEGER NOT NULL REFERENCES usuarios(id),
+        detalle TEXT NOT NULL,
+        creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO schema_migrations VALUES (4, CURRENT_TIMESTAMP);
+    `);
+  }
+  if (!connection.prepare('SELECT 1 FROM schema_migrations WHERE version = 5').get()) {
+    connection.exec(`
+      CREATE TABLE documentos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        local TEXT NOT NULL CHECK (local IN ('Principal','Segundo Local')),
+        titulo TEXT NOT NULL, fecha TEXT NOT NULL,
+        tipo TEXT NOT NULL CHECK (tipo IN ('factura_proveedor','ticket','albaran','gasto_extra','contrato','otro')),
+        etiquetas_json TEXT NOT NULL DEFAULT '[]', notas TEXT NOT NULL DEFAULT '',
+        proveedor_id INTEGER REFERENCES proveedores(id) ON DELETE SET NULL,
+        gasto_id INTEGER REFERENCES gastos(id) ON DELETE SET NULL,
+        nombre_archivo TEXT NOT NULL, mime TEXT NOT NULL, bytes INTEGER NOT NULL CHECK (bytes > 0),
+        sha256 TEXT NOT NULL, autor_id INTEGER NOT NULL REFERENCES usuarios(id),
+        creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, actualizado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0), archivado INTEGER NOT NULL DEFAULT 0 CHECK (archivado IN (0,1)),
+        request_key TEXT NOT NULL, request_hash TEXT NOT NULL,
+        UNIQUE (autor_id, request_key), UNIQUE (local, sha256)
+      );
+      CREATE INDEX documentos_fecha_local ON documentos(local, fecha, id);
+      CREATE TABLE documento_cambios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, documento_id INTEGER NOT NULL REFERENCES documentos(id),
+        actor_id INTEGER NOT NULL REFERENCES usuarios(id), detalle TEXT NOT NULL,
+        creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO schema_migrations VALUES (5, CURRENT_TIMESTAMP);
+    `);
+  }
+  if (!connection.prepare('SELECT 1 FROM schema_migrations WHERE version = 6').get()) {
+    connection.exec(`
+      ALTER TABLE documentos ADD COLUMN revision_estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (revision_estado IN ('pendiente','en_revision','revisado'));
+      ALTER TABLE documentos ADD COLUMN revision_responsable_id INTEGER REFERENCES usuarios(id);
+      ALTER TABLE documentos ADD COLUMN revision_fecha_limite TEXT;
+      ALTER TABLE documentos ADD COLUMN revision_notas TEXT NOT NULL DEFAULT '';
+      ALTER TABLE documentos ADD COLUMN revisado_por INTEGER REFERENCES usuarios(id);
+      ALTER TABLE documentos ADD COLUMN revisado_en TEXT CHECK (
+        (revision_estado='revisado' AND revisado_por IS NOT NULL AND revisado_en IS NOT NULL) OR
+        (revision_estado<>'revisado' AND revisado_por IS NULL AND revisado_en IS NULL)
+      );
+      CREATE INDEX documentos_revision ON documentos(local,archivado,revision_estado,revision_fecha_limite);
+      INSERT INTO schema_migrations VALUES (6, CURRENT_TIMESTAMP);
     `);
   }
   if (connection.prepare('PRAGMA foreign_key_check').all().length) throw new Error('Database contains orphaned references; reconcile before migration.');

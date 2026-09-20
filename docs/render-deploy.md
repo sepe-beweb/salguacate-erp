@@ -5,6 +5,13 @@ La persistencia se guarda en Turso/libSQL y Cloudinary, nunca en el sistema de
 archivos efímero de Render. Esta configuración no demuestra que haya servicios
 creados ni una URL validada: consultar el [estado vigente](architecture/recovery-status.md).
 
+El código actual exige esquema 6 y un almacén privado para el archivo documental.
+La configuración gratuita descrita aquí solo resuelve la base y las fotos públicas;
+no proporciona ese almacén privado. No guardar originales en el disco efímero ni
+en el catálogo público. Sin adaptador privado las rutas de documentos devuelven
+503. Migración remota ensayada y persistencia documental son puertas pendientes
+antes de considerar desplegada la aplicación completa.
+
 ## Crear los servicios
 
 1. Entrar en el workspace personal de Render y comprobar plan, uso y facturación.

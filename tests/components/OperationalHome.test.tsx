@@ -41,7 +41,7 @@ it('scopes actionable tasks, stock, orders and scheduled shifts while preserving
   expect(screen.getByRole('region', { name: 'Turnos de hoy' })).toHaveTextContent('Dora');
   expect(screen.getByRole('region', { name: 'Turnos de hoy' })).toHaveTextContent('termina mañana');
   expect(screen.getByRole('region', { name: 'Cierre de hoy' })).toHaveTextContent('Sin registrar: Salmón.');
-  expect(mocks.fetchWithAuth.mock.calls).toHaveLength(9);
+  expect(mocks.fetchWithAuth.mock.calls.filter(([url]) => !url.includes('/relevos/resumen'))).toHaveLength(9);
 });
 it('retains the local on navigation and resets the preference with the session provider', async () => {
   const app = (session: string) => <LocalScopeProvider key={session}><MemoryRouter><Routes><Route path="/" element={<Dashboard />} /><Route path="/tareas" element={<Tasks />} /></Routes></MemoryRouter></LocalScopeProvider>;

@@ -1,4 +1,4 @@
-const { runWrite } = require('../authorization');
+const { runWrite, writeAsActor } = require('../authorization');
 const { asyncRoute } = require('../security');
 const { readImage } = require('../image-store');
 const { sendDatabaseError } = require('../http');
@@ -116,18 +116,16 @@ function registerCatalog(app, { db, requireAuth, requireRole, imageStore, logger
     for (const item of productos) {
       requireValid(item && validId(item.producto_id) && Number.isSafeInteger(item.cantidad) && item.cantidad > 0 && item.cantidad <= 1000000 && text(item.nombre, 160), 'Cada línea necesita producto, nombre y cantidad entera positiva.');
     }
-    const rows = await db.connection.prepare(`SELECT id FROM inventario WHERE local = ? AND id IN (${productos.map(() => '?').join(',')})`).all(local, ...productos.map(item => Number(item.producto_id)));
-    const ids = new Set(rows.map(row => row.id));
-    requireValid(productos.every(item => ids.has(Number(item.producto_id))), 'El producto no existe en el local del pedido.');
     const lines = productos.map(({ producto_id, nombre, cantidad }) => ({ producto_id: Number(producto_id), nombre, cantidad }));
-
-    (await runWrite(db, req, `INSERT INTO pedidos (fecha, local, proveedor_id, proveedor_nombre, productos, estado) VALUES (?, ?, ?, ?, ?, 'pendiente')`,
-      [fecha, local, supplier === null ? null : Number(supplier), proveedor_nombre ?? 'Sin proveedor', JSON.stringify(lines)],
-      function(err) {
-        if (err) return sendDatabaseError(res, err);
-        res.json({ id: this.lastID, mensaje: 'Pedido guardado' });
-      }
-    ));
+    const inserted = await writeAsActor(db, req, async sql => {
+      if (supplier !== null) requireValid(!!(await sql.prepare('SELECT id FROM proveedores WHERE id = ?').get(Number(supplier))), 'Proveedor no encontrado.');
+      const rows = await sql.prepare(`SELECT id FROM inventario WHERE local = ? AND id IN (${lines.map(() => '?').join(',')})`).all(local, ...lines.map(item => item.producto_id));
+      const ids = new Set(rows.map(row => row.id));
+      requireValid(lines.every(item => ids.has(item.producto_id)), 'El producto no existe en el local del pedido.');
+      return sql.prepare(`INSERT INTO pedidos (fecha, local, proveedor_id, proveedor_nombre, productos, estado) VALUES (?, ?, ?, ?, ?, 'pendiente')`)
+        .run(fecha, local, supplier === null ? null : Number(supplier), proveedor_nombre ?? 'Sin proveedor', JSON.stringify(lines));
+    });
+    res.json({ id: inserted.lastInsertRowid, mensaje: 'Pedido guardado' });
   }));
 
   app.delete('/api/pedidos/:id', requireAuth, requireRole(['owner', 'manager']), asyncRoute(async (req, res) => {

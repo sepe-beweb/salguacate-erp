@@ -74,6 +74,21 @@ describe('Financial reads and aggregation', () => {
 });
 
 describe('Monthly report display and print agreement', () => {
+  it('names the report venue, keeps expense venue in print and separates invitations from collections', async () => {
+    const write = vi.fn(); vi.spyOn(window, 'open').mockReturnValue({ document: { write, close: vi.fn() } } as unknown as Window);
+    mocks.fetchWithAuth.mockImplementation(async url => response(url.endsWith('/api/cierres') ? [closing] : [expense]));
+    render(<Reports />); await screen.findByRole('button', { name: /Exportar Informe/ });
+    fireEvent.change(screen.getByLabelText('Año del informe'), { target: { value: '2024' } });
+    fireEvent.change(screen.getByLabelText('Mes del informe'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aguacate', exact: true }));
+    expect(screen.getByRole('button', { name: 'Aguacate', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/Invitaciones registradas:/)).toHaveTextContent('no es un cobro');
+    expect(screen.getByText('1 gastos registrados')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /Exportar Informe/ }));
+    const html = write.mock.calls[0][0] as string;
+    expect(html).toContain('Gestión · Aguacate'); expect(html).toContain('<td>Aguacate</td>');
+    expect(html).toContain('Invitaciones registradas:'); expect(html).not.toContain('<tr><td>🎁');
+  });
   it('warns about an inconsistent recorded total in both screen and print without changing it', async () => {
     const write = vi.fn();
     vi.spyOn(window, 'open').mockReturnValue({ document: { write, close: vi.fn() } } as unknown as Window);

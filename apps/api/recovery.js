@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const { DatabaseSync, backup } = require('node:sqlite');
 const { createDatabase } = require('./database');
 
-const BUSINESS_TABLES = ['usuarios', 'fichajes', 'proveedores', 'inventario', 'turnos', 'mensajes', 'eventos', 'notas', 'cierres', 'gastos', 'tareas', 'pedidos', 'peticiones', 'audit_events', 'idempotency_requests', 'rutinas', 'rutina_ejecuciones', 'relevos', 'relevo_lecturas'];
+const BUSINESS_TABLES = ['usuarios', 'fichajes', 'proveedores', 'inventario', 'turnos', 'mensajes', 'eventos', 'notas', 'cierres', 'gastos', 'tareas', 'pedidos', 'peticiones', 'audit_events', 'idempotency_requests', 'rutinas', 'rutina_ejecuciones', 'relevos', 'relevo_lecturas', 'relevo_gestion', 'relevo_cambios', 'documentos', 'documento_cambios'];
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 
@@ -88,6 +88,19 @@ function checkUploads(filename, uploads) {
   } finally { db.close(); }
 }
 
+function checkDocuments(filename, directory) {
+  const db = new DatabaseSync(filename, { readOnly: true });
+  try {
+    if (!db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='documentos'").get()) return;
+    for (const row of db.prepare('SELECT sha256,bytes FROM documentos').all()) {
+      if (!directory) throw new Error('La base contiene documentos: indica --documents para incluir sus archivos privados.');
+      if (!/^[a-f0-9]{64}$/.test(row.sha256)) throw new Error('Referencia de documento inválida.');
+      const actual = metadata(path.join(directory, row.sha256));
+      if (actual.sha256 !== row.sha256 || actual.size !== row.bytes) throw new Error('Documento privado alterado o incompleto.');
+    }
+  } finally { db.close(); }
+}
+
 function businessSnapshot(filename, previous) {
   const db = new DatabaseSync(filename, { readOnly: true });
   try {
@@ -106,16 +119,22 @@ function requireOffline(offline) {
   if (offline !== true) throw new Error('Detén las escrituras y confirma --offline. No se detienen servicios automáticamente.');
 }
 
-async function createBackup({ database, uploads, output, offline }) {
+async function createBackup({ database, uploads, documents, output, offline }) {
   requireOffline(offline);
   const source = checkedPath(database, 'file');
   const images = checkedPath(uploads, 'directory');
+  const privateFiles = documents ? checkedPath(documents, 'directory') : null;
+  if (privateFiles && (inside(source, privateFiles) || inside(images, privateFiles) || inside(privateFiles, images))) throw new Error('Los documentos deben estar separados de la base y de uploads.');
   if (inside(source, images)) throw new Error('La base no puede estar dentro de uploads.');
   checkDatabase(source);
   checkUploads(source, images);
+  checkDocuments(source, privateFiles);
+  const documentNames = privateFiles ? listFiles(privateFiles) : [];
+  if (documentNames.some(name => !/^[a-f0-9]{64}$/.test(name))) throw new Error('Archivo privado no admitido.');
+  const documentOriginals = Object.fromEntries(documentNames.map(name => [name, metadata(path.join(privateFiles, name))]));
   const names = listFiles(images);
   const originals = Object.fromEntries(names.map(name => [name, metadata(path.join(images, name))]));
-  const destination = newDirectory(output, [source, images]);
+  const destination = newDirectory(output, [source, images, ...(privateFiles ? [privateFiles] : [])]);
   const db = new DatabaseSync(source, { readOnly: true });
   try { await backup(db, path.join(destination, 'database.sqlite')); }
   finally { db.close(); }
@@ -134,8 +153,18 @@ async function createBackup({ database, uploads, output, offline }) {
     throw new Error('Uploads cambió durante la copia. Copia incompleta.');
   }
   checkDatabase(path.join(destination, 'database.sqlite'), true);
+  if (privateFiles) {
+    fs.mkdirSync(path.join(destination, 'documents'), { mode: 0o700 });
+    for (const name of documentNames) {
+      const target = path.join(destination, 'documents', name);
+      fs.copyFileSync(checkedPath(path.join(privateFiles, name), 'file'), target, fs.constants.COPYFILE_EXCL);
+      if (JSON.stringify(metadata(target)) !== JSON.stringify(documentOriginals[name])) throw new Error('Documentos cambió durante la copia.');
+    }
+    if (JSON.stringify(documentNames) !== JSON.stringify(listFiles(privateFiles)) || documentNames.some(name => JSON.stringify(metadata(path.join(privateFiles, name))) !== JSON.stringify(documentOriginals[name]))) throw new Error('Documentos cambió durante la copia.');
+  }
+  checkDocuments(path.join(destination, 'database.sqlite'), path.join(destination, 'documents'));
   checkUploads(path.join(destination, 'database.sqlite'), path.join(destination, 'uploads'));
-  const files = ['database.sqlite', ...names.map(name => `uploads/${name}`)].map(name => ({ path: name, ...metadata(path.join(destination, name)) }));
+  const files = ['database.sqlite', ...names.map(name => `uploads/${name}`), ...documentNames.map(name => `documents/${name}`)].map(name => ({ path: name, ...metadata(path.join(destination, name)) }));
   const manifest = { format: 1, createdAt: new Date().toISOString(), node: process.version, files };
   fs.writeFileSync(path.join(destination, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
   verifyBackup(destination);
@@ -150,7 +179,7 @@ function verifyBackup(directory) {
   if (manifest.format !== 1 || !Array.isArray(manifest.files) || !manifest.files.length) throw new Error('Formato de copia no admitido.');
   const seen = new Set();
   for (const file of manifest.files) {
-    if (!file || typeof file.path !== 'string' || !(file.path === 'database.sqlite' || /^uploads\/(?:[\p{L}\p{N}_ .-]+\/)*[\p{L}\p{N}_ .-]+$/u.test(file.path)) || file.path.split('/').some(part => part === '.' || part === '..' || part.endsWith('.') || part.endsWith(' '))) throw new Error('Ruta de manifiesto no válida.');
+    if (!file || typeof file.path !== 'string' || !(file.path === 'database.sqlite' || /^documents\/[a-f0-9]{64}$/.test(file.path) || /^uploads\/(?:[\p{L}\p{N}_ .-]+\/)*[\p{L}\p{N}_ .-]+$/u.test(file.path)) || file.path.split('/').some(part => part === '.' || part === '..' || part.endsWith('.') || part.endsWith(' '))) throw new Error('Ruta de manifiesto no válida.');
     const key = file.path.toLowerCase();
     if (seen.has(key)) throw new Error('Archivo duplicado en el manifiesto.');
     seen.add(key);
@@ -164,6 +193,7 @@ function verifyBackup(directory) {
   if (JSON.stringify(actualNames) !== JSON.stringify(expected)) throw new Error('Hay archivos no declarados en la copia.');
   checkDatabase(path.join(root, 'database.sqlite'), true);
   checkUploads(path.join(root, 'database.sqlite'), path.join(root, 'uploads'));
+  checkDocuments(path.join(root, 'database.sqlite'), path.join(root, 'documents'));
   return manifest;
 }
 
@@ -192,6 +222,7 @@ async function restoreBackup({ source, output, offline }) {
   } finally { migrated.close(); }
   checkDatabase(filename);
   const after = businessSnapshot(filename, before);
+  checkDocuments(filename, path.join(destination, 'documents'));
   for (const [table, snapshot] of Object.entries(before)) {
     if (JSON.stringify(after[table]) !== JSON.stringify(snapshot)) throw new Error(`La migración alteró datos existentes: ${table}`);
   }

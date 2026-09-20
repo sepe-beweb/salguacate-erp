@@ -53,6 +53,7 @@ export default function Reports() {
     const gastosRows = filteredGastos.map(g => `
       <tr>
         <td>${formatCivilDate(g.fecha)}</td>
+        <td>${escapeHTML(locationLabel(g.local))}</td>
         <td>${escapeHTML(g.proveedor_nombre)}</td>
         <td>${escapeHTML(g.concepto || '-')}</td>
         <td class="num bold">${formatEuroCents(toCents(g.total))}</td>
@@ -95,7 +96,7 @@ export default function Reports() {
   <div class="header">
     <div>
       <h1>Salguacate</h1>
-      <div class="subtitle">Informe Mensual de Gestión</div>
+      <div class="subtitle">Informe Mensual de Gestión · ${escapeHTML(selectedLocal === 'Todos' ? 'Ambos locales' : locationLabel(selectedLocal))}</div>
     </div>
     <div class="date-info">
       <strong>${MONTHS[selectedMonth]} ${selectedYear}</strong><br>
@@ -153,12 +154,13 @@ export default function Reports() {
   </div>
 
   <div class="section">
-    <h2>Detalle de Gastos / Albaranes</h2>
+    <h2>Detalle de gastos registrados</h2>
     ${filteredGastos.length === 0 ? '<p style="color:#94a3b8;padding:12px;">Sin gastos registrados este mes.</p>' : `
     <table>
       <thead>
         <tr>
           <th>Fecha</th>
+          <th>Local</th>
           <th>Proveedor</th>
           <th>Concepto</th>
           <th style="text-align:right">Importe</th>
@@ -167,7 +169,7 @@ export default function Reports() {
       <tbody>
         ${gastosRows}
         <tr class="totals-row">
-          <td colspan="3">TOTAL GASTOS</td>
+          <td colspan="4">TOTAL GASTOS</td>
           <td class="num">${formatEuroCents(totalGastos)}</td>
         </tr>
       </tbody>
@@ -183,11 +185,12 @@ export default function Reports() {
       <tbody>
         <tr><td>💵 Efectivo</td><td class="num">${formatEuroCents(totalEfectivo)}</td><td class="num">${totalIngresos ? ((totalEfectivo/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
         <tr><td>💳 Tarjeta</td><td class="num">${formatEuroCents(totalTarjeta)}</td><td class="num">${totalIngresos ? ((totalTarjeta/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
-        <tr><td>🎁 Invitaciones</td><td class="num">${formatEuroCents(totalInvitaciones)}</td><td class="num">${totalIngresos ? ((totalInvitaciones/totalIngresos)*100).toFixed(1) : 0}%</td></tr>
       </tbody>
     </table>
   </div>
 
+  <p>Invitaciones registradas: ${formatEuroCents(totalInvitaciones)}. Dato informativo: no es un cobro ni se suma a los ingresos.</p>
+  <p>El saldo compara ingresos y gastos registrados; no equivale a beneficio neto ni a conciliación bancaria.</p>
   <div class="footer">
     Informe generado automáticamente por Salguacate ERP · ${new Date().getFullYear()}
   </div>
@@ -237,7 +240,7 @@ export default function Reports() {
           </label>
           <div className="flex gap-2">
             {['Todos', 'Principal', 'Segundo Local'].map(l => (
-              <button key={l} onClick={() => setSelectedLocal(l)} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${selectedLocal === l ? 'bg-brand-600 text-white' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}>{locationLabel(l)}</button>
+              <button key={l} aria-pressed={selectedLocal === l} onClick={() => setSelectedLocal(l)} className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${selectedLocal === l ? 'bg-brand-600 text-white' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'}`}>{locationLabel(l)}</button>
             ))}
           </div>
         </div>
@@ -251,7 +254,8 @@ export default function Reports() {
         <>
           {inconsistent && <p role="status" className="rounded-lg border border-amber-300 p-3">Hay cierres cuyo total no coincide con efectivo más tarjeta. Se conserva el total registrado; revisa su origen.</p>}
           {/* Resumen Visual */}
-          <div className="grid grid-cols-2 gap-3">
+          <p className="text-sm text-slate-600 dark:text-slate-300">{MONTHS[selectedMonth]} {selectedYear} · {selectedLocal === 'Todos' ? 'Ambos locales' : locationLabel(selectedLocal)}. El saldo compara registros: no es beneficio neto ni conciliación bancaria.</p>
+          <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3 [&_p]:break-words [&>div]:min-w-0">
             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp size={16} className="text-emerald-500" />
@@ -266,9 +270,9 @@ export default function Reports() {
                 <span className="text-xs text-slate-500 font-medium">Gastos</span>
               </div>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatEuroCents(totalGastos)}</p>
-              <p className="text-xs text-slate-400 mt-1">{filteredGastos.length} facturas</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{filteredGastos.length} gastos registrados</p>
             </div>
-            <div className="col-span-2 bg-gradient-to-r from-brand-50 to-emerald-50 dark:from-brand-900/20 dark:to-emerald-900/20 p-4 rounded-2xl border border-brand-200 dark:border-brand-800 shadow-sm">
+            <div className="col-span-full bg-gradient-to-r from-brand-50 to-emerald-50 dark:from-brand-900/20 dark:to-emerald-900/20 p-4 rounded-2xl border border-brand-200 dark:border-brand-800 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <Wallet size={16} className="text-brand-600" />
                 <span className="text-xs text-slate-500 font-medium">Saldo ingresos − gastos</span>
@@ -287,7 +291,6 @@ export default function Reports() {
                 {[
                   { label: 'Efectivo', value: totalEfectivo, color: 'bg-emerald-500' },
                   { label: 'Tarjeta', value: totalTarjeta, color: 'bg-blue-500' },
-                  { label: 'Invitaciones', value: totalInvitaciones, color: 'bg-amber-500' },
                 ].map(m => (
                   <div key={m.label}>
                     <div className="flex justify-between text-xs mb-1">
@@ -303,6 +306,7 @@ export default function Reports() {
             </div>
           )}
 
+          <p className="text-sm rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 p-3 text-amber-900 dark:text-amber-100">Invitaciones registradas: {formatEuroCents(totalInvitaciones)}. Dato informativo: no es un cobro ni se suma a los ingresos.</p>
           {/* Botón exportar */}
           <button
             onClick={handleExportPDF}

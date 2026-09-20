@@ -9,6 +9,9 @@ import RequestError from '../components/RequestError';
 import { useIdempotentCreate } from '../hooks/useIdempotentCreate';
 import ExpenseFields from '../components/ExpenseFields';
 import { emptyExpense } from '../expenses';
+import { Link } from 'react-router-dom';
+import DocumentUpload from '../components/DocumentUpload';
+import { useLocalScope } from '../hooks/useLocalScope';
 
 interface ScannedDoc { id: string; name: string; date: string; dataUrl: string; }
 const emptyInvoice = emptyExpense;
@@ -23,6 +26,8 @@ function loadImage(source: string): Promise<HTMLImageElement> {
 }
 
 export default function Scanner() {
+  const [local] = useLocalScope();
+  const [archive, setArchive] = useState<{ file?: File } | null>(null);
   const { fetchWithAuth } = useAuth();
   const { submit: createExpense, locked, discard, payload, inFlight, confirmedId, recoveryError } = useIdempotentCreate<ReturnType<typeof emptyInvoice>>('/api/gastos');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -87,7 +92,7 @@ export default function Scanner() {
         pdf.addImage(img, 'JPEG', (width - w) / 2, (height - h) / 2, w, h);
         const doc = { id: crypto.randomUUID(), name: `Factura_${localDate()}`, date: new Date().toLocaleString(), dataUrl: pdf.output('datauristring') };
         setDocuments(previous => [...previous, doc]); clearImage();
-        setSuccess('PDF preparado. Descárgalo para conservarlo.');
+        setSuccess('PDF preparado. Guárdalo en Documentos para conservarlo en el local o descarga una copia.');
       } else {
         const canvas = document.createElement('canvas');
         canvas.width = img.width; canvas.height = img.height;
@@ -123,9 +128,13 @@ export default function Scanner() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Escáner</h2>
+      <section className="rounded-2xl bg-slate-900 text-white p-5 space-y-3"><h3 className="font-bold text-xl">Del papel al archivo del local</h3><p className="text-sm text-slate-200">Fotografía una o varias páginas, sube un PDF y clasifícalo por local, proveedor y etiquetas. Podrás recuperarlo y vincularlo a un gasto.</p><div className="flex flex-wrap gap-3"><button onClick={() => setArchive({})} className="rounded-lg bg-white text-slate-900 px-4 py-3 font-semibold">Escanear y archivar</button><Link to="/documentos" className="rounded-lg border border-slate-500 px-4 py-3">Abrir Documentos</Link></div></section>
       <RequestError message={error || (recoveryError ? `${recoveryError} Se conserva el borrador.` : '')} />
       {success && <p role="status" className="rounded-lg bg-emerald-50 text-emerald-800 p-3">{success}</p>}
-      <p className="text-sm text-slate-500">El PDF se genera en este dispositivo. Los documentos solo permanecen en esta pantalla: descárgalos antes de salir o recargar.</p>
+      <section className="space-y-2" aria-label="Conversión rápida">
+        <h3 className="font-semibold">PDF rápido de una foto · análisis opcional</h3>
+        <p className="text-sm text-slate-500">Esta opción prepara un PDF en el dispositivo; no lo archiva automáticamente. Los borradores desaparecen al salir: usa Guardar PDF en Documentos para conservarlos. El análisis con IA es opcional e independiente.</p>
+      </section>
       <input aria-label="Seleccionar imagen" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" ref={fileInputRef} onChange={handleCapture} disabled={isProcessing} className="hidden" />
       {recovered && !imageSrc && <section className="rounded-xl border p-4 space-y-3">
         <p>Gasto recuperado de esta sesión. Se conserva el formulario enviado, no la imagen ni el consentimiento para analizarla.</p>
@@ -191,13 +200,15 @@ export default function Scanner() {
         <section className="space-y-3">
           <h3 className="font-semibold">Documentos Recientes</h3>
           {documents.map(doc => (
-            <div key={doc.id} className="bg-white dark:bg-slate-900 rounded-xl border p-4 flex items-center justify-between">
+            <div key={doc.id} className="bg-white dark:bg-slate-900 rounded-xl border p-4 flex flex-wrap gap-2 items-center justify-between">
               <div><p>{doc.name}.pdf</p><p className="text-sm text-slate-500">{doc.date}</p></div>
               <a aria-label={`Descargar ${doc.name}.pdf`} href={doc.dataUrl} download={`${doc.name}.pdf`} className="p-2 text-brand-600"><Download size={20} /></a>
+              <button className="text-sm underline p-2" onClick={() => { const encoded = doc.dataUrl.split(',')[1]; const bytes = Uint8Array.from(atob(encoded), c => c.charCodeAt(0)); setArchive({ file: new File([bytes], `${doc.name}.pdf`, { type: 'application/pdf' }) }); }}>Guardar PDF en Documentos</button>
             </div>
           ))}
         </section>
       )}
+      {archive && <DocumentUpload initialFile={archive.file} local={local} onClose={() => setArchive(null)} onSaved={id => { setArchive(null); setSuccess(`Documento n.º ${id} guardado en el archivo del local. Abre Documentos para consultarlo o vincular un gasto.`); }} />}
     </div>
   );
 }

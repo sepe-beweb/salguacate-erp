@@ -15,6 +15,26 @@ const { seedTestUsers, TEST_PIN } = require('../../../tests/fixtures/users.cjs')
 const { schemaV2 } = require('../../../tests/fixtures/schema-v2.cjs');
 const login = async app => (await request(app).post('/api/login').send({ usuario_id: 1, pin: TEST_PIN }).expect(200)).body.token;
 
+it('upgrades a v3 copy without rewriting notice resolution or acknowledgements', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'salguacate-schema4-')); let db, migrated;
+  try {
+    const source = path.join(dir, 'source.sqlite'); const copy = path.join(dir, 'copy.sqlite');
+    db = createDatabase(source); await db.ready; await seedTestUsers(db);
+    db.connection.exec(`INSERT INTO relevos (id,local,fecha,contenido,autor_id,resuelto_por,resuelto_en) VALUES (7,'Principal','2026-09-19','Conservar',2,1,'2026-09-19 20:00:00');
+      INSERT INTO relevo_lecturas (relevo_id,usuario_id) VALUES (7,3);
+      DROP TABLE documento_cambios; DROP TABLE documentos; DELETE FROM schema_migrations WHERE version>=5;
+      DROP TABLE relevo_cambios; DROP TABLE relevo_gestion; DELETE FROM schema_migrations WHERE version=4;`);
+    const notices = db.connection.prepare('SELECT * FROM relevos').all(); const readings = db.connection.prepare('SELECT * FROM relevo_lecturas').all();
+    db.close(); db = null; fs.copyFileSync(source, copy); const before = fs.readFileSync(source);
+    migrated = createDatabase(copy); await migrated.ready;
+    expect(migrated.connection.prepare('SELECT * FROM relevos').all()).toEqual(notices);
+    expect(migrated.connection.prepare('SELECT * FROM relevo_lecturas').all()).toEqual(readings);
+    expect(migrated.connection.prepare('SELECT * FROM relevo_gestion').all()).toEqual([]);
+    expect(migrated.connection.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+    expect(fs.readFileSync(source)).toEqual(before);
+  } finally { db?.close(); migrated?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 it('migrates a backed-up v2 copy preserving identities, tasks and existing creation receipts', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'salguacate-schema3-'));
   let db, restored;
@@ -44,7 +64,7 @@ it('migrates a backed-up v2 copy preserving identities, tasks and existing creat
     const replay = await request(target).post('/api/notas').set('Authorization', `Bearer ${newToken}`).set('Idempotency-Key', key).send(body).expect(200);
     expect(replay.body).toEqual(first.body);
     expect(restored.connection.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
-    expect(restored.connection.prepare('SELECT version FROM schema_migrations').all().map(r => r.version)).toEqual([1, 2, 3]);
+    expect(restored.connection.prepare('SELECT version FROM schema_migrations').all().map(r => r.version)).toEqual([1, 2, 3, 4, 5, 6]);
   } finally { db?.close(); restored?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -73,10 +93,12 @@ it('includes routines, executions, notices and acknowledgements in recovery veri
       INSERT INTO rutina_ejecuciones (id,rutina_id,fecha,preparado_por) VALUES (1,1,'2026-09-20',2);
       INSERT INTO tareas (titulo,fecha,local,rutina_ejecucion_id) VALUES ('Paso','2026-09-20','Principal',1);
       INSERT INTO relevos (id,local,fecha,contenido,autor_id) VALUES (1,'Principal','2026-09-20','Aviso',2);
-      INSERT INTO relevo_lecturas (relevo_id,usuario_id) VALUES (1,3);`);
+      INSERT INTO relevo_lecturas (relevo_id,usuario_id) VALUES (1,3);
+      INSERT INTO relevo_gestion (relevo_id,responsable_id) VALUES (1,3);
+      INSERT INTO relevo_cambios (relevo_id,actor_id,detalle) VALUES (1,2,'Asignado');`);
     db.close(); db = null;
     await createBackup({ database: file, uploads, output: path.join(dir, 'backup'), offline: true });
     const report = await restoreBackup({ source: path.join(dir, 'backup'), output: path.join(dir, 'restored'), offline: true });
-    for (const table of ['rutinas', 'rutina_ejecuciones', 'tareas', 'relevos', 'relevo_lecturas']) expect(report.tables[table].count).toBe(1);
+    for (const table of ['rutinas', 'rutina_ejecuciones', 'tareas', 'relevos', 'relevo_lecturas', 'relevo_gestion', 'relevo_cambios']) expect(report.tables[table].count).toBe(1);
   } finally { db?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });

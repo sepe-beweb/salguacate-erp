@@ -4,6 +4,7 @@ import { useLocalScope } from '../hooks/useLocalScope';
 import { useApiRead } from '../hooks/useApiLists';
 import RequestError from '../components/RequestError';
 import LocalFilter from '../components/LocalFilter';
+import HandoverSummary from '../components/HandoverSummary';
 import { localDate } from '../localDate';
 import { dashboardFinancialSummary, readDashboardLists, selectDashboardLocation } from '../dashboardData';
 import { formatCivilDate, formatEuroCents, toCents } from '../financialValues';
@@ -47,6 +48,7 @@ export default function Dashboard() {
       </div>
     </header>
 
+    <HandoverSummary />
     <section aria-label="Necesita atención" className={panel}>
       <h3 className="font-semibold text-lg">Necesita atención</h3>
       <div className="grid gap-2 sm:grid-cols-2">

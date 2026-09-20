@@ -61,7 +61,7 @@ describe('Remote readiness uses reads only and never installs or repairs schema'
   it.each([
     'DROP INDEX one_active_shift', 'ALTER TABLE inventario ADD COLUMN unexpected TEXT',
     "CREATE TRIGGER unexpected AFTER INSERT ON inventario BEGIN SELECT 1; END", 'DELETE FROM schema_migrations WHERE version = 2',
-    "INSERT INTO schema_migrations VALUES (4, 'future')", 'PRAGMA foreign_keys = OFF',
+    "INSERT INTO schema_migrations VALUES (7, 'future')", 'PRAGMA foreign_keys = OFF',
     'UPDATE usuarios SET active = 0', 'UPDATE usuarios SET pin = NULL', "UPDATE usuarios SET pin = '739152'", 'UPDATE usuarios SET must_change_pin = 1',
   ])('refuses incompatible state without changing it: %s', change => {
     return fixture().then(async ({ db, raw }) => {
@@ -80,7 +80,7 @@ describe('Remote readiness uses reads only and never installs or repairs schema'
   });
   it('keeps the local initializer and waits for readiness', async () => {
     const db = await connectConfiguredDatabase({ databaseDriver: 'sqlite', filename: ':memory:' });
-    try { expect(db.connection.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map(row => row.version)).toEqual([1, 2, 3]); }
+    try { expect(db.connection.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map(row => row.version)).toEqual([1, 2, 3, 4, 5, 6]); }
     finally { db.close(); }
   });
   it('starts listening only after readiness and closes the selected adapter', async () => {

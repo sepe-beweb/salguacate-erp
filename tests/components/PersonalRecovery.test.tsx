@@ -207,7 +207,7 @@ describe('Scanner recovery with simulated image decoding and AI', () => {
   };
   it('keeps image after disabled AI without retrying or writing an expense', async () => {
     mocks.fetchWithAuth.mockResolvedValue(response({ error: 'IA desactivada' }, 503));
-    render(<Scanner />);
+    render(<MemoryRouter><Scanner /></MemoryRouter>);
     await analyze();
     expect(await screen.findByRole('alert')).toHaveTextContent('IA desactivada');
     expect(screen.getByAltText('Vista previa')).toBeVisible();
@@ -217,7 +217,7 @@ describe('Scanner recovery with simulated image decoding and AI', () => {
   it('preserves all invoice edits on failed registration and clears extraction on discard', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     mocks.fetchWithAuth.mockImplementation(async url => url.endsWith('/api/ai/vision') ? response(invoice) : response({ error: 'Gasto rechazado' }, 409));
-    render(<Scanner />);
+    render(<MemoryRouter><Scanner /></MemoryRouter>);
     await analyze();
     expect(await screen.findByLabelText('Total Detectado (€)')).toHaveValue(0);
     fireEvent.change(screen.getByLabelText('Proveedor'), { target: { value: 'Corregido' } });
@@ -242,7 +242,7 @@ describe('Scanner recovery with simulated image decoding and AI', () => {
   it('locks controls and prevents duplicate analysis while a request is pending', async () => {
     let finish!: (r: Response) => void;
     mocks.fetchWithAuth.mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
-    render(<Scanner />);
+    render(<MemoryRouter><Scanner /></MemoryRouter>);
     await analyze();
     await waitFor(() => expect(writes()).toHaveLength(1));
     expect(screen.getByRole('button', { name: 'Solo PDF' })).toBeDisabled();
@@ -253,7 +253,7 @@ describe('Scanner recovery with simulated image decoding and AI', () => {
     expect(screen.getByLabelText('Proveedor')).toHaveValue('Proveedor de prueba');
   });
   it('rejects an unsupported file without creating or sending an image', () => {
-    render(<Scanner />);
+    render(<MemoryRouter><Scanner /></MemoryRouter>);
     fireEvent.change(screen.getByLabelText('Seleccionar imagen'), { target: { files: [new File(['x'], 'bad.svg', { type: 'image/svg+xml' })] } });
     expect(screen.getByRole('alert')).toHaveTextContent('JPEG, PNG o WebP');
     expect(URL.createObjectURL).not.toHaveBeenCalled();
@@ -261,7 +261,7 @@ describe('Scanner recovery with simulated image decoding and AI', () => {
   });
   it('registers a reviewed expense once and only then clears the image', async () => {
     mocks.fetchWithAuth.mockImplementation(async url => response(url.endsWith('/api/ai/vision') ? invoice : { id: 8 }));
-    render(<Scanner />);
+    render(<MemoryRouter><Scanner /></MemoryRouter>);
     await analyze();
     await screen.findByLabelText('Proveedor');
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Gasto Directamente' }));
@@ -274,7 +274,7 @@ describe('Scanner recovery with simulated image decoding and AI', () => {
   it('does not publish a late analysis or create an expense after leaving the screen', async () => {
     let finish!: (r: Response) => void;
     mocks.fetchWithAuth.mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
-    const view = render(<Scanner />);
+    const view = render(<MemoryRouter><Scanner /></MemoryRouter>);
     await analyze();
     await waitFor(() => expect(writes()).toHaveLength(1));
     view.unmount();

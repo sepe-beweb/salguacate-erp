@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
+import { jsPDF } from 'jspdf';
+import { randomUUID } from 'node:crypto';
 
 function routeAsset(name: string) {
   const manifest = JSON.parse(readFileSync(resolve('dist/erp/.vite/manifest.json'), 'utf8'));
@@ -8,6 +10,21 @@ function routeAsset(name: string) {
   expect(item?.isDynamicEntry).toBe(true);
   return `/${item.file}`;
 }
+test('compiled private PDF viewer serves its worker locally and renders readable pages', async ({ page, request }) => {
+  const login = page.waitForResponse(r => r.url().endsWith('/api/login') && r.request().method() === 'POST');
+  await enter(page); const { token } = await (await login).json();
+  const pdf = new jsPDF(); pdf.text('PRIVATE COMPILED FIXTURE', 20, 30); pdf.addPage(); pdf.text('SECOND PAGE', 20, 30);
+  const res = await request.post('http://127.0.0.1:3101/api/documentos', { headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': randomUUID() }, data: { local: 'Principal', titulo: 'PDF compilado', fecha: '2026-09-20', tipo: 'otro', etiquetas: [], notas: '', proveedor_id: null, archivo: { nombre: 'compiled.pdf', mime: 'application/pdf', base64: Buffer.from(pdf.output('arraybuffer')).toString('base64') } } });
+  expect(res.status()).toBe(201);
+  await page.getByRole('button', { name: 'Documentos', exact: true }).click();
+  await page.getByRole('button', { name: 'Abrir PDF compilado', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ficha del documento' });
+  await expect(dialog.getByText('Página 1 de 2', { exact: true })).toBeVisible();
+  await dialog.getByText('Texto de esta página', { exact: true }).click(); await expect(dialog.getByText('PRIVATE COMPILED FIXTURE', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Página siguiente', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Página siguiente', exact: true })).toBeFocused();
+  await expect(dialog.getByText('SECOND PAGE', { exact: true })).toBeVisible();
+});
 async function enter(page: Page, user = 'Jefe Admin', path = '/') {
   await page.goto(path);
   await page.getByRole('button', { name: new RegExp(user) }).click();
@@ -21,7 +38,7 @@ test('compiled login defers feature screens and loads each selected route on dem
   page.on('request', req => { if (req.resourceType() === 'script') assets.push(new URL(req.url()).pathname); });
   await page.goto('/');
   await expect(page.getByRole('button', { name: /Jefe Admin/ })).toBeVisible();
-  for (const name of ['Dashboard', 'Inventory', 'Analytics', 'Reports', 'Expenses', 'Handover', 'employee/EmployeeDashboard']) expect(assets).not.toContain(routeAsset(name));
+  for (const name of ['Dashboard', 'Inventory', 'Analytics', 'Reports', 'Expenses', 'Handover', 'Documents', 'employee/EmployeeDashboard']) expect(assets).not.toContain(routeAsset(name));
   await page.getByRole('button', { name: /Jefe Admin/ }).click();
   await page.getByLabel('PIN de acceso').fill('246810');
   await page.getByRole('button', { name: 'Acceder' }).click();
@@ -53,6 +70,11 @@ test('compiled login defers feature screens and loads each selected route on dem
   await expect(page.getByRole('heading', { name: 'Relevo y rutinas', exact: true })).toBeVisible();
   await expect(page.getByText('No hay avisos pendientes para este local.')).toBeVisible();
   expect(assets).toContain(routeAsset('Handover'));
+  expect(assets).not.toContain(routeAsset('Documents'));
+  await page.getByRole('button', { name: 'Documentos', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Documentos', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Resultados del archivo' })).toBeVisible();
+  expect(assets).toContain(routeAsset('Documents'));
 });
 
 test('a missing compiled chunk leaves navigation usable and reload needs explicit confirmation', async ({ page }, testInfo) => {

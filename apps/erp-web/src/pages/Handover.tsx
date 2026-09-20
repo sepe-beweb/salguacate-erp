@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLocalScope } from '../hooks/useLocalScope';
 import { useApiRead } from '../hooks/useApiLists';
 import { useIdempotentCreate } from '../hooks/useIdempotentCreate';
 import { API_URL } from '../config';
 import { readJson, errorMessage } from '../apiResponse';
-import { readWorkday, routineApplies } from '../handoverData';
+import { readWorkday, routineApplies, type Handover, type Workday } from '../handoverData';
 import { LOCATIONS, locationLabel } from '../locations';
 import { localDate } from '../localDate';
 import { formatCivilDate, isCivilDate } from '../financialValues';
@@ -84,17 +84,24 @@ export default function HandoverPage() {
   const [scope, setScope] = useLocalScope();
   const local = manager ? (scope === 'Segundo Local' ? scope : 'Principal') : user?.location ?? '';
   const [fecha, setFecha] = useState(localDate); const [history, setHistory] = useState(false);
+  const [search, setSearch] = useSearchParams();
+  const filter = ['mios', 'sin_responsable', 'resueltos'].includes(search.get('avisos') ?? '') ? search.get('avisos')! : 'pendientes';
+  const [editing, setEditing] = useState<{ entry: Handover; responsible: string; priority: string; state: string; people: Workday['responsables'] } | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [configurationOpen, setConfigurationOpen] = useState(false);
   const { data, loading, error: loadError, reload } = useApiRead([`/api/jornada?${new URLSearchParams({ local, fecha })}`], readWorkday);
   const [busy, setBusy] = useState(false); const writing = useRef(false); const [error, setError] = useState(''); const [message, setMessage] = useState('');
   const verified = data && data.local === local && data.fecha === fecha;
   const blocked = busy || loading || Boolean(loadError) || !verified;
+  const notices = data?.relevos.filter(r => filter === 'resueltos' ? r.estado === 'resuelto' : (history || r.estado !== 'resuelto') &&
+    (filter === 'mios' ? String(r.responsable_id) === user?.id : filter === 'sin_responsable' ? r.responsable_id === null || !r.responsable_disponible : true)) ?? [];
   async function mutate(path: string, method: string, body: object = {}) {
     if (writing.current || blocked) return;
     writing.current = true; setBusy(true); setError(''); setMessage('');
     try {
       await readJson(await fetchWithAuth(`${API_URL}${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
       setMessage('Cambio guardado. Se ha solicitado una lectura actualizada.');
+      return true;
     } catch (cause) { setError(`${errorMessage(cause)} Se consultará el estado antes de permitir otro cambio.`); }
     finally { await reload(); writing.current = false; setBusy(false); }
   }
@@ -114,22 +121,48 @@ export default function HandoverPage() {
     <section aria-label="Avisos entre turnos" className={panel}>
       <h3 className="text-lg font-semibold">Avisos entre turnos</h3>
       <CreateForm kind="aviso" local={local} fecha={fecha} reload={reload} />
+      <label className="block text-sm">Ver avisos<select className={`${input} sm:max-w-xs`} value={filter} onChange={e => { setSearch(e.target.value === 'pendientes' ? {} : { avisos: e.target.value }); setHistory(false); }}>
+        <option value="pendientes">Todos los pendientes</option><option value="mios">Mis pendientes</option><option value="sin_responsable">Sin responsable disponible</option><option value="resueltos">Resueltos</option>
+      </select></label>
       <p className="text-xs text-slate-500">Los pendientes siguen aquí aunque cambie el día. Abrirlos no los marca como leídos.</p>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={history} onChange={e => setHistory(e.target.checked)} />Mostrar también los resueltos</label>
       {loading ? <p role="status">Cargando jornada…</p> : loadError || !verified ? <RequestError message={loadError || 'No se ha podido verificar la jornada.'} onRetry={reload} /> : <>
-        {!data.relevos.some(r => history || r.resuelto_por === null) && <p className="text-sm text-slate-500">No hay avisos pendientes para este local.</p>}
-        <div className="space-y-3">{data.relevos.filter(r => history || r.resuelto_por === null).map(r => <article key={r.id} className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 space-y-2">
+        {!notices.length && <p className="text-sm text-slate-500">{filter === 'pendientes' ? 'No hay avisos pendientes para este local.' : 'No hay avisos con este filtro.'}</p>}
+        {editing && !editorOpen && <button className={button} onClick={() => setEditorOpen(true)}>Continuar gestión del aviso #{editing.entry.id}</button>}
+        <div className="space-y-3">{notices.map(r => <article key={r.id} className={`rounded-xl p-3 space-y-2 border ${r.prioridad === 'alta' && r.estado !== 'resuelto' ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800' : 'bg-slate-50 dark:bg-slate-800 border-transparent'}`}>
           <p className="text-xs text-slate-500">{r.autor_nombre} · {formatCivilDate(r.fecha)} · registrado {formatPresenceTimestamp(r.creado_en)}</p>
+          <p className="text-xs font-semibold">{r.estado === 'en_curso' ? 'En curso' : r.estado === 'resuelto' ? 'Resuelto' : 'Pendiente'} · Prioridad {r.prioridad} · {r.responsable_nombre || 'Sin responsable'}</p>
+          {r.responsable_id !== null && !r.responsable_disponible && r.estado !== 'resuelto' && <p className="text-sm text-amber-700 dark:text-amber-400">Responsable no disponible en este local. La dirección debe revisar la asignación.</p>}
           <p className="whitespace-pre-wrap text-sm">{r.contenido}</p>
           {r.resuelto_por !== null && <p className="text-sm text-emerald-700 dark:text-emerald-400">Resuelto por {r.resuelto_nombre} · {formatPresenceTimestamp(r.resuelto_en!)}</p>}
           <p className="text-xs">{r.lecturas.length ? `Lecturas confirmadas: ${r.lecturas.map(l => `${l.usuario_nombre} (${formatPresenceTimestamp(l.leido_en)})`).join(', ')}` : 'Sin lecturas confirmadas.'}</p>
           <div className="flex flex-wrap gap-2">
+            {manager && <button className={button} disabled={blocked} onClick={() => {
+              if (editing && editing.entry.id !== r.id) { setError('Hay una gestión en borrador. Continúala o descártala antes de editar otro aviso.'); return; }
+              if (!editing) setEditing({ entry: r, responsible: String(r.responsable_id ?? ''), priority: r.prioridad, state: r.estado, people: data.responsables }); setEditorOpen(true);
+            }}>Gestionar aviso</button>}
+            {!manager && String(r.responsable_id) === user?.id && r.estado === 'pendiente' && <button className={button} disabled={blocked} onClick={() => mutate(`/api/relevos/${r.id}/gestion`, 'PUT', { responsable_id: r.responsable_id, prioridad: r.prioridad, estado: 'en_curso', revision: r.revision })}>Empezar mi gestión</button>}
             {r.lecturas.some(l => String(l.usuario_id) === user?.id) ? <p className="text-sm">Ya has confirmado la lectura</p> : <button className={button} disabled={blocked} onClick={() => mutate(`/api/relevos/${r.id}/leer`, 'PUT')}>He leído el aviso</button>}
-            {manager && r.resuelto_por === null && <button className={button} disabled={blocked} onClick={() => { if (window.confirm('¿Marcar este aviso como resuelto? Se conservará en el historial con tu nombre.')) void mutate(`/api/relevos/${r.id}/resolver`, 'PUT'); }}>Resolver aviso</button>}
+            {manager && r.resuelto_por === null && <button className={button} disabled={blocked} onClick={() => { if (window.confirm('¿Marcar este aviso como resuelto? Se conservará en el historial con tu nombre.')) void mutate(`/api/relevos/${r.id}/gestion`, 'PUT', { responsable_id: r.responsable_id, prioridad: r.prioridad, estado: 'resuelto', revision: r.revision }); }}>Resolver aviso</button>}
           </div>
+          {r.cambios.length > 0 && <details><summary className="cursor-pointer text-xs">Historial de gestión ({r.cambios.length})</summary><ul className="text-xs mt-2 space-y-2">{r.cambios.map(c => <li key={c.id}>{c.actor_nombre} · {formatPresenceTimestamp(c.creado_en)}<p>{c.detalle}</p></li>)}</ul></details>}
         </article>)}</div>
       </>}
     </section>
+    {editing && editorOpen && <ModalDialog label="Gestionar aviso" busy={busy} onClose={() => setEditorOpen(false)}>
+      <form className="p-5 space-y-4" onSubmit={async event => { event.preventDefault(); if (await mutate(`/api/relevos/${editing.entry.id}/gestion`, 'PUT', { responsable_id: editing.responsible ? Number(editing.responsible) : null, prioridad: editing.priority, estado: editing.state, revision: editing.entry.revision })) { setEditing(null); setEditorOpen(false); } }}>
+        <h2 className="text-xl font-bold">Gestionar aviso</h2><p className="text-sm">{locationLabel(editing.entry.local)} · {editing.entry.contenido}</p><RequestError message={error} />
+        <fieldset disabled={busy} className="space-y-3">
+          <label className="block text-sm">Responsable<select data-autofocus className={input} value={editing.responsible} onChange={e => setEditing({ ...editing, responsible: e.target.value })}><option value="">Sin responsable</option>{editing.people.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}{editing.entry.responsable_id !== null && !editing.people.some(p => p.id === editing.entry.responsable_id) && <option value={editing.entry.responsable_id}>{editing.entry.responsable_nombre} · no disponible</option>}</select></label>
+          <label className="block text-sm">Prioridad del aviso<select className={input} value={editing.priority} onChange={e => setEditing({ ...editing, priority: e.target.value })}><option value="normal">Normal</option><option value="alta">Alta</option></select></label>
+          <label className="block text-sm">Estado del aviso<select className={input} value={editing.state} onChange={e => setEditing({ ...editing, state: e.target.value })}><option value="pendiente">Pendiente</option><option value="en_curso">En curso</option><option value="resuelto">Resuelto</option></select></label>
+        </fieldset>
+        <div className="flex flex-wrap gap-2"><button className={primary} disabled={blocked}>Guardar gestión</button><button type="button" className={button} disabled={busy} onClick={() => setEditorOpen(false)}>Cerrar y conservar</button>
+          <button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm('¿Descartar este borrador de gestión?')) { setEditing(null); setEditorOpen(false); setError(''); } }}>Descartar gestión</button>
+        </div>
+        <p className="text-xs text-slate-500">Si alguien ha cambiado el aviso, el guardado se detiene. Descarta el borrador y vuelve a abrir la gestión para partir de los datos actualizados.</p>
+      </form>
+    </ModalDialog>}
     <section aria-label="Rutinas del día" className={panel}>
       <h3 className="text-lg font-semibold">Apertura y cierre · {formatCivilDate(fecha)}</h3>
       <p className="text-sm">Listas compartidas por el equipo de {locationLabel(local)}. La marca registra quién terminó cada paso.</p>

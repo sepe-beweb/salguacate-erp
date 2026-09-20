@@ -73,7 +73,7 @@ describe('Recovery with disposable files only', () => {
     try {
       expect(restored.connection.prepare('SELECT id, nombre, pin, must_change_pin FROM usuarios').get()).toEqual({ id: 7, nombre: 'Histórico', pin: '0000', must_change_pin: 1 });
       expect(restored.connection.prepare('SELECT id, usuario_id FROM fichajes').get()).toEqual({ id: 9, usuario_id: 7 });
-      expect(restored.connection.prepare('SELECT count(*) n FROM schema_migrations').get().n).toBe(3);
+      expect(restored.connection.prepare('SELECT count(*) n FROM schema_migrations').get().n).toBe(6);
     } finally { restored.close(); }
   });
 
@@ -166,11 +166,11 @@ describe('Recovery with disposable files only', () => {
   });
 
   it('refuses future schemas and orphaned references before committing initialization', async () => {
-    await current(); db.connection.exec('INSERT INTO schema_migrations VALUES (4,CURRENT_TIMESTAMP)'); db.close(); db = null;
+    await current(); db.connection.exec('INSERT INTO schema_migrations VALUES (7,CURRENT_TIMESTAMP)'); db.close(); db = null;
     const future = createDatabase(file('source.sqlite'));
     await expect(future.ready).rejects.toThrow(/newer/);
     const raw = new DatabaseSync(file('source.sqlite'));
-    raw.exec("DELETE FROM schema_migrations WHERE version=4; PRAGMA foreign_keys=OFF; INSERT INTO mensajes(remitente_id,destinatario_id,asunto,cuerpo) VALUES (999,1,'Test','Test')"); raw.close();
+    raw.exec("DELETE FROM schema_migrations WHERE version=7; PRAGMA foreign_keys=OFF; INSERT INTO mensajes(remitente_id,destinatario_id,asunto,cuerpo) VALUES (999,1,'Test','Test')"); raw.close();
     const orphaned = createDatabase(file('source.sqlite'));
     await expect(orphaned.ready).rejects.toThrow(/orphaned/);
     await expect(createBackup(backupOptions())).rejects.toThrow(/huérfanas/);

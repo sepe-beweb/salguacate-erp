@@ -9,6 +9,7 @@ import { useApiRead } from '../../hooks/useApiLists';
 import { readJson, errorMessage } from '../../apiResponse';
 import { localDate } from '../../localDate';
 import RequestError from '../../components/RequestError';
+import HandoverSummary from '../../components/HandoverSummary';
 
 import { type PlannedTask as Tarea } from '../../planningData';
 import { readEmployeePlanning } from '../../shiftData';
@@ -48,6 +49,7 @@ export default function EmployeeDashboard() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <RequestError message={error} />
+      <HandoverSummary />
       <button className="rounded-xl border border-brand-300 px-4 py-3 text-sm font-medium" onClick={() => navigate('/turno')}>Relevo y rutinas del local</button>
       {/* Saludo */}
       <div className="flex justify-between items-start">

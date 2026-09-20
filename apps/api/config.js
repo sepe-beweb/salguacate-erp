@@ -8,6 +8,7 @@ function readConfig(env = process.env) {
   if (databaseDriver === 'sqlite' && ['TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN', 'TURSO_DATABASE_HOST'].some(key => env[key])) throw new Error('Turso configuration requires DATABASE_DRIVER=libsql.');
   if (databaseDriver === 'libsql' && env.SQLITE_DATABASE_PATH) throw new Error('Turso cannot be combined with SQLITE_DATABASE_PATH.');
   const turso = databaseDriver === 'libsql' ? readTursoConfig(env) : undefined;
+  if (databaseDriver === 'libsql' && env.DOCUMENTS_DIR) throw new Error('Remote documents require a persistent private storage adapter; local fallback is not supported.');
   const production = env.NODE_ENV === 'production';
   const imageDriver = env.IMAGE_STORAGE || 'local';
   if (!['local', 'cloudinary'].includes(imageDriver)) throw new Error('IMAGE_STORAGE must be local or cloudinary.');
@@ -29,6 +30,7 @@ function readConfig(env = process.env) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid PORT');
   return {
     databaseDriver, turso,
+    documentsDir: databaseDriver === 'sqlite' ? path.resolve(env.DOCUMENTS_DIR || path.join(path.dirname(path.resolve(env.SQLITE_DATABASE_PATH || path.join(__dirname, 'database.sqlite'))), 'documents')) : undefined,
     filename: databaseDriver === 'sqlite' ? path.resolve(env.SQLITE_DATABASE_PATH || path.join(__dirname, 'database.sqlite')) : undefined,
     origins, port, host: env.HOST || (production ? '0.0.0.0' : '127.0.0.1'),
     uploadsDir: imageDriver === 'local' ? path.resolve(env.UPLOADS_DIR || path.join(__dirname, 'uploads')) : undefined,

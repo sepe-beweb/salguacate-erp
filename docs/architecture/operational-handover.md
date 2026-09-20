@@ -80,8 +80,8 @@ vigésima pantalla se carga de forma diferida.
 
 ## Límites y próximos pasos
 
-No hay responsable individual asignado al aviso, adjuntos, escalados, avisos push,
-ejecución en segundo plano ni edición retroactiva de plantillas. La resolución
-registra a su responsable real. La asignación previa a una persona y las alertas
-de pendientes en el inicio quedan como siguientes evolutivos; requieren reglas
-explícitas para cambios de local o bajas. Esta entrega no implica publicación.
+La continuación [Gestión de avisos](operational-notice-management.md) incorpora
+responsable, prioridad, estados, historial y contadores en el inicio, con esquema
+4 y tratamiento explícito de bajas/traslados. La evidencia anterior corresponde
+al bloque de rutinas original. Siguen fuera los adjuntos, escalados, avisos push,
+ejecución en segundo plano y edición retroactiva de plantillas. No hay publicación.

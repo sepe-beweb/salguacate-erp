@@ -1,6 +1,10 @@
 // Disposable fixtures only: reconstruct the previous schema before testing its upgrade.
 function schemaV2(sql) {
   sql.exec(`
+    DROP TABLE documento_cambios; DROP TABLE documentos;
+    DELETE FROM schema_migrations WHERE version >= 5;
+    DROP TABLE relevo_cambios; DROP TABLE relevo_gestion;
+    DELETE FROM schema_migrations WHERE version = 4;
     ALTER TABLE tareas DROP COLUMN rutina_ejecucion_id;
     ALTER TABLE tareas DROP COLUMN completado_por;
     ALTER TABLE tareas DROP COLUMN completado_en;

@@ -30,6 +30,11 @@ test('management prepares routines once, employees complete and acknowledge, his
   await page.getByLabel('Qué debe saber el siguiente turno').fill('La mesa 4 necesita revisión antes del servicio.');
   await page.getByRole('button', { name: 'Guardar aviso' }).click();
   await expect(page.getByText('Sin lecturas confirmadas.')).toBeVisible();
+  await page.getByRole('button', { name: 'Gestionar aviso', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Responsable', exact: true }).selectOption('3');
+  await page.getByRole('combobox', { name: 'Prioridad del aviso', exact: true }).selectOption('alta');
+  await page.getByRole('button', { name: 'Guardar gestión' }).click();
+  await expect(page.locator('article > p').filter({ hasText: 'Pendiente · Prioridad alta · María García' })).toBeVisible();
   await page.getByLabel('Local de la jornada').selectOption('Segundo Local');
   await expect(page.getByText('No hay avisos pendientes para este local.')).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Revisar mesas/ })).toHaveCount(0);
@@ -42,6 +47,10 @@ test('management prepares routines once, employees complete and acknowledge, his
   await page.getByLabel('Día de las rutinas').fill('2026-09-20');
   await expect(page.getByRole('button', { name: 'Nueva rutina' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Resolver aviso' })).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Ver avisos', exact: true }).selectOption('mios');
+  await page.getByRole('button', { name: 'Empezar mi gestión' }).click();
+  await expect(page.locator('article > p').filter({ hasText: 'En curso · Prioridad alta · María García' })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Ver avisos', exact: true }).selectOption('pendientes');
   await page.getByRole('button', { name: 'He leído el aviso' }).click();
   await expect(page.getByText('Ya has confirmado la lectura')).toBeVisible();
   await page.getByRole('checkbox', { name: /Revisar mesas/ }).click();

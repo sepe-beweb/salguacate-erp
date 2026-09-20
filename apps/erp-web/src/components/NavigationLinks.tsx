@@ -24,6 +24,7 @@ const management: NavigationGroup[] = [
     { path: '/control-stock', label: 'Pedidos', icon: ClipboardList },
     { path: '/proveedores', label: 'Proveedores', icon: Truck },
     { path: '/escaner', label: 'Escáner de facturas', icon: Camera },
+    { path: '/documentos', label: 'Documentos', icon: FileSpreadsheet },
   ] },
   { label: 'Equipo', items: [
     { path: '/rrhh', label: 'Personal y turnos', icon: User },

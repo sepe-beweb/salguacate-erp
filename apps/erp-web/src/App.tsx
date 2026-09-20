@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { Home, Package, Sun, Moon, Camera, LogOut, Calendar as CalendarIcon, Clock, User, Mail, Truck, Settings, Sparkles } from 'lucide-react';
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense } from 'react';
+import { useTheme } from './hooks/useTheme';
 import { useAuth, Role } from './context/AuthContext';
 // Access screens stay in the entry bundle; feature screens load only when selected.
 import Login from './pages/Login';
@@ -17,6 +18,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const Sales = lazy(() => import('./pages/Sales'));
 const Scanner = lazy(() => import('./pages/Scanner'));
+const Documents = lazy(() => import('./pages/Documents'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const HRManagement = lazy(() => import('./pages/HRManagement'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
@@ -117,6 +119,7 @@ function Sidebar({ role, isDarkMode, toggleTheme, logout }: SidebarProps) {
               Salguacate
             </h1>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest font-bold mt-0.5">ERP Restauración</p>
+            {import.meta.env.VITE_DEMO_MODE === 'true' && <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mt-1">DEMO · Datos ficticios</p>}
           </div>
           <span className="bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">
             {role === 'owner' ? 'Propietario' : role === 'manager' ? 'Encargado/a' : 'Personal'}
@@ -174,29 +177,14 @@ function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) return savedTheme === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkMode]);
-
-  const toggleTheme = () => setIsDarkMode(!isDarkMode);
+  const { isDarkMode, toggleTheme } = useTheme();
 
   if (!user) return <Login />;
   if (user.mustChangePin) return <ChangePin />;
 
   return (
     <LocalScopeProvider key={`${user.id}:${user.role}`} initialLocal={user.role === 'manager' ? user.location : 'Todos'}>
+    <a href="#contenido-principal" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-lg focus:bg-white focus:text-slate-900 focus:p-3 focus:shadow-lg">Saltar al contenido</a>
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 lg:flex">
       
       {/* Sidebar for Desktop */}
@@ -236,10 +224,11 @@ function MainLayout() {
               </button>
             </div>
           </div>
+          {import.meta.env.VITE_DEMO_MODE === 'true' && <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mt-1">DEMO · Datos ficticios</p>}
         </header>
 
         {/* Content View */}
-        <main className="p-4 lg:p-8 flex-1 max-w-[1600px] w-full mx-auto pb-24 lg:pb-8">
+        <main id="contenido-principal" tabIndex={-1} className="p-4 lg:p-8 flex-1 max-w-[1600px] w-full mx-auto pb-24 lg:pb-8">
           <PendingCreatesNotice />
           <ScreenBoundary key={`${user.id}:${user.role}:${location.pathname}`} onHome={() => navigate('/')}>
             <Suspense fallback={<p role="status" className="p-8 text-center text-slate-600 dark:text-slate-300">Cargando pantalla...</p>}>
@@ -260,6 +249,7 @@ function MainLayout() {
                     <Route path="/inventario" element={<Inventory />} />
                     <Route path="/ventas" element={<Sales />} />
                     <Route path="/escaner" element={<Scanner />} />
+                    <Route path="/documentos" element={<Documents />} />
                     <Route path="/gastos" element={<Expenses />} />
                     <Route path="/correos" element={<Messages />} />
                     <Route path="/rrhh" element={<HRManagement />} />
@@ -292,6 +282,7 @@ function MainLayout() {
 function App() {
   return (
     <BrowserRouter>
+      {import.meta.env.VITE_DEMO_MODE === 'true' && <div role="note" className="bg-amber-100 text-amber-950 px-4 py-2 text-center text-xs font-semibold">Demostración · Datos ficticios · Aguacate + Salmón · No registrar información real</div>}
       <MainLayout />
     </BrowserRouter>
   );

@@ -1,7 +1,7 @@
 import { locationLabel } from '../locations';
 import { useLocalScope } from '../hooks/useLocalScope';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useApiRead } from '../hooks/useApiLists';
 import { useIdempotentCreate } from '../hooks/useIdempotentCreate';
 import { emptyExpense, expenseCents, expenseDate, formatExpenseCents, readExpenses, type ExpenseDraft } from '../expenses';
@@ -10,17 +10,21 @@ import RequestError from '../components/RequestError';
 import { localDate } from '../localDate';
 
 export default function Expenses() {
+  const [query] = useSearchParams();
   const { data, loading, error, reload } = useApiRead(['/api/gastos'], readExpenses);
   const { payload, locked, inFlight, confirmedId, recoveryError, submit, discard } = useIdempotentCreate<ExpenseDraft>('/api/gastos');
   const [local, setLocal] = useLocalScope();
   const [draft, setDraft] = useState(() => payload ?? { ...emptyExpense(), local: local === 'Todos' ? 'Principal' : local });
   const [success, setSuccess] = useState('');
-  const [month, setMonth] = useState(() => localDate().slice(0, 7));
-  const [search, setSearch] = useState('');
+  const [month, setMonth] = useState(() => query.has('gasto') ? '' : localDate().slice(0, 7));
+  const [search, setSearch] = useState(() => query.get('gasto') ?? '');
+  const [linkedId, setLinkedId] = useState(() => /^[1-9]\d*$/.test(query.get('gasto') ?? '') ? Number(query.get('gasto')) : null);
+  useEffect(() => { const destination = query.get('local'); if (linkedId && destination && ['Principal', 'Segundo Local'].includes(destination)) setLocal(destination); }, []);
 
   useEffect(() => {
     if (!confirmedId) return;
     setSuccess(`Gasto registrado correctamente (n.º ${confirmedId}).`);
+    setLinkedId(null);
     setMonth(payload?.fecha.slice(0, 7) ?? ''); setLocal(payload?.local ?? 'Todos'); setSearch('');
     setDraft({ ...emptyExpense(), local: payload?.local ?? 'Principal' }); discard(); void reload();
   }, [confirmedId, discard, reload]);
@@ -32,7 +36,7 @@ export default function Expenses() {
     try { await submit(draft); }
     catch { /* The session retains the outcome, including after navigation. */ }
   };
-  const visible = (data ?? []).filter(row => (!month || row.fecha.startsWith(`${month}-`)) && (local === 'Todos' || row.local === local) &&
+  const visible = (data ?? []).filter(row => (!linkedId || row.id === linkedId) && (!month || row.fecha.startsWith(`${month}-`)) && (local === 'Todos' || row.local === local) &&
     `${row.id} ${row.proveedor_nombre} ${row.concepto}`.toLocaleLowerCase('es-ES').includes(search.trim().toLocaleLowerCase('es-ES')))
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id);
   const cents = visible.reduce((total, row) => total + expenseCents(row.total), 0);
@@ -67,7 +71,8 @@ export default function Expenses() {
         <label>Local de consulta<select value={local} onChange={e => setLocal(e.target.value)} className="block w-full p-2 border rounded-lg bg-white dark:bg-slate-900"><option>Todos</option>{[...new Set(['Principal', 'Segundo Local', ...(data ?? []).map(row => row.local)])].map(name => <option key={name} value={name}>{locationLabel(name)}</option>)}</select></label>
         <label>Buscar proveedor, concepto o número<input value={search} onChange={e => setSearch(e.target.value)} className="block w-full p-2 border rounded-lg bg-white dark:bg-slate-900" /></label>
       </div>
-      <button className="underline text-sm" onClick={() => { setMonth(''); setLocal('Todos'); setSearch(''); }}>Ver todos los gastos</button>
+      {linkedId && <p className="text-sm">Consulta del gasto vinculado n.º {linkedId}.</p>}
+      <button className="underline text-sm" onClick={() => { setLinkedId(null); setMonth(''); setLocal('Todos'); setSearch(''); }}>Ver todos los gastos</button>
       {loading ? <p role="status">Cargando gastos...</p> : error ? <RequestError message={error} onRetry={reload} /> : data && <>
         <p aria-label="Resumen de gastos">{visible.length} {visible.length === 1 ? 'registro' : 'registros'} · Total de la selección: {Number.isSafeInteger(cents) ? formatExpenseCents(cents) : 'Importe fuera de rango'}</p>
         {visible.length === 0 ? <p>{data.length === 0 ? 'Todavía no hay gastos registrados.' : 'No hay gastos que coincidan con los filtros.'}</p> :
@@ -76,6 +81,7 @@ export default function Expenses() {
             <p>{expenseDate(row.fecha)} · {locationLabel(row.local)}</p>
             <p className="text-lg font-bold">{formatExpenseCents(expenseCents(row.total))}</p>
             <p className="whitespace-pre-wrap">{row.concepto || 'Sin concepto'}</p>
+            <Link to={`/documentos?gasto=${row.id}&local=${encodeURIComponent(row.local)}`} className="inline-block text-sm underline text-brand-700 dark:text-brand-300">Ver justificantes del gasto {row.id}</Link>
           </li>)}</ul>}
       </>}
     </section>

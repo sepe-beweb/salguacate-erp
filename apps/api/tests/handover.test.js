@@ -22,6 +22,64 @@ beforeEach(async () => {
 });
 afterEach(() => db.close());
 
+const manageNotice = (id, body, token = manager) => request(app).put(`/api/relevos/${id}/gestion`).set(auth(token)).send(body);
+const assignment = { responsable_id: 3, prioridad: 'alta', estado: 'pendiente', revision: 1 };
+it('assigns, starts, resolves and reopens with optimistic revision and preserved history', async () => {
+  const { id } = (await create('/api/relevos', notice).expect(201)).body;
+  await manageNotice(id, assignment).expect(200);
+  await manageNotice(id, assignment).expect(200); // identical replay does not duplicate history
+  expect(count('relevo_cambios')).toBe(1);
+  await manageNotice(id, { ...assignment, responsable_id: 2 }).expect(409);
+  await manageNotice(id, { ...assignment, estado: 'en_curso', revision: 2 }, employee).expect(200);
+  await manageNotice(id, { ...assignment, estado: 'resuelto', revision: 3 }, employee).expect(403);
+  await manageNotice(id, { ...assignment, estado: 'resuelto', revision: 3 }).expect(200);
+  let entry = (await workday()).body.relevos[0];
+  expect(entry).toMatchObject({ estado: 'resuelto', revision: 4, resuelto_por: 2, lecturas: [] });
+  await manageNotice(id, { ...assignment, revision: 4 }).expect(200);
+  entry = (await workday()).body.relevos[0];
+  expect(entry).toMatchObject({ estado: 'pendiente', revision: 5, resuelto_por: null, resuelto_en: null });
+  expect(entry.cambios).toHaveLength(4);
+  expect(entry.cambios.some(c => c.detalle.startsWith('Resuelto'))).toBe(true);
+});
+it('rejects missing, inactive or other-local assignees and unauthorized reassignment', async () => {
+  const { id } = (await create('/api/relevos', notice).expect(201)).body;
+  await manageNotice(id, assignment, employee).expect(403);
+  await manageNotice(id, { ...assignment, responsable_id: 999 }).expect(404);
+  db.connection.exec("UPDATE usuarios SET local='Segundo Local' WHERE id=3");
+  await manageNotice(id, assignment).expect(400);
+  db.connection.exec("UPDATE usuarios SET local='Principal',active=0 WHERE id=3");
+  await manageNotice(id, assignment).expect(404);
+  await manageNotice(id, { ...assignment, responsable_id: null, estado: 'en_curso' }).expect(400);
+  await manageNotice(id, { ...assignment, revision: undefined }).expect(400);
+  expect(count('relevo_gestion')).toBe(0);
+});
+it('reports personal and local counters without acknowledging notices and flags unavailable assignees', async () => {
+  const { id } = (await create('/api/relevos', notice).expect(201)).body;
+  await manageNotice(id, assignment).expect(200);
+  await create('/api/relevos', { ...notice, local: 'Segundo Local' }).expect(201);
+  await create('/api/rutinas', routine).expect(201); await prepare();
+  const summary = token => request(app).get('/api/relevos/resumen').query(day).set(auth(token));
+  expect((await summary(employee).expect(200)).body.locales).toEqual([{ local: 'Principal', pendientes: 1, sin_leer: 1, asignados: 1, sin_responsable: 0, pasos: 2, completados: 0 }]);
+  expect(count('relevo_lecturas')).toBe(0);
+  await request(app).put(`/api/relevos/${id}/leer`).set(auth(employee)).expect(200);
+  expect((await summary(employee)).body.locales[0]).toMatchObject({ pendientes: 1, sin_leer: 0 });
+  await request(app).get('/api/relevos/resumen').query({ ...day, local: 'Todos' }).set(auth(employee)).expect(400);
+  await request(app).get('/api/relevos/resumen').query({ ...day, local: 'Segundo Local' }).set(auth(employee)).expect(403);
+  db.connection.exec('UPDATE usuarios SET active=0 WHERE id=3');
+  expect((await summary(manager)).body.locales[0].sin_responsable).toBe(1);
+  expect((await workday()).body.relevos[0]).toMatchObject({ responsable_id: 3, responsable_disponible: 0 });
+});
+it('rolls back assignment, history and resolution when audit persistence fails; rejects revoked sessions', async () => {
+  const { id } = (await create('/api/relevos', notice).expect(201)).body;
+  db.connection.exec("CREATE TRIGGER fail_management_audit BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT,'test'); END;");
+  await manageNotice(id, { ...assignment, estado: 'resuelto' }).expect(500);
+  expect(count('relevo_gestion')).toBe(0); expect(count('relevo_cambios')).toBe(0);
+  expect((await workday()).body.relevos[0].resuelto_por).toBeNull();
+  db.connection.exec('DROP TRIGGER fail_management_audit');
+  await request(app).post('/api/logout').set(auth(manager)).expect(204);
+  await manageNotice(id, assignment).expect(401);
+});
+
 it('creates no tasks or acknowledgements on reads; prepares once under concurrent requests', async () => {
   await create('/api/rutinas', routine).expect(201); await create('/api/relevos', notice).expect(201);
   await workday().expect(200); await workday(employee).expect(200);

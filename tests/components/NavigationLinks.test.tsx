@@ -6,7 +6,8 @@ import type { Role } from '../../apps/erp-web/src/context/AuthContext';
 function Path() { return <output aria-label="Ruta actual">{useLocation().pathname}</output>; }
 it.each(['owner', 'manager'] as const)('keeps the complete existing management navigation for %s', role => {
   const selected = vi.fn(); render(<MemoryRouter initialEntries={['/rrhh']}><NavigationLinks role={role} onNavigate={selected} includeSettings /><Path /></MemoryRouter>);
-  expect(screen.getAllByRole('button')).toHaveLength(16);
+  expect(screen.getAllByRole('button')).toHaveLength(17);
+  expect(screen.getByRole('button', { name: 'Documentos', exact: true })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Personal y turnos' })).toHaveAttribute('aria-current', 'page');
   expect(screen.queryByRole('button', { name: 'Solicitudes' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Informe mensual' })); expect(screen.getByLabelText('Ruta actual')).toHaveTextContent('/informes'); expect(selected).toHaveBeenCalledOnce();

@@ -14,9 +14,11 @@ const { registerCommunications } = require('./modules/communications');
 const { registerEvents } = require('./modules/events');
 const { registerTasks } = require('./modules/tasks');
 const { registerHandover } = require('./modules/handover');
+const { registerDocuments } = require('./modules/documents');
+const { createDocumentStore } = require('./document-store');
 const { registerAi } = require('./modules/ai');
 
-function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5173'], uploadsDir, imageStore, aiEnabled = false }) {
+function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5173'], uploadsDir, documentsDir, imageStore, aiEnabled = false }) {
   db = createAsyncStore(db);
   const app = express();
   const { requireAuth, requireRole, register } = createSecurity(db);
@@ -29,10 +31,13 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
     next();
   });
   app.use(cors({ origin: origins, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'] }));
+  app.post('/api/documentos', requireAuth, requireRole(['owner','manager']), express.json({ limit: '15mb' }));
   app.use(express.json({ limit: '6mb' }));
   app.use('/api', (req, res, next) => {
     if (Object.values(req.query).some(value => typeof value !== 'string')) return res.status(400).json({ error: 'Parámetros de consulta inválidos.' });
     if (req.body === null || Array.isArray(req.body)) return res.status(400).json({ error: 'El cuerpo debe ser un objeto JSON.' });
+    if (req.body === undefined && (Number(req.get('content-length')) > 0 || req.get('transfer-encoding'))) return res.status(400).json({ error: 'El cuerpo debe enviarse como un objeto application/json.' });
+    req.body ??= {};
     next();
   });
   app.param('id', (req, res, next, value) => {
@@ -54,7 +59,8 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
     imageStore = createLocalImageStore(uploadsDir);
     app.use('/uploads', express.static(uploadsDir, { dotfiles: 'deny', index: false }));
   }
-  const context = { db, requireAuth, requireRole, imageStore, logger, aiEnabled };
+  const documentStore = documentsDir ? createDocumentStore(documentsDir, uploadsDir) : undefined;
+  const context = { db, requireAuth, requireRole, imageStore, documentStore, logger, aiEnabled };
   registerWorkforce(app, context);
   registerCatalog(app, context);
   registerFinance(app, context);
@@ -62,6 +68,7 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
   registerEvents(app, context);
   registerTasks(app, context);
   registerHandover(app, context);
+  registerDocuments(app, context);
   registerAi(app, context);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Recurso no encontrado.' }));

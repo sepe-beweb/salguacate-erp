@@ -15,6 +15,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.22.2",
+    "fflate": "0.8.3",
     "serverless-http": "4.0.0"
   },
   "devDependencies": {

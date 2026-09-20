@@ -169,7 +169,7 @@ describe('Atomic creation receipts', () => {
       persistent = createDatabase(file); await persistent.ready;
       expect(persistent.connection.prepare('SELECT id,contenido FROM notas').get()).toEqual({ id: 40, contenido: 'Histórica' });
       expect(persistent.connection.prepare('SELECT count(*) n FROM idempotency_requests').get().n).toBe(0);
-      expect(persistent.connection.prepare('SELECT max(version) v FROM schema_migrations').get().v).toBe(3);
+      expect(persistent.connection.prepare('SELECT max(version) v FROM schema_migrations').get().v).toBe(6);
     } finally { persistent?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

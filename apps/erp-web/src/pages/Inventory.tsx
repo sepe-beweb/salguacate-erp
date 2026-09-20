@@ -339,21 +339,18 @@ export default function Inventory() {
       </div>
 
       {/* Lista de Artículos */}
-      <div className="space-y-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {filteredItems.map(item => {
           const isLowStock = item.stock_actual <= item.stock_minimo;
           
           return (
             <div key={item.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-200 [overflow-wrap:anywhere]">
+              <div className="mb-4 rounded-xl overflow-hidden bg-stone-50 dark:bg-slate-800">
+                {item.imagen_url ? <img src={catalogImageSource(item.imagen_url, API_URL)} referrerPolicy="no-referrer" alt={item.producto} loading="lazy" decoding="async" width={320} height={200} className="w-full h-44 object-contain" />
+                  : <div className="h-44 flex items-center justify-center text-slate-500 text-sm">Sin foto</div>}
+              </div>
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0 flex gap-3">
-                  {item.imagen_url ? (
-                    <img src={catalogImageSource(item.imagen_url, API_URL)} referrerPolicy="no-referrer" alt={item.producto} className="w-12 h-12 shrink-0 object-cover rounded-lg bg-slate-100 dark:bg-slate-800" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shrink-0">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-medium text-center">Sin foto</span>
-                    </div>
-                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col items-start gap-1 mb-1">
                       <h4 className="text-slate-900 dark:text-white font-medium">{item.producto}</h4>
@@ -366,6 +363,7 @@ export default function Inventory() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500">{locationLabel(item.local)}</p>
+                    <p className="text-xs text-slate-500 mt-1">{item.proveedor_nombre || 'Sin proveedor asignado'}</p>
                   </div>
                 </div>
                 <div className="shrink-0 pl-3 text-right">

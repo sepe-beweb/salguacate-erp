@@ -18,7 +18,7 @@ export default function Analytics() {
   if (error || !lists) return <RequestError message={error || 'No se pudieron cargar las analíticas.'} onRetry={reload} />;
   const [filteredData, filteredGastosForLocal] = selectFinancialPeriod(lists, filterLocal);
   if (lists[0].length === 0 && lists[1].length === 0) return <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500">
-    <BarChart3 size={48} className="mb-4" /><p>No hay datos suficientes para generar gráficos.</p><p className="text-sm">Registra cierres o gastos primero.</p>
+    <BarChart3 size={48} className="mb-4" /><h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-3">Evolución económica</h2><p>No hay datos suficientes para generar gráficos.</p><p className="text-sm">Registra cierres o gastos primero.</p><button onClick={() => { void reload(); }} className="border rounded-xl p-3 mt-4">Actualizar datos</button>
   </div>;
   const { income: totalIngresos, expenses: totalGastos, balance: beneficioNeto, cash: totalEfectivo, card: totalTarjeta, discrepancy: totalDescuadre, inconsistent } = financialSummary(filteredData, filteredGastosForLocal);
   const chartData = financialDays(filteredData, filteredGastosForLocal);
@@ -38,6 +38,10 @@ export default function Analytics() {
       </div>
 
       {/* Filtro por Local */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600 dark:text-slate-300">
+        <p>Todo el histórico disponible{chartData.length ? ` · ${chartData[0].name} – ${chartData[chartData.length - 1].name}` : ''}. No es un resumen mensual.</p>
+        <button onClick={() => { void reload(); }} className="rounded-xl border px-3 py-2">Actualizar datos</button>
+      </div>
       <div className="flex gap-2">
         {['Todos', 'Principal', 'Segundo Local'].map(l => (
           <button key={l} aria-pressed={filterLocal === l} onClick={() => setFilterLocal(l)}
@@ -51,7 +55,7 @@ export default function Analytics() {
       {inconsistent && <p role="status" className="rounded-lg border border-amber-300 p-3">Hay cierres cuyo total no coincide con efectivo más tarjeta. Se conserva el total registrado; revisa su origen.</p>}
       {chartData.length === 0 && <p role="status">No hay movimientos para el local seleccionado.</p>}
       {/* Tarjetas de Resumen Rápido */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 xl:grid-cols-4 gap-4 [&>div]:min-w-0 [&_p]:break-words">
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <p className="text-sm text-slate-500 dark:text-slate-400">Ingresos Brutos</p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 flex items-center">
@@ -59,7 +63,7 @@ export default function Analytics() {
           </p>
         </div>
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Gastos Detectados</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Gastos registrados</p>
           <p className="text-2xl font-bold text-red-500 dark:text-red-400 mt-1 flex items-center">
             {formatEuroCents(totalGastos)}
           </p>
