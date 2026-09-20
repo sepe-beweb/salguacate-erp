@@ -12,6 +12,7 @@
   },
   "packageManager": "npm@10.9.8",
   "scripts": {
+    "start": "node apps/api/server.js",
     "dev": "npm run dev:erp",
     "dev:erp": "vite",
     "dev:api": "npm run start --workspace apps/api",
@@ -27,6 +28,7 @@
     "check": "npm run lint && npm test && npm run build:erp",
     "test:e2e": "node scripts/run-e2e.cjs",
     "test:e2e:production": "node scripts/run-e2e.cjs --config playwright.production.config.ts",
+    "test:e2e:railway": "node scripts/run-e2e.cjs --config playwright.railway.config.ts",
     "build:android": "npm run build:erp && node -e \"fs.cpSync('dist/erp', 'apps/android/app/src/main/assets/www', {recursive:true, force:true})\""
   },
   "dependencies": {

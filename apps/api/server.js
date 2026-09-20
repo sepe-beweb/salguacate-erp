@@ -4,8 +4,10 @@ const { readConfig } = require('./config');
 const { connectConfiguredDatabase } = require('./database-runtime');
 const { createApp } = require('./index');
 const { createCloudinaryImageStore } = require('./image-store');
+const { assertVolumeMounted } = require('./railway-volume');
 
 async function start(config = readConfig(), connect = connectConfiguredDatabase) {
+  if (config.volumeMount) assertVolumeMounted(config.volumeMount);
   const db = await connect(config);
   let closing;
   const closeDatabase = () => closing ||= Promise.resolve().then(() => db.close());

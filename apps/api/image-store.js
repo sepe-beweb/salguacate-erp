@@ -58,12 +58,12 @@ function createCloudinaryImageStore(config, transport = fetch) {
       const publicId = `salguacate/inventory/${randomUUID()}`;
       const data = await send('upload', {
         file: `data:image/${format === 'png' ? 'png' : 'jpeg'};base64,${bytes.toString('base64')}`,
-        public_id: publicId, overwrite: 'false', unique_filename: 'false', use_filename: 'false',
+        public_id: publicId, asset_folder: 'salguacate/inventory', overwrite: 'false', unique_filename: 'false', use_filename: 'false',
       });
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new HttpError(502, 'El almacenamiento devolvió una referencia de imagen inválida.');
       const extension = data.format;
       const url = `https://res.cloudinary.com/${cloudName}/image/upload/v${data.version}/${publicId}.${extension}`;
-      if (data.public_id !== publicId || data.resource_type !== 'image' || data.type !== 'upload' || data.existing === true ||
+      if (data.public_id !== publicId || (data.asset_folder !== undefined && data.asset_folder !== 'salguacate/inventory') || data.resource_type !== 'image' || data.type !== 'upload' || data.existing === true ||
           !Number.isSafeInteger(data.version) || data.version < 1 || !['png', 'jpg', 'jpeg'].includes(extension) ||
           !Number.isSafeInteger(data.bytes) || data.bytes < 1 || data.bytes > MAX_IMAGE_BYTES || data.secure_url !== url) {
         throw new HttpError(502, 'El almacenamiento devolvió una referencia de imagen inválida.');

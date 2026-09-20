@@ -27,6 +27,7 @@ describe('Explicit Cloudinary storage (transport mocked)', () => {
     expect(url).not.toContain(config.apiSecret); expect(options.redirect).toBe('error');
     expect(options.headers.Authorization).toBe(`Basic ${Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString('base64')}`);
     expect(options.body.get('file')).toBe(png); expect(options.body.get('overwrite')).toBe('false');
+    expect(options.body.get('asset_folder')).toBe('salguacate/inventory');
     expect(options.body.get('api_secret')).toBeNull(); expect(options.signal).toBeInstanceOf(AbortSignal);
     await image.remove();
     expect(calls[1].url).toBe('https://api.cloudinary.com/v1_1/synthetic-cloud/image/destroy');
@@ -35,7 +36,7 @@ describe('Explicit Cloudinary storage (transport mocked)', () => {
   });
   it.each([
     { secure_url: 'https://evil.test/photo.png' }, { public_id: 'someone-else' }, { type: 'private' }, { resource_type: 'raw' },
-    { existing: true }, { version: '123' }, { bytes: 4000000 }, { format: 'svg' },
+    { existing: true }, { version: '123' }, { bytes: 4000000 }, { format: 'svg' }, { asset_folder: 'another-folder' },
   ])('rejects unexpected provider metadata %j without deleting unrelated assets', async changes => {
     const transport = vi.fn(async (_url, options) => Response.json(uploaded(options, changes)));
     await expect(createCloudinaryImageStore(config, transport).save(readImage(png))).rejects.toMatchObject({ status: 502 });

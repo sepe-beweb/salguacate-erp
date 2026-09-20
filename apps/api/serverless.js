@@ -10,7 +10,7 @@ function createServerlessHandler({ environment = () => process.env, connect = co
   let initialization;
   async function initialize() {
     const env = environment();
-    if (env.NODE_ENV !== 'production' || env.DATABASE_DRIVER !== 'libsql' || env.IMAGE_STORAGE !== 'cloudinary') {
+    if (env.NODE_ENV !== 'production' || env.DATABASE_DRIVER !== 'libsql' || env.IMAGE_STORAGE !== 'cloudinary' || env.DOCUMENT_STORAGE || env.SERVE_WEB === 'true') {
       throw new Error('Serverless requires explicit remote production configuration.');
     }
     const config = readConfig(env);

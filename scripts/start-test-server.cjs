@@ -10,7 +10,8 @@ const path = require('node:path');
   const db = createDatabase(':memory:');
   await db.ready;
   await seedTestUsers(db);
-  const app = createApp({ db, uploadsDir: path.join(uploadsDir, 'uploads'), documentsDir: path.join(uploadsDir, 'documents'), origins: ['http://127.0.0.1:5174'] });
+  const app = createApp({ db, uploadsDir: path.join(uploadsDir, 'uploads'), documentsDir: path.join(uploadsDir, 'documents'), origins: ['http://127.0.0.1:5174', 'http://127.0.0.1:3101'],
+    webDir: process.env.SALGUACATE_E2E_SERVE_WEB === 'true' ? path.resolve(__dirname, '../dist/erp') : undefined });
   const server = app.listen(3101, '127.0.0.1');
   server.on('error', error => { db.close(); console.error(error.message); process.exitCode = 1; });
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => { db.close(); }));

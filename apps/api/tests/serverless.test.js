@@ -53,7 +53,7 @@ describe('Netlify Lambda adapter with disposable local data (not a hosted valida
     const invalid = event('/api/login', 'POST'); invalid.body = '{';
     expect((await handler(invalid)).statusCode).toBe(400);
   });
-  it.each([{ NODE_ENV: 'development' }, { DATABASE_DRIVER: 'sqlite' }, { IMAGE_STORAGE: 'local' }, { TURSO_AUTH_TOKEN: '' }])('fails closed before connecting with %j', async override => {
+  it.each([{ NODE_ENV: 'development' }, { DATABASE_DRIVER: 'sqlite' }, { IMAGE_STORAGE: 'local' }, { TURSO_AUTH_TOKEN: '' }, { SERVE_WEB: 'true' }, { DOCUMENT_STORAGE: 'railway-volume', RAILWAY_VOLUME_MOUNT_PATH: '/data' }])('fails closed before connecting with %j', async override => {
     const connect = vi.fn(); const handler = createServerlessHandler({ environment: () => ({ ...env, ...override }), connect });
     const response = await handler(event('/api/health'));
     expect(response.statusCode).toBe(503); expect(connect).not.toHaveBeenCalled();

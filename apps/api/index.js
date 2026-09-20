@@ -17,8 +17,9 @@ const { registerHandover } = require('./modules/handover');
 const { registerDocuments } = require('./modules/documents');
 const { createDocumentStore } = require('./document-store');
 const { registerAi } = require('./modules/ai');
+const { registerWeb } = require('./web-serving');
 
-function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5173'], uploadsDir, documentsDir, imageStore, aiEnabled = false }) {
+function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5173'], uploadsDir, documentsDir, webDir, imageStore, aiEnabled = false }) {
   db = createAsyncStore(db);
   const app = express();
   const { requireAuth, requireRole, register } = createSecurity(db);
@@ -72,6 +73,7 @@ function createApp({ db, origins = ['http://localhost:5173', 'http://127.0.0.1:5
   registerAi(app, context);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Recurso no encontrado.' }));
+  if (webDir) registerWeb(app, webDir, [documentsDir, uploadsDir]);
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
     if (error instanceof HttpError) return res.status(error.status).json({ error: error.message, ...(error.code ? { code: error.code } : {}) });

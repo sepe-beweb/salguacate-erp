@@ -4,7 +4,7 @@
 
 La instancia de demostración local usa el esquema **6**, con inicio operativo, relevo/rutinas, gestión de avisos y archivo documental privado con revisión, responsables, vencimientos y paquete mensual. La [revisión global en dos pasadas](global-review.md) documenta las correcciones transversales y sus límites. Los datos sintéticos y originales de la demo se conservan; la decisión previa de no importar históricos no autoriza a eliminar esta instalación.
 
-Rama de trabajo: `refactor/recovery-foundation`. Esta revisión tiene cambios locales sin commit ni push; no hay merge ni despliegue asociados. No se ha vuelto a comprobar el estado de cuentas o credenciales remotas. La aplicación disponible para revisión es local; el módulo documental requiere un almacén remoto privado y la migración explícita de la base antes de una publicación.
+Rama de trabajo: `refactor/recovery-foundation`. La revisión global se publicó en `6dbe1ecb8d372c4644ae5a09336c899f5bb06434`. La continuación prepara [Railway con web/API del mismo origen y volumen documental privado](../deployment-railway.md), sin merge ni URL operativa acreditada todavía. La base Turso se ha actualizado explícitamente de esquema 2 a 6, con copia previa, ensayo local, transacción y verificación posterior; se conservan propietario, hash del PIN y filas existentes. No se ha cargado la demo local en la base remota.
 
 Los apartados y cifras de bloques que siguen son **evidencia histórica**, no el estado acumulado del árbol actual. Para la validación más reciente consultar [revisión global](global-review.md); no atribuir resultados locales nuevos a una CI antigua.
 
